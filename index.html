@@ -8,66 +8,8 @@
   <script src="resources/hash.sha1.js"></script>
   <script src="resources/secureroom.js"></script>
   <script>
-  function iUpdateStatus(connected) {
-    document.getElementById('status').innerHTML = (connected) ? '&#x21CC;' : '&#x2A2F;';
-  }
-
-  function iFormatDate(time, full) {
-    var date = new Date(time*1000),
-        hour = date.getHours(),
-        mins = date.getMinutes(),
-        secs = date.getSeconds(),
-        days = date.getDate(),
-        mnth = date.getMonth()+1,
-        year = date.getFullYear();
-
-    hour = (hour < 10) ? '0'+hour : hour;
-    mins = (mins < 10) ? '0'+mins : mins;
-    secs = (secs < 10) ? '0'+secs : secs;
-    days = (days < 10) ? '0'+days : days;
-    mons = (mnth < 10) ? '0'+mnth : mnth;
-
-    return (full) ? hour+':'+mins+':'+secs+' '+days+'/'+mnth+'/'+year : hour+':'+mins+':'+secs;
-  }
-
   function iFormatId(id) {
     return id.match(/.{2}/g).map(function(v){return v;}).join(':').toUpperCase();
-  }
-
-  function iCreateInfo(id, message) {
-    var div  = document.createElement('div'), m = 8192,
-        info = '';
-
-    div.className = 'msginfo';
-    div.id = 'info'+id;
-
-    info += ' <b>Sent By:</b> '+iFormatId(message.metadata.sender);
-    info += ' <b>At:</b> '+iFormatDate(message.metadata.sendtime, true);
-    info += ' <b>Verified:</b> ';
-    info += (message.metadata.verified) ? 'True<br>' : '<u>False</u><br>';
-
-    info += ' <b>Sent To:</b> ';
-    for (keyid in message.encrypted.sessionkeys) {
-      info += iFormatId(keyid);
-      if (typeof app.keychain[app.keymap[keyid]] != "undefined") {
-        info += ' ['+app.keychain[app.keymap[keyid]].name.replace(/[`~!@#$%^&*()_|+\-=?;:'",.<>\{\}\[\]\\\/]/gi, '')+'] ';
-        m = Math.min(app.keychain[app.keymap[keyid]].encrypt.size, m);
-      } else if (typeof app.rejected[app.keymap[keyid]] != "undefined") {
-        info += ' [<b>REJECTED</b>] ';
-        m = 0;
-      } else {
-        info += ' [<b>UNKNOWN</b>] ';
-        m = 0;
-      }
-    }
-    info += (m==8192) ? '&#8212;<br>' : '<br>';
-
-    info += ' <b>Cipher:</b> '+symmetric.name+'-'+(message.plaintext.sessionkey.length*8)+' ['+symmetric.mode+']';
-    info += ' <b>Weakest key:</b> ';
-    info += (m>0&&m<8192) ? m+' bits' : 'Unknown';
-
-    div.innerHTML = info;
-    return div;
   }
 
   function iCreateMessage(message) {
@@ -262,6 +204,64 @@
     info.onclick = function() { iToggleKeyInfo(this); };
     alert.appendChild(info);
     alert.appendChild(iKeyInfo(key));
+  }
+  
+  function iCreateInfo(id, message) {
+    var div  = document.createElement('div'), m = 8192,
+        info = '';
+
+    div.className = 'msginfo';
+    div.id = 'info'+id;
+
+    info += ' <b>Sent By:</b> '+iFormatId(message.metadata.sender);
+    info += ' <b>At:</b> '+iFormatDate(message.metadata.sendtime, true);
+    info += ' <b>Verified:</b> ';
+    info += (message.metadata.verified) ? 'True<br>' : '<u>False</u><br>';
+
+    info += ' <b>Sent To:</b> ';
+    for (keyid in message.encrypted.sessionkeys) {
+      info += iFormatId(keyid);
+      if (typeof app.keychain[app.keymap[keyid]] != "undefined") {
+        info += ' ['+app.keychain[app.keymap[keyid]].name.replace(/[`~!@#$%^&*()_|+\-=?;:'",.<>\{\}\[\]\\\/]/gi, '')+'] ';
+        m = Math.min(app.keychain[app.keymap[keyid]].encrypt.size, m);
+      } else if (typeof app.rejected[app.keymap[keyid]] != "undefined") {
+        info += ' [<b>REJECTED</b>] ';
+        m = 0;
+      } else {
+        info += ' [<b>UNKNOWN</b>] ';
+        m = 0;
+      }
+    }
+    info += (m==8192) ? '&#8212;<br>' : '<br>';
+
+    info += ' <b>Cipher:</b> '+symmetric.name+'-'+(message.plaintext.sessionkey.length*8)+' ['+symmetric.mode+']';
+    info += ' <b>Weakest key:</b> ';
+    info += (m>0&&m<8192) ? m+' bits' : 'Unknown';
+
+    div.innerHTML = info;
+    return div;
+  }
+
+  function iUpdateStatus(connected) {
+    document.getElementById('status').innerHTML = (connected) ? '&#x21CC;' : '&#x2A2F;';
+  }
+
+  function iFormatDate(time, full) {
+    var date = new Date(time*1000),
+        hour = date.getHours(),
+        mins = date.getMinutes(),
+        secs = date.getSeconds(),
+        days = date.getDate(),
+        mnth = date.getMonth()+1,
+        year = date.getFullYear();
+
+    hour = (hour < 10) ? '0'+hour : hour;
+    mins = (mins < 10) ? '0'+mins : mins;
+    secs = (secs < 10) ? '0'+secs : secs;
+    days = (days < 10) ? '0'+days : days;
+    mons = (mnth < 10) ? '0'+mnth : mnth;
+
+    return (full) ? hour+':'+mins+':'+secs+' '+days+'/'+mnth+'/'+year : hour+':'+mins+':'+secs;
   }
 
   function iShowInput() {
