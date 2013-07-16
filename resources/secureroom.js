@@ -60,7 +60,7 @@ var app = {
   },
 
   getServer: function() {
-    return (app.getParameter('server')) ? app.getParameter('server') : 'wss://'+document.location.host+':443/ws/';
+    return (app.getParameter('server')) ? 'wss://'+app.getParameter('server')+':443/ws/' : 'wss://'+document.location.host+':443/ws/';
   },
   
   getRoom: function() {
