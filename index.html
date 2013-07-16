@@ -1,0 +1,522 @@
+<html>
+<head>
+  <title>SecureRoom</title>
+  <link href="resources/style.css" media="all" rel="stylesheet" type="text/css">
+  <script src="resources/random.default.js"></script>
+  <script src="resources/symmetric.aes.cfb.js"></script>
+  <script src="resources/asymmetric.rsa.js"></script>
+  <script src="resources/hash.sha1.js"></script>
+  <script src="resources/secureroom.js"></script>
+  <script>
+  function iUpdateStatus(connected) {
+    document.getElementById('status').innerHTML = (connected) ? '&#x21CC;' : '&#x2A2F;';
+  }
+
+  function iFormatDate(time, full) {
+    var date = new Date(time*1000),
+        hour = date.getHours(),
+        mins = date.getMinutes(),
+        secs = date.getSeconds(),
+        days = date.getDate(),
+        mnth = date.getMonth()+1,
+        year = date.getFullYear();
+
+    hour = (hour < 10) ? '0'+hour : hour;
+    mins = (mins < 10) ? '0'+mins : mins;
+    secs = (secs < 10) ? '0'+secs : secs;
+    days = (days < 10) ? '0'+days : days;
+    mons = (mnth < 10) ? '0'+mnth : mnth;
+
+    return (full) ? hour+':'+mins+':'+secs+' '+days+'/'+mnth+'/'+year : hour+':'+mins+':'+secs;
+  }
+
+  function iFormatId(id) {
+    return id.match(/.{2}/g).map(function(v){return v;}).join(':').toUpperCase();
+  }
+
+  function iCreateInfo(id, message) {
+    var div  = document.createElement('div'), m = 8192,
+        info = '';
+
+    div.className = 'msginfo';
+    div.id = 'info'+id;
+
+    info += ' <b>Sent By:</b> '+iFormatId(message.metadata.sender);
+    info += ' <b>At:</b> '+iFormatDate(message.metadata.sendtime, true);
+    info += ' <b>Verified:</b> ';
+    info += (message.metadata.verified) ? 'True<br>' : '<u>False</u><br>';
+
+    info += ' <b>Sent To:</b> ';
+    for (keyid in message.encrypted.sessionkeys) {
+      info += iFormatId(keyid);
+      if (typeof app.keychain[app.keymap[keyid]] != "undefined") {
+        info += ' ['+app.keychain[app.keymap[keyid]].name.replace(/[`~!@#$%^&*()_|+\-=?;:'",.<>\{\}\[\]\\\/]/gi, '')+'] ';
+        m = Math.min(app.keychain[app.keymap[keyid]].encrypt.size, m);
+      } else if (typeof app.rejected[app.keymap[keyid]] != "undefined") {
+        info += ' [<b>REJECTED</b>] ';
+        m = 0;
+      } else {
+        info += ' [<b>UNKNOWN</b>] ';
+        m = 0;
+      }
+    }
+    info += (m==8192) ? '&#8212;<br>' : '<br>';
+
+    info += ' <b>Cipher:</b> '+symmetric.name+'-'+(message.plaintext.sessionkey.length*8)+' ['+symmetric.mode+']';
+    info += ' <b>Weakest key:</b> ';
+    info += (m>0&&m<8192) ? m+' bits' : 'Unknown';
+
+    div.innerHTML = info;
+    return div;
+  }
+
+  function iCreateMessage(message) {
+    if (message === null) return;
+
+    var l = document.createElement('li'),
+        p = document.createElement('p'),
+        b = document.createElement('b'),
+        d = document.createElement('div'),
+        c = app.messages++;
+
+    l.id = 'msg'+c;
+    d.id = 'toggle'+c;
+    l.className = 'msg';
+    d.className = 'info down';
+
+    d.onclick = function() { iToggleMsgInfo(c); };
+
+    //if a large time difference exists
+    if (Math.abs(message.metadata.recvtime - message.metadata.sendtime) > 10) {
+      l.className = 'alert warning';
+    }
+
+    //if recv message was sent to rejected or unknown key, attach warning
+    for (keyid in message.encrypted.sessionkeys) {
+      if (typeof app.keychain[app.keymap[keyid]] == "undefined") {
+        l.className = 'alert warning';
+        break;
+      }
+    }
+
+    //if signature is wrong
+    if (!message.metadata.verified) {
+      l.className = 'alert warning';
+    }
+
+    b.appendChild(document.createTextNode(app.keychain[message.metadata.sender].name+': '));
+    p.appendChild(b);
+    p.appendChild(document.createTextNode(message.plaintext.string));
+    d.appendChild(document.createTextNode(iFormatDate(message.metadata.recvtime)));
+
+    l.appendChild(d);
+    l.appendChild(p);
+    l.appendChild(iCreateInfo(c, message));
+
+    document.getElementById('content').appendChild(l);
+    window.scroll(0,document.body.offsetHeight);
+  }
+
+  function iKeyInfo(key) {
+    var info = document.createElement('p');
+
+    info.className = 'keyinfo';
+
+    info.appendChild(document.createTextNode(iFormatId(key.encrypt.id) + ' (' + key.encrypt.size + ' bits)'));
+    info.appendChild(document.createElement("br"));
+    info.appendChild(document.createTextNode("Encryption, " + iFormatDate(key.encrypt.created,true)));
+
+    info.appendChild(document.createElement('br'));
+
+    info.appendChild(document.createTextNode(iFormatId(key.sign.id) + ' (' + key.sign.size + ' bits)'));
+    info.appendChild(document.createElement("br"));
+    info.appendChild(document.createTextNode("Signing, " + iFormatDate(key.sign.created,true)));
+
+    return info;
+  }
+
+  function iCreateProgress() {
+    var li = document.getElementById('alertKeyGen'),
+        di = document.createElement('div');
+
+    while (li.firstChild) li.removeChild(li.firstChild);
+
+    di.className = 'loading';
+    li.appendChild(di);
+    li.style.height = '1.1em';
+  }
+
+  function iCreateDistribute() {
+    var li = document.getElementById('alertKeyGen'),
+        h4 = document.createElement('p'),
+        bu = document.createElement('span');
+
+    li.style.height = '9.5em';
+
+    while (li.firstChild) li.removeChild(li.firstChild);
+
+    h4.appendChild(document.createTextNode('Your keys have been generated.'));
+
+    bu.id = 'distribute';
+    bu.className = 'button';
+    bu.appendChild(document.createTextNode('Connect & Distribute'));
+    bu.onclick = function() {
+      comm.connect();
+      iSetRoom();
+      iCreateProgress();
+    }
+
+    li.appendChild(h4);
+    li.appendChild(iKeyInfo(app.keychain[app.myid]));
+    li.appendChild(bu);
+
+    iToggleSettings(true);
+  }
+
+  function iSetRoom() {
+    if (app.room != '') {
+      if (app.getRoom() == '') {
+        var opts = (window.location.search) ? window.location.search+'&room=' : '?room=',
+            path = (window.location.pathname.substr(window.location.pathname.lastIndexOf('/')+1) == 'index.html') ? window.location.pathname+opts+app.room : window.location.pathname+app.room;
+        window.history.replaceState({} , 'SecureRoom', path);
+      }
+      document.getElementById('room').innerHTML = 'Room: '+app.room;
+    }
+  }
+
+  function iCreateJoined() {
+    var li = document.getElementById('alertKeyGen');
+        di = document.createElement('div');
+
+    while (li.firstChild) li.removeChild(li.firstChild);
+
+    di.className = 'info down';
+    di.appendChild(document.createTextNode(iFormatDate(Math.round(+new Date()/1000))));
+    di.onclick = function() { iToggleKeyInfo(this); }
+
+    li.appendChild(document.createTextNode('Joined ['+iFormatId(app.myid)+']. Others can join this SecureRoom at '+window.location.href));
+    li.appendChild(di);
+    li.appendChild(iKeyInfo(app.keychain[app.myid]));
+
+    li.style.height = '1.1em';
+  }
+
+  function iCreateReceive(key) {
+    if (document.getElementById('alert'+key.sign.id)) return;
+
+    var li = document.createElement('li'),
+        pa = document.createElement('p'),
+        ba = document.createElement('span'),
+        br = document.createElement('span'),
+        di = document.createElement('div');
+
+    li.className = 'alert clear';
+    li.id        = 'alert'+key.sign.id;
+    document.getElementById('content').appendChild(li);
+
+    di.className = 'info';
+    pa.appendChild(document.createTextNode(key.name+' wants to join. Do you accept?'));
+
+    ba.className = 'button';
+    br.className = 'button';
+
+    ba.appendChild(document.createTextNode('Accept'));
+    ba.onclick = function() {
+      app.keychain[key.sign.id] = key;
+      app.keymap[key.encrypt.id] = key.sign.id;
+      iRefreshKeychain();
+      iCreateReceived(this, key);
+      comm.sendKey();
+    }
+
+    br.appendChild(document.createTextNode('Reject'));
+    br.onclick = function() {
+      app.rejected[key.sign.id] = key;
+      app.keymap[key.encrypt.id] = key.sign.id;
+      iCreateReceived(this, key, true);
+    }
+
+    li.appendChild(pa);
+    li.appendChild(iKeyInfo(key));
+    li.appendChild(ba);
+    li.appendChild(br);
+
+    li.style.height = '9.5em';
+    window.scroll(0,document.body.offsetHeight);
+  }
+
+  function iCreateReceived(control, key, reject) {
+    var alert = control.parentNode,
+        info = document.createElement('div');
+
+    while (alert.firstChild) alert.removeChild(alert.firstChild);
+    alert.style.height = '1.1em';
+    if (reject) {
+      alert.appendChild(document.createTextNode(key.name+'\'s key rejected.'));
+      alert.className = 'alert warning';
+    } else {
+      alert.appendChild(document.createTextNode(key.name+' ['+iFormatId(key.sign.id)+'] joined.'));
+    }
+    info.appendChild(document.createTextNode(iFormatDate(Math.round(+new Date()/1000))));
+    info.className = 'info down';
+    info.onclick = function() { iToggleKeyInfo(this); };
+    alert.appendChild(info);
+    alert.appendChild(iKeyInfo(key));
+  }
+
+  function iShowInput() {
+    var i = document.getElementById('input'),
+        m = document.getElementById('message'),
+        s = document.getElementById('send'),
+        k = document.getElementById('toggleKeychain');
+
+    m.style.width = (i.offsetWidth-(s.offsetWidth+k.offsetWidth+50))+'px';
+    i.style.bottom = '0';
+    m.focus();
+  }
+
+  function iRefreshKeychain() {
+    var kc = document.getElementById('keychain'),
+        li, sp, h3;
+
+    while (kc.firstChild) kc.removeChild(kc.firstChild);
+
+    for (keyid in app.keychain) {
+      li = document.createElement('li');
+      h3 = document.createElement('h3');
+      sp = document.createElement('span');
+      if (app.myid != keyid) {
+        if (app.keychain[keyid].active) {
+          sp.className = 'switch';
+          sp.innerHTML = 'ON';
+        } else {
+          li.className = 'inactive';
+          sp.className = 'switch inactive';
+          sp.innerHTML = 'OFF';
+        }
+        sp.onclick = function() { iToggleKey(this); };
+
+        sp.id = 'switch'+keyid;
+      } else {
+        li.className = 'mykey';
+      }
+      li.id = keyid;
+
+      h3.appendChild(document.createTextNode(app.keychain[keyid].name));
+      li.appendChild(h3);
+      li.appendChild(sp);
+      li.appendChild(iKeyInfo(app.keychain[keyid]));
+
+      kc.appendChild(li);
+    }
+
+    iToggleKeychain(true);
+  }
+
+  function iSendMessage() {
+    var input = document.getElementById('message'),
+        button = document.getElementById('send');
+
+    if (input.textContent.length > 0) {
+      button.style.backgroundColor = '#f00';
+      iCreateMessage(comm.sendMessage(input.textContent));
+      input.innerHTML = '';
+      window.setTimeout(function(){button.style.backgroundColor = '#fff'}, '50');
+    }
+  }
+
+  function iSetSize(elem) {
+    var i, nodes = elem.parentNode.childNodes;
+    for(i = 0; i < nodes.length; i++) {
+      if (nodes[i].nodeName.toLowerCase() == 'span') nodes[i].className = '';
+    }
+    elem.className = 'selected';
+    return parseInt(elem.textContent);
+  }
+
+  function iDisableSettings() {
+    var i, server, nodes = document.getElementById('asymsize').childNodes;
+    for (i = 0; i < nodes.length; i++) {
+      if (nodes[i].nodeName.toLowerCase() == 'span') {
+        if (nodes[i].className == 'selected') {
+          nodes[i].onclick = null;
+          nodes[i].className = 'readonly';
+        } else {
+          nodes[i].parentNode.removeChild(nodes[i]);
+        }
+      }
+    }
+    
+    server = document.getElementById("serverurl");
+    server.className = 'readonly';
+    server.contentEditable = false;
+  }
+
+  function iGenerate() {
+    app.generateKeys(document.getElementById('nickname').textContent);
+    iCreateProgress();
+    iDisableSettings();
+    document.getElementById("message").focus();
+  }
+
+  function iToggleSettings(close) {
+    var button = document.getElementById('toggleSettings'),
+        menu   = document.getElementById('settings');
+
+    if (button.className == 'selected up' || close) {
+      window.scroll(0,document.body.offsetHeight);
+      button.className = 'down';
+      menu.style.marginTop = '-'+(menu.clientHeight-button.clientHeight)+'px';
+    } else {
+      window.scrollTo(0, 0);
+      button.className = 'selected up';
+      menu.style.marginTop = '3em';
+    }
+  }
+
+  function iToggleKeychain(close) {
+    var button = document.getElementById('toggleKeychain'),
+        menu = document.getElementById('keychain');
+
+    if (button.className == 'selected down' || close) {
+      button.className = 'up';
+      menu.style.bottom = '-'+menu.clientHeight+'px';
+    } else {
+      button.className = 'selected down';
+      menu.style.bottom = (button.clientHeight-5)+'px';
+    }
+  }
+
+  function iToggleKey(button) {
+    var key = button.parentNode;
+
+    if (app.keychain[key.id].active) {
+      button.className = 'switch inactive';
+      button.innerHTML = 'OFF';
+      key.className = 'inactive';
+      app.keychain[key.id].active = false;
+    } else {
+      button.className = 'switch';
+      button.innerHTML = 'ON';
+      key.className = '';
+      app.keychain[key.id].active = true;
+    }
+  }
+
+  function iToggleMsgInfo(id) {
+    var button = document.getElementById('toggle'+id),
+        menu = document.getElementById('info'+id);
+
+    if (button.className == 'info down') {
+      button.className = 'info up';
+      menu.style.height = '4.5em';
+      menu.style.marginTop = '0.3em';
+    } else {
+      button.className = 'info down';
+      menu.style.height = '0';
+      menu.style.marginTop = '0';
+    }
+  }
+
+  function iToggleKeyInfo(button) {
+    var alert = button.parentNode;
+
+    if (button.className == 'info down') {
+      alert.style.height = '6.5em';
+      button.className = 'info up';
+    } else {
+      alert.style.height = '1.1em';
+      button.className = 'info down';
+    }
+  }
+  </script>
+</head>
+<body>
+  <ul id="menu">
+    <li id="status">&#x2A2F;</li>
+    <li class="selected up" id="toggleSettings" onclick="iToggleSettings();">Settings</li>
+    <li id="room">Room: </li>
+  </ul>
+
+  <ul id="settings">
+    <li>
+      <h3>Symmetric Cipher (AES)</h3>
+      <p>Size (bits): <span class="selected" onclick="app.ciphersize=iSetSize(this)">128</span> <span onclick="app.ciphersize=iSetSize(this)">192</span> <span onclick="app.ciphersize=iSetSize(this)">256</span></p>
+    </li>
+    <li>
+      <h3>Asymmetric Key (RSA)</h3>
+      <p id="asymsize">Size (bits): <span class="selected" onclick="app.keysize=iSetSize(this)">1024</span> <span onclick="app.keysize=iSetSize(this)">1536</span> <span onclick="app.keysize=iSetSize(this)">2048</span></p>
+    </li>
+    <li>
+      <h3>WebSocket Connection</h3>
+      <p>URL: <span id="serverurl" contenteditable="true" onkeydown="if(event.keyCode === 13)event.preventDefault();" onkeyup="app.server=this.textContent;"></span></p>
+    </li>
+  </ul>
+
+  <ul id="content">
+    <li class="alert clear" id="alertKeyGen">
+      <p>Enter a nickname.</p>
+      <span class="field" id="nickname" contenteditable="true" onkeyup="document.getElementById('generate').style.display=(this.textContent.length<3)?'none':'block';"
+      onkeypress="if(event.keyCode === 13) { event.preventDefault(); if(this.textContent.length>=3){iGenerate();}}"></span>
+      <span class="button" id="generate" onclick="iGenerate();">Generate</span>
+    </li>
+  </ul>
+
+  <ul id="input">
+    <li class="field" id="message" contenteditable="true" onkeydown="if(event.keyCode === 13){event.preventDefault(); iSendMessage();}"></li>
+    <li class="button" id="send" onclick="iSendMessage();">Send</li>
+    <li class="up" id="toggleKeychain" onclick="iToggleKeychain();">KEYCHAIN</li>
+  </ul>
+
+  <ul id="keychain">
+  </ul>
+
+  <script>
+  if (typeof window.crypto.getRandomValues === 'function' && typeof window.WebSocket === 'function' && typeof window.Worker === 'function') {
+    app.setCallbacks(
+      function() {
+        iCreateDistribute();
+        iSetRoom();
+      }
+    )
+
+    comm.setCallbacks(
+      function() {
+        iUpdateStatus(true);
+        iCreateJoined();
+        iShowInput();
+        iRefreshKeychain();
+      },
+      function() {
+        iUpdateStatus(false);
+      },
+      function(msg) {
+        iCreateMessage(msg);
+      },
+      function(key) {
+        iCreateReceive(key);
+      }
+    )
+    
+    window.onload = function() {
+      app.server = app.getServer();
+      app.room = app.getRoom();
+      
+      iSetRoom();
+      document.getElementById("serverurl").innerHTML = app.server;
+      document.getElementById("nickname").focus();
+    }
+
+    window.onresize = function(event) {
+      if (comm.connected) {
+        iShowInput();
+        iToggleSettings(true);
+        iToggleKeychain(true);
+      }
+    }
+  } else {
+    alert('Unfortunately, your browser does not have the necessary features to run this application. Please try Firefox 21+ or Chrome 11+.');
+  }
+  </script>
+</body>
+</html>
