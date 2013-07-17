@@ -10,7 +10,7 @@ It can be used locally (with Firefox 21+) or via www.secureroom.net (Chrome or F
 Using SecureRoom locally
 ========================
 
-Download the latest [ZIP file](https://github.com/vukicevic/SecureRoom/archive/master.zip) of the latest version. Extract locally.
+Download the [ZIP file](https://github.com/vukicevic/SecureRoom/archive/master.zip) of the latest version. Extract locally.
 
 Open index.html in Firefox (version 21 or later).
 
