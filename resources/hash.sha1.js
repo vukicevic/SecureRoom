@@ -20,11 +20,11 @@ hash = {
 
   digest: function digest(data) {
     var p = 0,
-      W, k, f, i, a, b, c, d, e,
-      x = this.implode(data),
-      l = x.length,
-      th = [0x67452301, 0xefcdab89, 0x98badcfe, 0x10325476, 0xc3d2e1f0],
-      tk = [0x5a827999, 0x6ed9eba1, 0x8f1bbcdc, 0xca62c1d6];
+        W, k, f, i, a, b, c, d, e,
+        x = this.implode(data),
+        l = x.length,
+        th = [0x67452301, 0xefcdab89, 0x98badcfe, 0x10325476, 0xc3d2e1f0],
+        tk = [0x5a827999, 0x6ed9eba1, 0x8f1bbcdc, 0xca62c1d6];
 
     while (p < l) {
       W = x.slice(p, p+16);
@@ -109,16 +109,16 @@ hash = {
     r.push(l);
 
     return r;
-	},
+  },
 
 	//don't touch the signed shift >>> :)
   explode: function explode(w) {
-		for (var i = 0, o = [], l = w.length; i < l; i++) {
+    for (var i = 0, o = [], l = w.length; i < l; i++) {
       o.push( w[i] >>> 24);
       o.push((w[i] >>> 16) & 0xff);
       o.push((w[i] >>>  8) & 0xff);
       o.push( w[i] & 0xff);
     }
     return o;
-	}
+  }
 };
