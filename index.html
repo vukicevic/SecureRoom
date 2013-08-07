@@ -127,7 +127,7 @@
   }
 
   function iCreateJoined() {
-    var li = document.getElementById('alertKeyGen');
+    var li = document.getElementById('alertKeyGen'),
         di = document.createElement('div');
 
     while (li.firstChild) li.removeChild(li.firstChild);
@@ -135,11 +135,11 @@
     di.className = 'info down';
     di.appendChild(document.createTextNode(iFormatDate(Math.round(+new Date()/1000))));
     di.onclick = function() { iToggleKeyInfo(this); }
-
+    
     li.appendChild(document.createTextNode('Joined ['+iFormatId(app.myid)+']. Others can join this SecureRoom at '+window.location.href));
     li.appendChild(di);
     li.appendChild(iKeyInfo(app.keychain[app.myid]));
-
+    
     li.style.height = '1.1em';
   }
 
@@ -435,7 +435,7 @@
   <ul id="menu">
     <li id="status">&#x2A2F;</li>
     <li class="selected up" id="toggleSettings" onclick="iToggleSettings();">Settings</li>
-    <li id="room">Room: </li>
+    <li id="room">Room: -</li>
   </ul>
 
   <ul id="settings">

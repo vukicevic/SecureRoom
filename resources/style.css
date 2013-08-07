@@ -26,7 +26,7 @@ body {
   display: block;
   float: left;
   margin: 0;
-  padding: 0.8em 1.5em 0.6em;
+  padding: 0.8em 1em 0.6em;
   cursor: pointer;
 }
 
@@ -68,9 +68,6 @@ body {
   margin-bottom: 1em;
 }
 
-#room {
-  float: right !important;
-}
 /* CONTENT STYLES */
 #content {
   margin: 0.7em 0 3.7em;
