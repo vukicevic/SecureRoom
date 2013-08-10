@@ -18,14 +18,14 @@
     var l = document.createElement('li'),
         p = document.createElement('p'),
         b = document.createElement('b'),
-        d = document.createElement('div'),
+        d = iPrintTime(new Date(message.metadata.recvtime*1000)),// = document.createElement('div'),
         c = app.messages++;
 
     l.id = 'msg'+c;
-    d.id = 'toggle'+c;
     l.className = 'msg';
-    d.className = 'info down';
 
+    d.id = 'toggle'+c;
+    d.className += ' down';
     d.onclick = function() { iToggleMsgInfo(c); };
 
     //if a large time difference exists
@@ -49,7 +49,6 @@
     b.appendChild(document.createTextNode(app.keychain[message.metadata.sender].name+': '));
     p.appendChild(b);
     p.appendChild(document.createTextNode(message.plaintext.string));
-    d.appendChild(document.createTextNode(iFormatDate(message.metadata.recvtime)));
 
     l.appendChild(d);
     l.appendChild(p);
@@ -66,13 +65,13 @@
 
     info.appendChild(document.createTextNode(iFormatId(key.encrypt.id) + ' (' + key.encrypt.size + ' bits)'));
     info.appendChild(document.createElement("br"));
-    info.appendChild(document.createTextNode("Encryption, " + iFormatDate(key.encrypt.created,true)));
+    info.appendChild(document.createTextNode("Encryption, " + iPrintDate(new Date(key.encrypt.created*1000))));
 
     info.appendChild(document.createElement('br'));
 
     info.appendChild(document.createTextNode(iFormatId(key.sign.id) + ' (' + key.sign.size + ' bits)'));
     info.appendChild(document.createElement("br"));
-    info.appendChild(document.createTextNode("Signing, " + iFormatDate(key.sign.created,true)));
+    info.appendChild(document.createTextNode("Signing, " + iPrintDate(new Date(key.sign.created*1000))));
 
     return info;
   }
@@ -126,21 +125,31 @@
     }
   }
 
-  function iCreateJoined() {
+  function iConnect() {
     var li = document.getElementById('alertKeyGen'),
-        di = document.createElement('div');
+        di = iPrintTime(new Date());
 
     while (li.firstChild) li.removeChild(li.firstChild);
 
-    di.className = 'info down';
-    di.appendChild(document.createTextNode(iFormatDate(Math.round(+new Date()/1000))));
+    di.className += ' down';
     di.onclick = function() { iToggleKeyInfo(this); }
     
-    li.appendChild(document.createTextNode('Joined ['+iFormatId(app.myid)+']. Others can join this SecureRoom at '+window.location.href));
+    li.appendChild(document.createTextNode('Connected ['+iFormatId(app.myid)+'].'));
     li.appendChild(di);
     li.appendChild(iKeyInfo(app.keychain[app.myid]));
     
     li.style.height = '1.1em';
+  }
+  
+  function iDisconnect() {
+    var li = document.createElement('li'),
+        di = iPrintTime(new Date());
+
+    li.className = 'alert';
+    li.appendChild(document.createTextNode('Disconnected.'));
+    li.appendChild(di);
+    
+    document.getElementById('content').appendChild(li);
   }
 
   function iCreateReceive(key) {
@@ -189,7 +198,7 @@
 
   function iCreateReceived(control, key, reject) {
     var alert = control.parentNode,
-        info = document.createElement('div');
+        info = iPrintTime(new Date());
 
     while (alert.firstChild) alert.removeChild(alert.firstChild);
     alert.style.height = '1.1em';
@@ -199,8 +208,7 @@
     } else {
       alert.appendChild(document.createTextNode(key.name+' ['+iFormatId(key.sign.id)+'] joined.'));
     }
-    info.appendChild(document.createTextNode(iFormatDate(Math.round(+new Date()/1000))));
-    info.className = 'info down';
+    info.className += ' down';
     info.onclick = function() { iToggleKeyInfo(this); };
     alert.appendChild(info);
     alert.appendChild(iKeyInfo(key));
@@ -214,7 +222,7 @@
     div.id = 'info'+id;
 
     info += ' <b>Sent By:</b> '+iFormatId(message.metadata.sender);
-    info += ' <b>At:</b> '+iFormatDate(message.metadata.sendtime, true);
+    info += ' <b>At:</b> '+iPrintDate(new Date(message.metadata.sendtime*1000));
     info += ' <b>Verified:</b> ';
     info += (message.metadata.verified) ? 'True<br>' : '<u>False</u><br>';
 
@@ -242,26 +250,16 @@
     return div;
   }
 
-  function iUpdateStatus(connected) {
-    document.getElementById('status').innerHTML = (connected) ? '&#x21CC;' : '&#x2A2F;';
+  function iPrintDate(date) {
+    return date.getHours()+':'+('0'+date.getMinutes()).slice(-2)+':'+('0'+date.getSeconds()).slice(-2)+' '+date.getDate()+'/'+(date.getMonth()+1)+'/'+date.getFullYear();
   }
-
-  function iFormatDate(time, full) {
-    var date = new Date(time*1000),
-        hour = date.getHours(),
-        mins = date.getMinutes(),
-        secs = date.getSeconds(),
-        days = date.getDate(),
-        mnth = date.getMonth()+1,
-        year = date.getFullYear();
-
-    hour = (hour < 10) ? '0'+hour : hour;
-    mins = (mins < 10) ? '0'+mins : mins;
-    secs = (secs < 10) ? '0'+secs : secs;
-    days = (days < 10) ? '0'+days : days;
-    mons = (mnth < 10) ? '0'+mnth : mnth;
-
-    return (full) ? hour+':'+mins+':'+secs+' '+days+'/'+mnth+'/'+year : hour+':'+mins+':'+secs;
+  
+  function iPrintTime(date) {
+    var di = document.createElement('div');
+    
+    di.className = 'info';
+    di.innerHTML = ('0'+date.getHours()).slice(-2)+'<br>'+('0'+date.getMinutes()).slice(-2)+'<br>'+('0'+date.getSeconds()).slice(-2);
+    return di;
   }
 
   function iShowInput() {
@@ -273,6 +271,10 @@
     m.style.width = (i.offsetWidth-(s.offsetWidth+k.offsetWidth+50))+'px';
     i.style.bottom = '0';
     m.focus();
+  }
+  
+  function iHideInput() {
+    document.getElementById('input').style.bottom = '-2.7em';
   }
 
   function iRefreshKeychain() {
@@ -356,20 +358,19 @@
     app.generateKeys(document.getElementById('nickname').textContent);
     iCreateProgress();
     iDisableSettings();
-    document.getElementById("message").focus();
   }
 
   function iToggleSettings(close) {
     var button = document.getElementById('toggleSettings'),
         menu   = document.getElementById('settings');
 
-    if (button.className == 'selected up' || close) {
+    if (button.className == 'selected' || close) {
       window.scroll(0,document.body.offsetHeight);
-      button.className = 'down';
+      button.className = '';
       menu.style.marginTop = '-'+(menu.clientHeight-button.clientHeight)+'px';
     } else {
       window.scrollTo(0, 0);
-      button.className = 'selected up';
+      button.className = 'selected';
       menu.style.marginTop = '3em';
     }
   }
@@ -378,11 +379,11 @@
     var button = document.getElementById('toggleKeychain'),
         menu = document.getElementById('keychain');
 
-    if (button.className == 'selected down' || close) {
-      button.className = 'up';
+    if (button.className == 'selected' || close) {
+      button.className = '';
       menu.style.bottom = '-'+menu.clientHeight+'px';
     } else {
-      button.className = 'selected down';
+      button.className = 'selected';
       menu.style.bottom = (button.clientHeight-5)+'px';
     }
   }
@@ -433,8 +434,7 @@
 </head>
 <body>
   <ul id="menu">
-    <li id="status">&#x2A2F;</li>
-    <li class="selected up" id="toggleSettings" onclick="iToggleSettings();">Settings</li>
+    <li class="selected" id="toggleSettings" onclick="iToggleSettings();">&#9776;</li>
     <li id="room">Room: -</li>
   </ul>
 
@@ -465,7 +465,7 @@
   <ul id="input">
     <li class="field" id="message" contenteditable="true" onkeydown="if(event.keyCode === 13){event.preventDefault(); iSendMessage();}"></li>
     <li class="button" id="send" onclick="iSendMessage();">Send</li>
-    <li class="up" id="toggleKeychain" onclick="iToggleKeychain();">KEYCHAIN</li>
+    <li class="" id="toggleKeychain" onclick="iToggleKeychain();">&#9052;</li>
   </ul>
 
   <ul id="keychain">
@@ -482,13 +482,13 @@
 
     comm.setCallbacks(
       function() {
-        iUpdateStatus(true);
-        iCreateJoined();
+        iConnect();
         iShowInput();
         iRefreshKeychain();
       },
       function() {
-        iUpdateStatus(false);
+        iDisconnect();
+        iHideInput();
       },
       function(msg) {
         iCreateMessage(msg);
@@ -510,9 +510,9 @@
     window.onresize = function(event) {
       if (comm.connected) {
         iShowInput();
-        iToggleSettings(true);
         iToggleKeychain(true);
       }
+      iToggleSettings(true);
     }
   } else {
     alert('Unfortunately, your browser does not have the necessary features to run this application. Please try Firefox 21+ or Chrome 11+.');
