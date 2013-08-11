@@ -268,7 +268,7 @@
         s = document.getElementById('send'),
         k = document.getElementById('toggleKeychain');
 
-    m.style.width = (i.offsetWidth-(s.offsetWidth+k.offsetWidth+50))+'px';
+    m.style.width = (i.offsetWidth-(s.offsetWidth+k.offsetWidth+65))+'px';
     i.style.bottom = '0';
     m.focus();
   }
@@ -411,11 +411,11 @@
     if (button.className == 'info down') {
       button.className = 'info up';
       menu.style.height = '4.5em';
-      menu.style.marginTop = '0.3em';
+      //menu.style.marginTop = '0.3em';
     } else {
       button.className = 'info down';
       menu.style.height = '0';
-      menu.style.marginTop = '0';
+      //menu.style.marginTop = '0';
     }
   }
 
