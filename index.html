@@ -268,7 +268,7 @@
         s = document.getElementById('send'),
         k = document.getElementById('toggleKeychain');
 
-    m.style.width = (i.offsetWidth-(s.offsetWidth+k.offsetWidth+65))+'px';
+    m.style.width = (i.offsetWidth-(s.offsetWidth+k.offsetWidth+45))+'px';
     i.style.bottom = '0';
     m.focus();
   }
@@ -433,10 +433,10 @@
   </script>
 </head>
 <body>
-  <ul id="menu">
-    <li class="selected" id="toggleSettings" onclick="iToggleSettings();">&#9776;</li>
-    <li id="room">Room: -</li>
-  </ul>
+  <div id="menu">
+    <span class="selected" id="toggleSettings" onclick="iToggleSettings();">&#9776;</span>
+    <span id="room">Room: -</span>
+  </div>
 
   <ul id="settings">
     <li>
@@ -462,11 +462,11 @@
     </li>
   </ul>
 
-  <ul id="input">
-    <li class="field" id="message" contenteditable="true" onkeydown="if(event.keyCode === 13){event.preventDefault(); iSendMessage();}"></li>
-    <li class="button" id="send" onclick="iSendMessage();">Send</li>
-    <li class="" id="toggleKeychain" onclick="iToggleKeychain();"><b>&#8942;</b></li>
-  </ul>
+  <div id="input">
+    <span class="field" id="message" contenteditable="true" onkeydown="if(event.keyCode === 13){event.preventDefault(); iSendMessage();}"></span>
+    <span class="button" id="send" onclick="iSendMessage();">Send</span>
+    <span class="" id="toggleKeychain" onclick="iToggleKeychain();"><b>&#8942;</b></span>
+  </div>
 
   <ul id="keychain">
   </ul>

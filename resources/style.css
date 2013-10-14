@@ -7,13 +7,13 @@ body {
   font-family: Lucida Sans Unicode, Lucida Grande, sans-serif;
   font-size: 16px;
   line-height: 1.2em;
-  min-width: 425px;
+  min-width: 26em;
 }
 
 /* MENU STYLES */
 #menu {
   width: 100%;
-  min-width: 425px;
+  min-width: 26em;
   background-color: #000;
   color: #fff;
   position: fixed;
@@ -22,11 +22,11 @@ body {
   text-transform: uppercase;
 }
 
-#menu li {
+#menu span {
   display: block;
+  padding: 0.6em 1em;
   float: left;
   margin: 0;
-  padding: 0.6em 1em;
   cursor: pointer;
 }
 
@@ -203,7 +203,7 @@ body {
 }
 
 .mykey {
-  background-color: #ddd;
+  //color: #E87600;
 }
 
 .switch {
@@ -245,7 +245,7 @@ body {
 }
 
 #toggleKeychain {
-  float: left;
+  float: right;
   margin: 0;
   padding: 1em;
   cursor: pointer;
@@ -266,6 +266,9 @@ body {
   display: block;
   float: left;
   padding: 0.5em 1em;
+  width: 15em;
+  border-right: 1px dotted #222;
+  border-bottom: 1px dotted #222;
 }
 
 #keychain p {
