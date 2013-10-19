@@ -29,10 +29,10 @@ var prime = {
 
   millerrabin: function(n, l) {
     var a = [0x2, 0x3, 0x5, 0x7, 0xb, 0xd, 0x11, 0x13, 0x17, 0x1d],
-		m = mpi.sub(n, [0x1]),
-		s = mpi.lsb(m[n.length-1]),
-		r = mpi.rsh(n, s),
-		y, t, j, i;
+        m = mpi.sub(n, [0x1]),
+        s = mpi.lsb(m[n.length-1]),
+        r = mpi.rsh(n, s),
+        y, t, j, i;
 
     for (i = 0; i < l; i++) {
       y = mpi.exp([a[i]], r, n);
@@ -58,7 +58,7 @@ var prime = {
 
   generate: function(s) {
     var p = s.slice(0),
-		l = p.length - 1;
+        l = p.length - 1;
 
     p[l] |= 0x1;
 
