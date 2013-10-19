@@ -1,13 +1,17 @@
 <html>
 <head>
   <title>SecureRoom</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
   <link href="resources/style.css" media="all" rel="stylesheet" type="text/css">
+
   <script src="resources/random.default.js"></script>
   <script src="resources/symmetric.aes.cfb.js"></script>
   <script src="resources/asymmetric.rsa.js"></script>
   <script src="resources/hash.sha1.js"></script>
   <script src="resources/secureroom.js"></script>
   <script>
+  
   function iFormatId(id) {
     return id.match(/.{2}/g).map(function(v){return v;}).join(':').toUpperCase();
   }
@@ -364,13 +368,13 @@
     var button = document.getElementById('toggleSettings'),
         menu   = document.getElementById('settings');
 
-    if (button.className == 'selected' || close) {
+    if (button.className == 'open' || close) {
       window.scroll(0,document.body.offsetHeight);
-      button.className = '';
+      button.className = 'closed';
       menu.style.marginTop = '-'+(menu.clientHeight-button.clientHeight)+'px';
     } else {
       window.scrollTo(0, 0);
-      button.className = 'selected';
+      button.className = 'open';
       menu.style.marginTop = '3em';
     }
   }
@@ -379,11 +383,11 @@
     var button = document.getElementById('toggleKeychain'),
         menu = document.getElementById('keychain');
 
-    if (button.className == 'selected' || close) {
-      button.className = '';
+    if (button.className == 'open' || close) {
+      button.className = 'closed';
       menu.style.bottom = '-'+menu.clientHeight+'px';
     } else {
-      button.className = 'selected';
+      button.className = 'open';
       menu.style.bottom = (button.clientHeight-5)+'px';
     }
   }
@@ -434,7 +438,13 @@
 </head>
 <body>
   <div id="menu">
-    <span class="selected" id="toggleSettings" onclick="iToggleSettings();">&#9776;</span>
+    <span class="open" id="toggleSettings" onclick="iToggleSettings();">
+    <svg height="19" width="16" xmlns="http://www.w3.org/2000/svg" version="1.1">
+      <rect y="3" width="16" height="3" />
+      <rect y="8" width="16" height="3" />
+      <rect y="13" width="16" height="3" />
+    </svg>
+    </span>
     <span id="room">Room: -</span>
   </div>
 
@@ -465,7 +475,13 @@
   <div id="input">
     <span class="field" id="message" contenteditable="true" onkeydown="if(event.keyCode === 13){event.preventDefault(); iSendMessage();}"></span>
     <span class="button" id="send" onclick="iSendMessage();">Send</span>
-    <span class="" id="toggleKeychain" onclick="iToggleKeychain();"><b>&#8942;</b></span>
+    <span class="closed" id="toggleKeychain" onclick="iToggleKeychain();">
+    <svg height="19" width="12" xmlns="http://www.w3.org/2000/svg" version="1.1">
+      <rect y="3" width="4" height="3" />
+      <rect y="8" width="4" height="3" />
+      <rect y="13" width="4" height="3" />
+    </svg>
+    </span>
   </div>
 
   <ul id="keychain">
