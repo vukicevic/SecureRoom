@@ -98,11 +98,6 @@ body {
   margin-bottom: 0.1em;
 }
 
-#content .keyinfo {
-  font-size: 0.8em;
-  margin: 0.6em 0;
-}
-
 #content .info {
   float: right;
   cursor: pointer;
@@ -210,6 +205,12 @@ body {
 
 .mykey {
   //color: #E87600;
+}
+
+.keyinfo {
+  font-size: 0.8em;
+  margin: 0.6em 0;
+  line-height: 1.1em;
 }
 
 .switch {

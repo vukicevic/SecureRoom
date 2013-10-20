@@ -63,21 +63,29 @@
   }
 
   function iKeyInfo(key) {
-    var info = document.createElement('p');
+    var wrap = document.createElement('div'),
+        key1 = document.createElement('p'),
+        key2 = document.createElement('p');
 
-    info.className = 'keyinfo';
+    key1.className = 'keyinfo';
+    key2.className = 'keyinfo';
 
-    info.appendChild(document.createTextNode(iFormatId(key.encrypt.id) + ' (' + key.encrypt.size + ' bits)'));
-    info.appendChild(document.createElement("br"));
-    info.appendChild(document.createTextNode("Encryption, " + iPrintDate(new Date(key.encrypt.created*1000))));
+    key1.appendChild(document.createElement("b"));
+    key1.lastChild.appendChild(document.createTextNode(iFormatId(key.sign.id)));
+    key1.appendChild(document.createElement("br"));
+    key1.appendChild(document.createElement("small"));
+    key1.lastChild.appendChild(document.createTextNode(key.sign.size + " BITS | " + iPrintDate(new Date(key.sign.created*1000)) + " | SIGNING"));
 
-    info.appendChild(document.createElement('br'));
+    wrap.appendChild(key1);
 
-    info.appendChild(document.createTextNode(iFormatId(key.sign.id) + ' (' + key.sign.size + ' bits)'));
-    info.appendChild(document.createElement("br"));
-    info.appendChild(document.createTextNode("Signing, " + iPrintDate(new Date(key.sign.created*1000))));
+    key2.appendChild(document.createTextNode(iFormatId(key.encrypt.id)));
+    key2.appendChild(document.createElement("br"));
+    key2.appendChild(document.createElement("small"));
+    key2.lastChild.appendChild(document.createTextNode(key.encrypt.size + " BITS |  " + iPrintDate(new Date(key.encrypt.created*1000)) + " | ENCRYPTION"));
 
-    return info;
+    wrap.appendChild(key2);
+
+    return wrap;
   }
 
   function iCreateProgress() {
