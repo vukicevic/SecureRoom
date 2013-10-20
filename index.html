@@ -96,7 +96,7 @@
 
     di.className = 'loading';
     li.appendChild(di);
-    li.style.height = '1.1em';
+    li.style.height = '1em';
   }
 
   function iCreateDistribute() {
@@ -104,7 +104,7 @@
         h4 = document.createElement('p'),
         bu = document.createElement('span');
 
-    li.style.height = '9.5em';
+    li.style.height = '9em';
 
     while (li.firstChild) li.removeChild(li.firstChild);
 
@@ -146,11 +146,11 @@
     di.className += ' down';
     di.onclick = function() { iToggleKeyInfo(this); }
     
-    li.appendChild(document.createTextNode('Connected ['+iFormatId(app.myid)+'].'));
+    li.appendChild(document.createTextNode('Connected.'));
     li.appendChild(di);
     li.appendChild(iKeyInfo(app.keychain[app.myid]));
     
-    li.style.height = '1.1em';
+    li.style.height = '1em';
   }
   
   function iDisconnect() {
@@ -204,7 +204,7 @@
     li.appendChild(ba);
     li.appendChild(br);
 
-    li.style.height = '9.5em';
+    li.style.height = '9em';
     window.scroll(0,document.body.offsetHeight);
   }
 
@@ -213,12 +213,12 @@
         info = iPrintTime(new Date());
 
     while (alert.firstChild) alert.removeChild(alert.firstChild);
-    alert.style.height = '1.1em';
+    alert.style.height = '1em';
     if (reject) {
       alert.appendChild(document.createTextNode(key.name+'\'s key rejected.'));
       alert.className = 'alert warning';
     } else {
-      alert.appendChild(document.createTextNode(key.name+' ['+iFormatId(key.sign.id)+'] joined.'));
+      alert.appendChild(document.createTextNode(key.name+' joined.'));
     }
     info.className += ' down';
     info.onclick = function() { iToggleKeyInfo(this); };
@@ -308,7 +308,7 @@
           sp.className = 'switch inactive';
           sp.innerHTML = 'OFF';
         }
-        sp.onclick = function() { iToggleKey(this); };
+        li.onclick = function() { iToggleKey(sp); };
 
         sp.id = 'switch'+keyid;
       } else {
@@ -423,11 +423,9 @@
     if (button.className == 'info down') {
       button.className = 'info up';
       menu.style.height = '4.5em';
-      //menu.style.marginTop = '0.3em';
     } else {
       button.className = 'info down';
       menu.style.height = '0';
-      //menu.style.marginTop = '0';
     }
   }
 
@@ -435,10 +433,10 @@
     var alert = button.parentNode;
 
     if (button.className == 'info down') {
-      alert.style.height = '6.5em';
+      alert.style.height = '6em';
       button.className = 'info up';
     } else {
-      alert.style.height = '1.1em';
+      alert.style.height = '1em';
       button.className = 'info down';
     }
   }

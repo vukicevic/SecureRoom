@@ -103,7 +103,7 @@ body {
   cursor: pointer;
   font-size: 0.5em;
   line-height: 1em;
-  margin-top: -0.2em;
+  margin-top: -0.5em;
 }
 
 #content .msginfo {
@@ -181,13 +181,13 @@ body {
   visibility: hidden;
   clear: both;
 }
-.down:after {
+/*.down:after {
   content: ' \25BE';
 }
 
 .up:after {
   content: ' \25B4';
-}
+}*/
 
 .selected {
   background-color: #fff;
