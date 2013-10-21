@@ -35,10 +35,15 @@ var app = {
 
   completeKeyGeneration: function() {
     if (app.signkey.ready && app.encryptkey.ready) {
-      var key = new PublicKey();
-      key.constructKey(2, app.encryptkey.mpi.e, app.encryptkey.mpi.n, app.encryptkey.time);
-      key.constructKey(3, app.signkey.mpi.e, app.signkey.mpi.n, app.signkey.time);
-      key.name = app.nickname;
+      var key = new PublicKey({ "name": app.nickname,
+                                "encrypt": { "type": 2,
+                                             "created": app.encryptkey.time, 
+                                             "mpi": { "e": app.encryptkey.mpi.e,
+                                                      "n": app.encryptkey.mpi.n} },
+                                "sign": {"type": 3,
+                                         "created": app.signkey.time,
+                                         "mpi": { "e": app.signkey.mpi.e,
+                                                  "n": app.signkey.mpi.n} } });
 
       app.myid = key.sign.id;
       app.keychain[app.myid] = key;
@@ -103,14 +108,13 @@ var comm = {
       }
 
       this.socket.onmessage = function(event){
-        switch (event.data.substr(0, 1)) {
-          case 'k':
-            var key = comm.receiveKey(event.data.substr(1));
+        var obj = JSON.parse(event.data);
+        console.log(obj);
+        if (obj.type == 'key') {
+            var key = comm.receiveKey(obj.data);
             if (typeof app.keychain[key.sign.id] == "undefined" && typeof app.rejected[key.sign.id] == "undefined") comm.cbKey(key);
-            break;
-          case 'm':
-            comm.cbMessage(comm.receiveMessage(event.data.substr(1)));
-            break;
+        } else if (obj.type == 'message') {
+            comm.cbMessage(comm.receiveMessage(obj.data));
         }
       }
 
@@ -124,7 +128,10 @@ var comm = {
   },
 
   encryptMessage: function(message) {
-    var padkey, keyid, paddata, count = 0;
+    var padkey, 
+        keyid,
+        paddata,
+        count = 0;
 
     if (Object.keys(app.keychain).length < 2) return null;
 
@@ -144,7 +151,9 @@ var comm = {
   },
 
   decryptMessage: function(message) {
-    var keyid, padkey;
+    var keyid, 
+        padkey;
+
     for (keyid in message.encrypted.sessionkeys) {
       if (keyid == app.keychain[app.myid].encrypt.id) {
          message.plaintext.sessionkey = asymmetric.decrypt(app.encryptkey, message.encrypted.sessionkeys[keyid]);
@@ -179,14 +188,17 @@ var comm = {
     //console.debug(message);
 
     if (message.encrypted.data != null) {
-      this.socket.send('m'+array.serialize(message.createMessage()));
+      var str = JSON.stringify({"type": "message",
+                                "data": message.encrypted});
+      console.log(str);
+      this.socket.send(str);
     }
 
     return message;
   },
 
   receiveMessage: function(data) {
-    var message = new Message(this.splitPackets(array.unserialize(data))),
+    var message = new Message(data),
         i;
 
     message.metadata.recvtime = Math.round(+new Date()/1000);
@@ -210,41 +222,20 @@ var comm = {
   },
 
   sendKey: function() {
-    this.socket.send('k'+array.serialize(app.keychain[app.myid].createMessage()));
+    var str = JSON.stringify({"type": "key",
+                              "data": { "name":    app.keychain[app.myid].name,
+                                        "encrypt": { "type": app.keychain[app.myid].encrypt.type,
+                                                      "created": app.keychain[app.myid].encrypt.created,
+                                                      "mpi": app.keychain[app.myid].encrypt.mpi },
+                                        "sign":    { "type": app.keychain[app.myid].sign.type,
+                                                     "created": app.keychain[app.myid].sign.created,
+                                                     "mpi": app.keychain[app.myid].sign.mpi } } });
+
+    this.socket.send(str);
   },
 
   receiveKey: function(data) {
-    return new PublicKey(this.splitPackets(array.unserialize(data)));
-  },
-
-  splitPackets: function(m) {
-    var i = 0, j = 0, l, t,
-        p = [];
-
-    while (i < m.length) {
-      t = m[i++];
-      p[j] = {data: null, tag: null};
-      p[j].tag = (t>>2) & 0xf;
-
-      switch (t&0x3) {
-        case 0:
-          l = m[i++];
-          break;
-        case 1:
-          l = m[i++]*256 + m[i++];
-          break;
-        case 2:
-          l = m[i++]*16777216 + m[i++]*65536 + m[i++]*256 + m[i++];
-          break;
-        default:
-          l = m.length;
-          break;
-      }
-
-      p[j++].data = m.slice(i, i+l);
-      i += l;
-    }
-    return p;
+    return new PublicKey(data);
   }
 }
 
@@ -307,100 +298,13 @@ var array = {
   fromWord: function(t) {
     return [t>>24, (t>>16)&0xff, (t>>8)&0xff, t&0xff];
   },
-
-  serialize: function(a) {
-    return a.map(function(v) { return String.fromCharCode(v); }).join('');
-  },
-
-  unserialize: function(s) {
-    return s.split('').map(function(v) { return v.charCodeAt(0); });
-  }
 }
 
-function createTag (tag, length) {
-  tag = tag*4 + 128;
-
-  if (length > 65535) {
-    tag += 2;
-  } else if (length > 255) {
-    tag += 1;
-  }
-
-  return tag;
-}
-
-function createLength(l) {
-  if (l < 256) {
-    return [l];
-  } else if (l < 65536) {
-    return [l>>8, l&0xff];
-  } else {
-    return array.fromWord(l);
-  }
-}
-
-function PublicKey(packets) {
+function PublicKey(data) {
   this.name    = '';
-  this.encrypt = {type: 2, created: 0, mpi: {}, fingerprint: '', id: '', size: 0};
-  this.sign    = {type: 3, created: 0, mpi: {}, fingerprint: '', id: '', size: 0};
+  this.encrypt = null;
+  this.sign    = null;
   this.active  = true;
-
-  this.constructKey = function(type, e, n, time) {
-    var key         = (type == 2) ? this.encrypt : this.sign;
-    key.mpi.e       = e;
-    key.mpi.n       = n;
-    key.created     = time;
-    key.size        = this.calcMpiLength(n, true);
-    key.fingerprint = this.calcFingerprint(key, true);
-    key.id          = key.fingerprint.substr(-16);
-  }
-  
-  this.parseUserIdPacket = function(data) {
-    this.name = array.toString(data);
-  }
-
-  this.parsePublicKeyPacket = function(data) {
-    var len = Math.floor((data[6]*256 + data[7] + 7) / 8),
-        key = (data[5] < 3) ? this.encrypt : this.sign;
-
-    key.created     = data[1]*16777216 + data[2]*65536 + data[3]*256 + data[4];
-    key.mpi.n       = data.slice(8, 8+len);
-    key.mpi.e       = data.slice(10+len);
-    key.fingerprint = this.calcFingerprint(data, false);
-    key.id          = key.fingerprint.substr(-16);
-    key.size        = this.calcMpiLength(key.mpi.n, true);
-  }
-
-  this.createUserIdPacket = function() {
-    var a = array.fromString(this.name);
-    return [createTag(13, a.length)].concat(createLength(a.length)).concat(a); //check length
-  }
-
-  this.createPublicKeyPacket = function(key) {
-    var temp, len = 10 + key.mpi.n.length + key.mpi.e.length;
-
-    temp = [createTag((key.type<3)?6:14, len)].concat(createLength(len)).concat([4]).concat(array.fromWord(key.created)).concat([key.type]);
-    temp = temp.concat(this.calcMpiLength(key.mpi.n)).concat(key.mpi.n);
-    return temp.concat(this.calcMpiLength(key.mpi.e)).concat(key.mpi.e);
-  }
-
-  this.createMessage = function() {
-    return this.createPublicKeyPacket(this.encrypt).concat(this.createUserIdPacket()).concat(this.createPublicKeyPacket(this.sign));
-  }
-
-  this.calcFingerprint = function(data, iskey) {
-    if (iskey) {
-      data = this.createPublicKeyPacket(data);
-      if (data.length < 259) {
-        data = data.slice(2);
-      } else if (data.length < 65539) {
-        data = data.slice(3);
-      } else {
-        data = data.slice(5);
-      }
-    }
-    return array.toHex(hash.digest([0x99, (data.length >> 8), (data.length & 0xff)].concat(data)));
-  }
 
   this.calcMpiLength = function(mpi, bits) {
     for (var i = 0, m = 128; i < 8; i++, m /= 2) {
@@ -412,65 +316,39 @@ function PublicKey(packets) {
     return (bits) ?  m : [m >> 8, m & 0xff];
   }
 
-  if (typeof packets != 'undefined') {
-    for (var i = 0; i < packets.length; i++) {
-      switch(packets[i].tag) {
-        case 6:
-        case 14:
-          this.parsePublicKeyPacket(packets[i].data);
-          break;
-        case 13:
-          this.parseUserIdPacket(packets[i].data);
-          break;
-      }
+  this.calcFingerprint = function(data, iskey) {
+    if (iskey) {
+      data = [4].concat(array.fromWord(data.created)).concat([data.type]).concat(this.calcMpiLength(data.mpi.n)).concat(data.mpi.n).concat(this.calcMpiLength(data.mpi.e)).concat(data.mpi.e);
     }
+
+    return array.toHex(hash.digest([0x99, (data.length >> 8), (data.length & 0xff)].concat(data)));
+  }
+
+  this.calcKeyInfo = function(key) {
+    key.size        = this.calcMpiLength(key.mpi.n, true);
+    key.fingerprint = this.calcFingerprint(key, true);
+    key.id          = key.fingerprint.substr(-16);
+  }
+
+  if (typeof data != 'undefined') {
+    this.name = data.name;
+    
+    this.encrypt = data.encrypt;
+    this.calcKeyInfo(this.encrypt);
+
+    this.sign = data.sign;
+    this.calcKeyInfo(this.sign);
   }
 }
 
-function Message(packets) {
+function Message(message) {
   this.encrypted = {sessionkeys: {}, data: []};
   this.plaintext = {sessionkey: null, data: null, string: null};
   this.metadata  = {sender: null, signature: null, sendtime: null, recvtime: null, verified: false};
 
-  this.parseSessionKeyPacket = function (packet) {
-    var keyid = array.toHex(packet.slice(0, 8));
-    this.encrypted.sessionkeys[keyid] = packet.slice(8);
-  }
-
-  this.parseDataPacket = function(packet) {
-    this.encrypted.data = packet;
-  }
-
-  this.createDataPacket = function() {
-    var len = this.encrypted.data.length;
-    return [createTag(9, len)].concat(createLength(len)).concat(this.encrypted.data);
-  }
-
-  this.createSessionKeyPacket = function(keyid) {
-    var len = this.encrypted.sessionkeys[keyid].length + 8;
-    return [createTag(1, len)].concat(createLength(len)).concat(array.fromHex(keyid)).concat(this.encrypted.sessionkeys[keyid]);
-  }
-
-  this.createMessage = function() {
-    var temp = [], keyid;
-    for (keyid in this.encrypted.sessionkeys) {
-      temp = temp.concat(this.createSessionKeyPacket(keyid));
-    }
-    return temp.concat(this.createDataPacket());
-  }
-
-  if (typeof packets == 'undefined') {
+  if (typeof message == 'undefined') {
     this.plaintext.sessionkey = random.generate(app.ciphersize);
   } else {
-    for (var i = 0; i < packets.length; i++) {
-      switch(packets[i].tag) {
-        case 1:
-          this.parseSessionKeyPacket(packets[i].data);
-          break;
-        case 9:
-          this.parseDataPacket(packets[i].data);
-          break;
-      }
-    }
+    this.encrypted = message;
   }
 }
