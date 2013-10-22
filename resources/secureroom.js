@@ -309,7 +309,6 @@ function PublicKey(data) {
   this.name    = '';
   this.encrypt = null;
   this.sign    = null;
-  this.active  = true;
 
   this.calcMpiLength = function(mpi, bits) {
     for (var i = 0, m = 128; i < 8; i++, m /= 2) {

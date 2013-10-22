@@ -185,6 +185,7 @@
 
     ba.appendChild(document.createTextNode('Accept'));
     ba.onclick = function() {
+      key.active = true;
       app.keychain[key.sign.id] = key;
       app.keymap[key.encrypt.id] = key.sign.id;
       iRefreshKeychain();
@@ -194,6 +195,7 @@
 
     br.appendChild(document.createTextNode('Reject'));
     br.onclick = function() {
+      key.active = false;
       app.rejected[key.sign.id] = key;
       app.keymap[key.encrypt.id] = key.sign.id;
       iCreateReceived(this, key, true);
