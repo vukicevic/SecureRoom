@@ -110,11 +110,18 @@ var comm = {
       this.socket.onmessage = function(event){
         var obj = JSON.parse(event.data);
         console.log(obj);
-        if (obj.type == 'key') {
-            var key = comm.receiveKey(obj.data);
-            if (typeof app.keychain[key.sign.id] == "undefined" && typeof app.rejected[key.sign.id] == "undefined") comm.cbKey(key);
-        } else if (obj.type == 'message') {
-            comm.cbMessage(comm.receiveMessage(obj.data));
+        switch (obj.type) {
+        case 'key':
+          var key = comm.receiveKey(obj.data);
+          if (typeof app.keychain[key.sign.id] == "undefined" 
+                && typeof app.rejected[key.sign.id] == "undefined")
+                  comm.cbKey(key);
+
+          break;
+        case 'message':
+          comm.cbMessage(comm.receiveMessage(obj.data));
+
+          break;
         }
       }
 
@@ -146,7 +153,9 @@ var comm = {
 
     //random x+2 octets & plaintext, where x is block size
     paddata = random.generate(app.ciphersize);
-    paddata = paddata.concat(paddata.slice(-2)).concat(message.plaintext.data);
+    paddata = paddata.concat(paddata.slice(-2))
+                     .concat(message.plaintext.data);
+
     return symmetric.encrypt(message.plaintext.sessionkey, paddata);
   },
 
@@ -163,7 +172,8 @@ var comm = {
 
     if (message.plaintext.sessionkey) {
       //discard x+2 random data, should check (x-1 == x+1 && x ==x+2)
-      return symmetric.decrypt(message.plaintext.sessionkey, message.encrypted.data).slice(message.plaintext.sessionkey.length+2);
+      return symmetric.decrypt(message.plaintext.sessionkey, message.encrypted.data)
+                      .slice(message.plaintext.sessionkey.length+2);
     } else {
       return null;
     }
@@ -174,13 +184,16 @@ var comm = {
 
     message.metadata.sendtime = Math.round(+new Date()/1000);
     message.metadata.recvtime = message.metadata.sendtime;
-    message.metadata.sender = app.keychain[app.myid].sign.id;
+    message.metadata.sender   = app.myid;
 
     message.plaintext.string = text;
-    message.plaintext.data = array.fromString(text).concat(0).concat(array.fromWord(message.metadata.sendtime)).concat(array.fromHex(message.metadata.sender));
+    message.plaintext.data   = array.fromString(text)
+                                    .concat(0)
+                                    .concat(array.fromWord(message.metadata.sendtime))
+                                    .concat(array.fromHex(message.metadata.sender));
 
     message.metadata.signature = asymmetric.sign(app.signkey, message.plaintext.data);
-    message.metadata.verified = true;
+    message.metadata.verified  = true;
 
     message.plaintext.data = message.plaintext.data.concat(message.metadata.signature);
     message.encrypted.data = this.encryptMessage(message);
@@ -215,8 +228,6 @@ var comm = {
     if (typeof app.keychain[message.metadata.sender] == 'undefined') return null; //messages from rejected and unknown senders will be ignored at this point
 
     message.metadata.verified  = asymmetric.verify(app.keychain[message.metadata.sender].sign, message.plaintext.data.slice(0,i+13), message.metadata.signature);
-
-    //console.debug(message);
 
     return message;
   },
@@ -316,17 +327,20 @@ function PublicKey(data) {
     return (bits) ?  m : [m >> 8, m & 0xff];
   }
 
-  this.calcFingerprint = function(data, iskey) {
-    if (iskey) {
-      data = [4].concat(array.fromWord(data.created)).concat([data.type]).concat(this.calcMpiLength(data.mpi.n)).concat(data.mpi.n).concat(this.calcMpiLength(data.mpi.e)).concat(data.mpi.e);
-    }
+  this.calcFingerprint = function(data) {
+    data = [4].concat(array.fromWord(data.created))
+              .concat([data.type])
+              .concat(this.calcMpiLength(data.mpi.n))
+              .concat(data.mpi.n)
+              .concat(this.calcMpiLength(data.mpi.e))
+              .concat(data.mpi.e);
 
     return array.toHex(hash.digest([0x99, (data.length >> 8), (data.length & 0xff)].concat(data)));
   }
 
   this.calcKeyInfo = function(key) {
     key.size        = this.calcMpiLength(key.mpi.n, true);
-    key.fingerprint = this.calcFingerprint(key, true);
+    key.fingerprint = this.calcFingerprint(key);
     key.id          = key.fingerprint.substr(-16);
   }
 
