@@ -234,13 +234,7 @@ var comm = {
 
   sendKey: function() {
     var str = JSON.stringify({"type": "key",
-                              "data": { "name":    app.keychain[app.myid].name,
-                                        "encrypt": { "type": app.keychain[app.myid].encrypt.type,
-                                                      "created": app.keychain[app.myid].encrypt.created,
-                                                      "mpi": app.keychain[app.myid].encrypt.mpi },
-                                        "sign":    { "type": app.keychain[app.myid].sign.type,
-                                                     "created": app.keychain[app.myid].sign.created,
-                                                     "mpi": app.keychain[app.myid].sign.mpi } } });
+                              "data": app.keychain[app.myid]});
 
     this.socket.send(str);
   },
