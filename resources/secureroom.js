@@ -245,27 +245,15 @@ var comm = {
 }
 
 var array = {
+  //to/from string not currently handling charcode < 16 - if needed use ('0'+s).slice(-2);
   toString: function(input) {
-    return decodeURIComponent(input.map(function(v) {return '%'+('0'+v.toString(16)).slice(-2);}).join(''));
+    return decodeURIComponent(input.map(function(v) {return '%'+v.toString(16);}).join(''));
   },
 
+  //replace match not followed by %: %25(?!%) - not needed as % is double encoded to %2525 anyway
   fromString: function(input) {
-    //only work for non-latin chars
-    //var a = encodeURIComponent(s).slice(1).split('%').map(function(v){return parseInt(v, 16);})
-    for (var c, j = 0, out = [], i = 0; i < input.length; i++) {
-      c = input.charCodeAt(i);
-      if ( c < 128 ) {
-        out[j++] = c;
-      } else if ( (c > 127) && (c < 2048) ) {
-        out[j++] = (c >> 6) | 192;
-        out[j++] = (c & 0x3f) | 128;
-      } else {
-        out[j++] = (c >> 12) | 224;
-        out[j++] = ((c >> 6) & 0x3f) | 128;
-        out[j++] = (c & 0x3f) | 128;
-      }
-    }
-    return out;
+    return encodeURIComponent(s.split('').map(function(v){return (v.charCodeAt(0) < 128) ? '%'+v.charCodeAt(0).toString(16) : v;}).join('')).replace(/%25/g,'%')
+            .slice(1).split('%').map(function(v){return parseInt(v, 16);});
   },
 
   toHex: function(input) {
