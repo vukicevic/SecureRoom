@@ -246,27 +246,12 @@ var comm = {
 
 var array = {
   toString: function(input) {
-    var out = '',
-      i = 0,
-      c1, c2, c3;
-
-    while (i < input.length) {
-      c1 = input[i++];
-      if (c1 < 128) {
-        out += String.fromCharCode(c1);
-      } else if((c1 > 191) && (c1 < 224)) {
-        c2 = input[i++];
-        out += String.fromCharCode(((c1 & 0x1f) << 6) | (c2 & 0x3f));
-      } else {
-        c2 = input[i++];
-        c3 = input[i++];
-        out += String.fromCharCode(((c1 & 0x0f) << 12) | ((c2 & 0x3f) << 6) | (c3 & 0x3f));
-      }
-    }
-    return out;
+    return decodeURIComponent(input.map(function(v) {return '%'+('0'+v.toString(16)).slice(-2);}).join(''));
   },
 
   fromString: function(input) {
+    //only work for non-latin chars
+    //var a = encodeURIComponent(s).slice(1).split('%').map(function(v){return parseInt(v, 16);})
     for (var c, j = 0, out = [], i = 0; i < input.length; i++) {
       c = input.charCodeAt(i);
       if ( c < 128 ) {
@@ -283,17 +268,12 @@ var array = {
     return out;
   },
 
-  toHex: function(a) {
-    for (var o = '', i = 0; i < a.length; i++) {
-      o += ('0'+a[i].toString(16)).substr(-2);
-    }
-    return o;
+  toHex: function(input) {
+    return input.map(function(v){return ('0'+v.toString(16)).slice(-2);}).join('');
   },
 
   fromHex: function(h) {
-    return h.match(/.{2}/g).map(function(v) {
-      return parseInt(v, 16);
-    });
+    return h.match(/.{2}/g).map(function(v){return parseInt(v, 16);});
   },
 
   toWord: function(a) {
