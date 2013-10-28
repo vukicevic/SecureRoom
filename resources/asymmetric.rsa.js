@@ -91,7 +91,7 @@ var asymmetric = {
 function Keygen(bits) {
   this.size  = bits;
   this.mpi   = {n: [], e: [], p: [], q: [], f: [], d: [], u: [], dp: [], dq: []};
-  this.time  = 0;
+  this.created = 0;
   this.ready = false;
   this.timer = null;
 
@@ -152,7 +152,7 @@ function Keygen(bits) {
 
     if (this.mpi.d.length != 0) {
       this.ready = true;
-      this.time  = Math.round(+new Date()/1000);
+      this.created = Math.round(+new Date()/1000);
     } else {
       this.mpi.p = null;
       this.mpi.q = null;

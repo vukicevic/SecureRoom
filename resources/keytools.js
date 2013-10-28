@@ -22,55 +22,67 @@ var keytools = {
     }
   },
 
-  createMpiLength: function(mpi) {
+  createMpi: function(mpi) {
     for (var i = 0, m = 128; i < 8; i++, m /= 2)
       if (mpi[0] >= m) 
         break;
 
     m = mpi.length*8 - i;
 
-    return [m >> 8, m & 0xff];
+    return [m >> 8, m & 0xff].concat(mpi);
   },
 
-  createKey: function(key) {
-    var namePacket = array.fromString(key.name),
-        encryptPacket,
-        signPacket, 
-        elen = 10 + key.encrypt.mpi.n.length + key.encrypt.mpi.e.length,
-        slen = 10 + key.sign.mpi.n.length + key.sign.mpi.e.length;
-    
-    //check length, currently assumed less than 256
-    namePacket = [this.createTag(13, namePacket.length)].concat(this.createLength(namePacket.length))
-                                                        .concat(namePacket);
-    
-    encryptPacket = [this.createTag(6, elen)].concat(this.createLength(elen))
-                                             .concat([4])
-                                             .concat(array.fromWord(key.encrypt.created))
-                                             .concat([2])
-                                             .concat(this.createMpiLength(key.encrypt.mpi.n))
-                                             .concat(key.encrypt.mpi.n)
-                                             .concat(this.createMpiLength(key.encrypt.mpi.e))
-                                             .concat(key.encrypt.mpi.e);
+  createKeyPacket: function(key, type, private) {
+    var len = 10 + key.mpi.n.length + key.mpi.e.length,
+        tag, result, temp;
 
-    signPacket = [this.createTag(14, slen)].concat(this.createLength(slen))
-                                           .concat([4])
-                                           .concat(array.fromWord(key.sign.created))
-                                           .concat([3])
-                                           .concat(this.createMpiLength(key.sign.mpi.n))
-                                           .concat(key.sign.mpi.n)
-                                           .concat(this.createMpiLength(key.sign.mpi.e))
-                                           .concat(key.sign.mpi.e);
+    if (type == 3) {
+      tag = (private) ? 5 : 6;
+    } else {
+      tag = (private) ? 7 : 14;
+    }
 
-    return encryptPacket.concat(namePacket)
-                        .concat(signPacket);
+    result = [this.createTag(tag, len)].concat(this.createLength(len))
+                                       .concat([4])
+                                       .concat(array.fromWord(key.created))
+                                       .concat([type])
+                                       .concat(this.createMpi(key.mpi.n))
+                                       .concat(this.createMpi(key.mpi.e));
+
+    if (private) {
+      temp = [0].concat(this.createMpi(key.mpi.d));
+      
+      if (mpi.cmp(key.mpi.p, key.mpi.q) == -1) {
+        temp = temp.concat(this.createMpi(key.mpi.p)).concat(this.createMpi(key.mpi.q));
+      } else {
+        temp = temp.concat(this.createMpi(key.mpi.q)).concat(this.createMpi(key.mpi.p));
+      }
+      
+      temp = temp.concat(this.createMpi(key.mpi.u));
+      
+      for (var c = 0, i = 0; i < temp.length; i++)
+        c += temp[i];
+
+      result = result.concat(temp.concat([(c%65536) >> 8, (c%65536) & 0xff]));
+
+    }
+
+    return result;
   },
 
-  exportPublicKey: function(key) {
-    var packets = this.createKey(key);
-        headers = {"Version": "SecureRoom 1.0"},
-        type    = "PUBLIC KEY BLOCK";
+  createNamePacket: function(name) {
+    var namePacket = array.fromString(name);
+    return [this.createTag(13, namePacket.length)].concat(this.createLength(namePacket.length)).concat(namePacket);
+  },
 
-    return armor.dress({"type": type, "headers": headers, "packets": packets});
+  exportKey: function(name, encrypt, sign, private) {
+    var headers       = {"Version": "SecureRoom 1.0"},
+        type          = (private) ? "PRIVATE KEY BLOCK" : "PUBLIC KEY BLOCK",
+        namePacket    = this.createNamePacket(name),
+        encryptPacket = this.createKeyPacket(encrypt, 2, private),
+        signPacket    = this.createKeyPacket(sign, 3, private);
+    
+    return armor.dress({"type": type, "headers": headers, "packets": signPacket.concat(namePacket).concat(encryptPacket)});
   }
 }
 

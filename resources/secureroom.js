@@ -37,11 +37,11 @@ var app = {
     if (app.signkey.ready && app.encryptkey.ready) {
       var key = new PublicKey({ "name": app.nickname,
                                 "encrypt": { "type": 2,
-                                             "created": app.encryptkey.time, 
+                                             "created": app.encryptkey.created, 
                                              "mpi": { "e": app.encryptkey.mpi.e,
                                                       "n": app.encryptkey.mpi.n} },
                                 "sign": {"type": 3,
-                                         "created": app.signkey.time,
+                                         "created": app.signkey.created,
                                          "mpi": { "e": app.signkey.mpi.e,
                                                   "n": app.signkey.mpi.n} } });
 
@@ -252,7 +252,7 @@ var array = {
 
   //replace match not followed by %: %25(?!%) - not needed as % is double encoded to %2525 anyway
   fromString: function(input) {
-    return encodeURIComponent(s.split('').map(function(v){return (v.charCodeAt(0) < 128) ? '%'+v.charCodeAt(0).toString(16) : v;}).join('')).replace(/%25/g,'%')
+    return encodeURIComponent(input.split('').map(function(v){return (v.charCodeAt(0) < 128) ? '%'+v.charCodeAt(0).toString(16) : v;}).join('')).replace(/%25/g,'%')
             .slice(1).split('%').map(function(v){return parseInt(v, 16);});
   },
 
