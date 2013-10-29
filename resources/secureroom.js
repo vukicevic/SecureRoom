@@ -64,6 +64,14 @@ var app = {
     this.completeKeyGeneration();
   },
 
+  generateKeySignature: function() {
+    var shsh = keytools.generateSignatureHash(this.signkey, this.nickname).
+        ehsh = keytools.generateSignatureHash(this.encryptkey);
+
+    this.keychain[this.myid].sign.signature    = asymmetric.sign(this.signkey, shsh);
+    this.keychain[this.myid].encrypt.signature = asymmetric.sign(this.signkey, ehsh);
+  },
+
   getServer: function() {
     return (app.getParameter('server')) ? 'wss://'+app.getParameter('server')+':443/ws/' : 'wss://'+document.location.host+':443/ws/';
   },

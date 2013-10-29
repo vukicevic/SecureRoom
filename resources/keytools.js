@@ -75,6 +75,49 @@ var keytools = {
     return [this.createTag(13, namePacket.length)].concat(this.createLength(namePacket.length)).concat(namePacket);
   },
 
+  createSignaturePacket: function(meta, hash, signature) {
+    return meta.concat(hash.slice(0,2)).concat(signature);
+  },
+
+  generateSignatureHash: function(key, name) {
+    var data, meta, pref;
+    if (typeof name != "undefined") {
+      data = this.createKeyPacket(key, 3)
+              //[180].concat(array.fromWord(l));
+              //.concat(this.createNamePacket(name));
+      meta = this.signSignatureMeta(key);
+    } else {
+      data = this.createKeyPacket(key, 2);
+      meta = this.encryptSignatureMeta(key);
+    }
+
+    pref = [153, l, l]
+
+    return hash.digest(
+      pref.concat(data)
+          .concat(meta.slice(0, meta.length-12))
+          .concat([4,255])
+          .concat(array.fromWord(meta.length-12))
+    );
+  },
+
+  encryptSignatureMeta: function(encrypt) {
+    return [4,24,2,2,0,15,5,2].concat(array.fromWord(encrypt.created))
+                              .concat([2,27,4,5,9])
+                              .concat(array.fromWord(encrypt.created+86400))
+                              .concat([0,10,9,16])
+                              .concat(array.fromHex(encrypt.id));
+  },
+
+  signSignatureMeta: function(sign) {
+    return [4,19,3,2,0,27,5,2].concat(array.fromWord(sign.created))
+                              .concat([3,27,1,2,5,9])
+                              .concat(array.fromWord(sign.created+86400))
+                              .concat([4,11,7,8,9,2,21,2,2,22,0])
+                              .concat([0,10,9,16])
+                              .concat(array.fromHex(sign.id));
+  },
+
   exportKey: function(name, encrypt, sign, private) {
     var headers       = {"Version": "SecureRoom 1.0"},
         type          = (private) ? "PRIVATE KEY BLOCK" : "PUBLIC KEY BLOCK",
