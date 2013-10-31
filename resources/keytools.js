@@ -82,9 +82,11 @@ var keytools = {
   generateSignatureHash: function(key, name) {
     var data, meta, pref;
     if (typeof name != "undefined") {
+      name = array.fromString(name);
       data = this.createKeyPacket(key, 3)
-              //[180].concat(array.fromWord(l));
-              //.concat(this.createNamePacket(name));
+              .concat([180])
+              .concat(array.fromWord(name.length))
+              .concat(name);
       meta = this.signSignatureMeta(key);
     } else {
       data = this.createKeyPacket(key, 2);
