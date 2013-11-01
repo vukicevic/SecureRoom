@@ -76,30 +76,33 @@ var keytools = {
   },
 
   createSignaturePacket: function(meta, hash, signature) {
-    return meta.concat(hash.slice(0,2)).concat(signature);
+    var sigPacket = meta.concat(hash.slice(0,2)).concat(signature);
+    return [this.createTag(2, sigPacket.length)].concat(this.createLength(sigPacket.length)).concat(sigPacket);
   },
 
-  generateSignatureHash: function(key, name) {
-    var data, meta, pref;
-    if (typeof name != "undefined") {
-      name = array.fromString(name);
-      data = this.createKeyPacket(key, 3)
-              .concat([180])
-              .concat(array.fromWord(name.length))
-              .concat(name);
-      meta = this.signSignatureMeta(key);
-    } else {
-      data = this.createKeyPacket(key, 2);
-      meta = this.encryptSignatureMeta(key);
-    }
+  encryptSignatureHash: function(meta, encrypt, sign) {
+    var sdat, edat, suff;
 
-    pref = [153, l, l]
+    sdat = [153,0,0,4].concat(array.fromWord(sign.created))
+                      .concat([3])
+                      .concat(this.createMpi(sign.mpi.n))
+                      .concat(this.createMpi(sign.mpi.e));
+
+    sdat[1] = (sdat.length-3) >> 8;
+    sdat[2] = (sdat.length-3) && 0xff;
+
+    edat = [153,0,0,4].concat(array.fromWord(encrypt.created))
+                      .concat([2])
+                      .concat(this.createMpi(encrypt.mpi.n))
+                      .concat(this.createMpi(encrypt.mpi.e));
+
+    edat[1] = (edat.length-3) >> 8;
+    edat[2] = (edat.length-3) && 0xff;
+
+    suff = [4,255].concat(array.fromWord(meta.length-12));
 
     return hash.digest(
-      pref.concat(data)
-          .concat(meta.slice(0, meta.length-12))
-          .concat([4,255])
-          .concat(array.fromWord(meta.length-12))
+      sdat.concat(edat).concat(meta.slice(0, meta.length-12)).concat(suff);
     );
   },
 
@@ -112,8 +115,8 @@ var keytools = {
   },
 
   signSignatureMeta: function(sign) {
-    return [4,19,3,2,0,27,5,2].concat(array.fromWord(sign.created))
-                              .concat([3,27,1,2,5,9])
+    return [4,19,3,2,0,26,5,2].concat(array.fromWord(sign.created))
+                              .concat([2,27,3,5,9])
                               .concat(array.fromWord(sign.created+86400))
                               .concat([4,11,7,8,9,2,21,2,2,22,0])
                               .concat([0,10,9,16])
