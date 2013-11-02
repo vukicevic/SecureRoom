@@ -80,7 +80,28 @@ var keytools = {
     return [this.createTag(2, sigPacket.length)].concat(this.createLength(sigPacket.length)).concat(sigPacket);
   },
 
-  encryptSignatureHash: function(meta, encrypt, sign) {
+  signSignatureHash: function(meta, sign, name) {
+    var sdat, udat, suff;
+
+    sdat = [153,0,0,4].concat(array.fromWord(sign.created))
+                      .concat([3])
+                      .concat(this.createMpi(sign.mpi.n))
+                      .concat(this.createMpi(sign.mpi.e));
+
+    sdat[1] = (sdat.length-3) >> 8;
+    sdat[2] = (sdat.length-3) && 0xff;
+
+    udat = [180].concat(array.fromWord(name.length))
+                .concat(array.fromString(name));
+
+    suff = [4,255].concat(array.fromWord(meta.length-12));
+
+    return hash.digest(
+      sdat.concat(udat).concat(meta.slice(0, meta.length-12)).concat(suff);
+    );
+  },
+
+  encryptSignatureHash: function(meta, sign, encrypt) {
     var sdat, edat, suff;
 
     sdat = [153,0,0,4].concat(array.fromWord(sign.created))
