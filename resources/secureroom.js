@@ -50,6 +50,9 @@ var app = {
       app.keymap[key.encrypt.id] = app.myid;
 
       if (app.room == '') app.room = app.myid.substr(-8);
+
+      app.generateKeySignature();
+      console.log(app.keychain[app.myid]);
       app.cbKeygen();
     } else {
       window.setTimeout("app.completeKeyGeneration()", 200);
@@ -65,11 +68,11 @@ var app = {
   },
 
   generateKeySignature: function() {
-    var shsh = keytools.generateSignatureHash(this.signkey, this.nickname).
-        ehsh = keytools.generateSignatureHash(this.encryptkey);
+    var shsh = keytools.generateSignatureHash(app.keychain[app.myid].sign, app.nickname),
+        ehsh = keytools.generateSignatureHash(app.keychain[app.myid].sign, app.keychain[app.myid].encrypt);
 
-    this.keychain[this.myid].sign.signature    = asymmetric.sign(this.signkey, shsh);
-    this.keychain[this.myid].encrypt.signature = asymmetric.sign(this.signkey, ehsh);
+    app.keychain[app.myid].sign.signature    = asymmetric.sign(app.signkey, shsh, true);
+    app.keychain[app.myid].encrypt.signature = asymmetric.sign(app.signkey, ehsh, true);
   },
 
   getServer: function() {

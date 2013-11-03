@@ -18,30 +18,53 @@ var asymmetric = {
   name: 'RSA',
 
   encrypt: function(key, data) {
-    var pad = this.padding.encode(data, key.size);
+    var pad = this.encryptPadding.encode(data, key.size);
     return mpi.c28to8(mpi.exp(mpi.c8to28(pad), mpi.c8to28(key.mpi.e), mpi.c8to28(key.mpi.n)));
   },
 
   decrypt: function(key, data) {
     var pad = mpi.c28to8(mpi.gar(mpi.c8to28(data), mpi.c8to28(key.mpi.p), mpi.c8to28(key.mpi.q), mpi.c8to28(key.mpi.d), mpi.c8to28(key.mpi.u), mpi.c8to28(key.mpi.dp), mpi.c8to28(key.mpi.dq)));
-    return this.padding.decode(pad);
+    return this.encryptPadding.decode(pad);
   },
 
-  sign: function(key, data) {
-    return mpi.c28to8(mpi.gar(mpi.c8to28(hash.digest(data)), mpi.c8to28(key.mpi.p), mpi.c8to28(key.mpi.q), mpi.c8to28(key.mpi.d), mpi.c8to28(key.mpi.u), mpi.c8to28(key.mpi.dp), mpi.c8to28(key.mpi.dq)));
+  sign: function(key, data, prehashed) {
+    var dat = this.signaturePadding.encode(key.size, data, prehashed);
+    return mpi.c28to8(mpi.gar(mpi.c8to28(dat), mpi.c8to28(key.mpi.p), mpi.c8to28(key.mpi.q), mpi.c8to28(key.mpi.d), mpi.c8to28(key.mpi.u), mpi.c8to28(key.mpi.dp), mpi.c8to28(key.mpi.dq)));
   },
 
-  verify: function(key, data, signature) {
-    if (mpi.cmp(mpi.c8to28(hash.digest(data)), mpi.exp(mpi.c8to28(signature), mpi.c8to28(key.mpi.e), mpi.c8to28(key.mpi.n))) === 0) {
-      return true;
-    } else {
-      return false;
+  verify: function(key, data, signature, prehashed) {
+    var dat = mpi.c8to28(this.signaturePadding.encode(key.size, data, prehashed)),
+        sig = mpi.exp(mpi.c8to28(signature), mpi.c8to28(key.mpi.e), mpi.c8to28(key.mpi.n));
+
+    return (mpi.cmp(dat, sig) === 0);
+  },
+
+  signaturePadding: {
+    name: 'EMSA-PKCS1-v1_5',
+
+    encode: function(keysize, data, prehashed) {
+      var pad = [],
+          //padLen = Math.floor(keysize/8) - (2 + hash.der.length + hash.length);
+          padLen = Math.floor(keysize/8) - 38; //problem with padding - GPG not accepting smaller padding ??
+
+      while(padLen--)
+        pad[padLen] = 255;
+
+      if (!prehashed)
+        data = hash.digest(data);
+
+      var tmp = [1].concat(pad)
+                .concat([0])
+                .concat(hash.der)
+                .concat(data);
+      console.log(tmp)
+
+      return tmp;
     }
   },
 
-  padding: {
-    name: 'OAEP',
-    algorithm: 1,
+  encryptPadding: {
+    name: 'RSA-OAEP',
 
     mgf: function(z, l) {
       for (var t = [], c = [0,0,0,0], s = Math.ceil(l/20)-1, i = 0; i <= s; i++) {

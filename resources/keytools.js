@@ -75,73 +75,72 @@ var keytools = {
     return [this.createTag(13, namePacket.length)].concat(this.createLength(namePacket.length)).concat(namePacket);
   },
 
-  createSignaturePacket: function(meta, hash, signature) {
-    var sigPacket = meta.concat(hash.slice(0,2)).concat(signature);
+  createSignaturePacket: function(signer, data) {
+    var sigMeta, sigHash, sigPacket, sigSigned;
+
+    if (typeof data == "string") {
+      sigMeta   = this.signSignatureMeta(signer);
+      sigSigned = signer.signature;
+    } else {
+      sigMeta   = this.encryptSignatureMeta(data);
+      sigSigned = data.signature;
+    }
+
+    sigHash   = this.generateSignatureHash(signer, data);
+    sigPacket = sigMeta.concat([0,10,9,16])
+                       .concat(array.fromHex(signer.id))
+                       .concat(sigHash.slice(0,2))
+                       .concat(this.createMpi(sigSigned));
+
     return [this.createTag(2, sigPacket.length)].concat(this.createLength(sigPacket.length)).concat(sigPacket);
   },
 
-  signSignatureHash: function(meta, sign, name) {
-    var sdat, udat, suff;
-
-    sdat = [153,0,0,4].concat(array.fromWord(sign.created))
-                      .concat([3])
-                      .concat(this.createMpi(sign.mpi.n))
-                      .concat(this.createMpi(sign.mpi.e));
-
-    sdat[1] = (sdat.length-3) >> 8;
-    sdat[2] = (sdat.length-3) && 0xff;
-
-    udat = [180].concat(array.fromWord(name.length))
-                .concat(array.fromString(name));
-
-    suff = [4,255].concat(array.fromWord(meta.length-12));
-
-    return hash.digest(
-      sdat.concat(udat).concat(meta.slice(0, meta.length-12)).concat(suff);
-    );
-  },
-
-  encryptSignatureHash: function(meta, sign, encrypt) {
-    var sdat, edat, suff;
-
-    sdat = [153,0,0,4].concat(array.fromWord(sign.created))
-                      .concat([3])
-                      .concat(this.createMpi(sign.mpi.n))
-                      .concat(this.createMpi(sign.mpi.e));
-
-    sdat[1] = (sdat.length-3) >> 8;
-    sdat[2] = (sdat.length-3) && 0xff;
-
-    edat = [153,0,0,4].concat(array.fromWord(encrypt.created))
-                      .concat([2])
-                      .concat(this.createMpi(encrypt.mpi.n))
-                      .concat(this.createMpi(encrypt.mpi.e));
-
-    edat[1] = (edat.length-3) >> 8;
-    edat[2] = (edat.length-3) && 0xff;
-
-    suff = [4,255].concat(array.fromWord(meta.length-12));
-
-    return hash.digest(
-      sdat.concat(edat).concat(meta.slice(0, meta.length-12)).concat(suff);
-    );
-  },
-
   encryptSignatureMeta: function(encrypt) {
-    return [4,24,2,2,0,15,5,2].concat(array.fromWord(encrypt.created))
+    return [4,24,2,2,0,15,5,2].concat(array.fromWord(encrypt.created+2))
                               .concat([2,27,4,5,9])
-                              .concat(array.fromWord(encrypt.created+86400))
-                              .concat([0,10,9,16])
-                              .concat(array.fromHex(encrypt.id));
+                              .concat(array.fromWord(86400));
   },
 
   signSignatureMeta: function(sign) {
-    return [4,19,3,2,0,26,5,2].concat(array.fromWord(sign.created))
+    return [4,19,3,2,0,26,5,2].concat(array.fromWord(sign.created+2))
                               .concat([2,27,3,5,9])
-                              .concat(array.fromWord(sign.created+86400))
-                              .concat([4,11,7,8,9,2,21,2,2,22,0])
-                              .concat([0,10,9,16])
-                              .concat(array.fromHex(sign.id));
+                              .concat(array.fromWord(86400))
+                              .concat([4,11,7,8,9,2,21,2,2,22,0]);
+  },
+
+  generateSignatureHash: function(sign, data) {
+    var sdat, edat, meta, suff;
+
+    sdat = [153,0,0,4].concat(array.fromWord(sign.created))
+                      .concat([3])
+                      .concat(this.createMpi(sign.mpi.n))
+                      .concat(this.createMpi(sign.mpi.e));
+
+    sdat[1] = (sdat.length-3) >> 8;
+    sdat[2] = (sdat.length-3) & 0xff;
+
+    if(typeof data == "string") {
+      edat = [180].concat(array.fromWord(data.length))
+                  .concat(array.fromString(data));
+
+      meta = this.signSignatureMeta(sign);
+    } else {
+      edat = [153,0,0,4].concat(array.fromWord(data.created))
+                        .concat([2])
+                        .concat(this.createMpi(data.mpi.n))
+                        .concat(this.createMpi(data.mpi.e));
+
+      edat[1] = (edat.length-3) >> 8;
+      edat[2] = (edat.length-3) & 0xff;
+
+      meta = this.encryptSignatureMeta(data);
+    }
+
+    suff = [4,255].concat(array.fromWord(meta.length));
+
+    return hash.digest(
+      sdat.concat(edat).concat(meta).concat(suff)
+    );
   },
 
   exportKey: function(name, encrypt, sign, private) {
@@ -149,9 +148,11 @@ var keytools = {
         type          = (private) ? "PRIVATE KEY BLOCK" : "PUBLIC KEY BLOCK",
         namePacket    = this.createNamePacket(name),
         encryptPacket = this.createKeyPacket(encrypt, 2, private),
-        signPacket    = this.createKeyPacket(sign, 3, private);
+        signPacket    = this.createKeyPacket(sign, 3, private),
+        signSigPacket = this.createSignaturePacket(sign, name), 
+        encSigPacket  = this.createSignaturePacket(sign, encrypt);
     
-    return armor.dress({"type": type, "headers": headers, "packets": signPacket.concat(namePacket).concat(encryptPacket)});
+    return armor.dress({"type": type, "headers": headers, "packets": signPacket.concat(namePacket).concat(signSigPacket).concat(encryptPacket).concat(encSigPacket)});
   }
 }
 
