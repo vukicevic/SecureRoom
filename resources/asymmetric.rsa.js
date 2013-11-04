@@ -173,6 +173,7 @@ function Keygen(bits) {
     if (this.mpi.d.length != 0) {
       this.ready = true;
       this.created = Math.round(+new Date()/1000);
+      this.size = mpi.msb(this.mpi.n[0]) + (this.mpi.n.length-1)*28;
     } else {
       this.mpi.p = null;
       this.mpi.q = null;
@@ -194,7 +195,6 @@ function Keygen(bits) {
     this.mpi.d = mpi.c28to8(this.mpi.d);
     this.mpi.p = mpi.c28to8(this.mpi.p);
     this.mpi.q = mpi.c28to8(this.mpi.q);
-
   };
 
   this.createPworker();

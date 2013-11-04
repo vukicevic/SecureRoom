@@ -317,23 +317,32 @@
           sp.innerHTML = 'DISABLED';
         }
         
-        sp.onclick = function() { iToggleKey(sp); };
+        sp.onclick = function(elem) { 
+                      return function() { iToggleKey(elem); } 
+                     }(sp);
+
         sp.id = 'switch'+keyid;
       } else {
         li.className = 'mykey';
         sp.className = 'switch';
         sp.innerHTML = 'PRIVATE KEY';
+        sp.onclick = function(elem) { 
+          return function() { iToggleExport(elem); }
+        }(di);
       }
       
       li.id = keyid;
       
       di.className = 'export';
-      tx.innerHTML = keytools.exportKey(app.nickname, app.keychain[app.myid].encrypt, app.keychain[app.myid].sign);
+      di.style.display = 'none';
+      tx.innerHTML = keytools.exportKey(app.keychain[keyid].name, app.keychain[keyid].encrypt, app.keychain[keyid].sign);
       di.appendChild(tx);
       
       ex.innerHTML = 'PUBLIC KEY';
       ex.className = 'switch';
-      ex.onclick = function() { iToggleExport(di); };
+      ex.onclick = function(elem) { 
+        return function() { iToggleExport(elem); }
+      }(di);
 
       h3.appendChild(document.createTextNode(app.keychain[keyid].name));
       li.appendChild(di);
@@ -463,8 +472,10 @@
   }
 
   function iToggleExport(elem) {
-    elem.style.display = (elem.style.display == '' || elem.style.display == 'none') ? 'block' : 'none';
-  } 
+    elem.style.display = (elem.style.display == 'none') ? 'block' : 'none'; 
+    elem.style.left    = (elem.parentNode.getBoundingClientRect().left - 1)+'px';
+    elem.style.top     = '-'+(elem.offsetHeight - (elem.parentNode.getBoundingClientRect().top - elem.parentNode.parentNode.getBoundingClientRect().top))+'px';
+  }
   </script>
 </head>
 <body>
