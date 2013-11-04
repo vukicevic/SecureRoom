@@ -295,7 +295,7 @@
 
   function iRefreshKeychain() {
     var kc = document.getElementById('keychain'),
-        li, sp, h3;
+        li, sp, h3, ex, di, tx;
 
     while (kc.firstChild) kc.removeChild(kc.firstChild);
 
@@ -303,25 +303,42 @@
       li = document.createElement('li');
       h3 = document.createElement('h3');
       sp = document.createElement('span');
+      ex = document.createElement('span');
+      di = document.createElement('div');
+      tx = document.createElement('textarea');
+      
       if (app.myid != keyid) {
         if (app.keychain[keyid].active) {
           sp.className = 'switch';
-          sp.innerHTML = 'ON';
+          sp.innerHTML = 'ACTIVE';
         } else {
           li.className = 'inactive';
           sp.className = 'switch inactive';
-          sp.innerHTML = 'OFF';
+          sp.innerHTML = 'DISABLED';
         }
-        li.onclick = function() { iToggleKey(sp); };
-
+        
+        sp.onclick = function() { iToggleKey(sp); };
         sp.id = 'switch'+keyid;
       } else {
         li.className = 'mykey';
+        sp.className = 'switch';
+        sp.innerHTML = 'PRIVATE KEY';
       }
+      
       li.id = keyid;
+      
+      di.className = 'export';
+      tx.innerHTML = keytools.exportKey(app.nickname, app.keychain[app.myid].encrypt, app.keychain[app.myid].sign);
+      di.appendChild(tx);
+      
+      ex.innerHTML = 'PUBLIC KEY';
+      ex.className = 'switch';
+      ex.onclick = function() { iToggleExport(di); };
 
       h3.appendChild(document.createTextNode(app.keychain[keyid].name));
+      li.appendChild(di);
       li.appendChild(h3);
+      li.appendChild(ex);
       li.appendChild(sp);
       li.appendChild(iKeyInfo(app.keychain[keyid]));
 
@@ -409,12 +426,12 @@
 
     if (app.keychain[key.id].active) {
       button.className = 'switch inactive';
-      button.innerHTML = 'OFF';
+      button.innerHTML = 'DISABLED';
       key.className = 'inactive';
       app.keychain[key.id].active = false;
     } else {
       button.className = 'switch';
-      button.innerHTML = 'ON';
+      button.innerHTML = 'ACTIVE';
       key.className = '';
       app.keychain[key.id].active = true;
     }
@@ -444,6 +461,10 @@
       button.className = 'info down';
     }
   }
+
+  function iToggleExport(elem) {
+    elem.style.display = (elem.style.display == '' || elem.style.display == 'none') ? 'block' : 'none';
+  } 
   </script>
 </head>
 <body>

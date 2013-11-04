@@ -45,7 +45,7 @@ var asymmetric = {
     encode: function(keysize, data, prehashed) {
       var pad = [],
           //padLen = Math.floor(keysize/8) - (2 + hash.der.length + hash.length);
-          padLen = Math.floor(keysize/8) - 38; //problem with padding - GPG not accepting smaller padding ??
+          padLen = Math.floor(keysize/8) - 38; //problem with padding - GPG not accepting shorter padding
 
       while(padLen--)
         pad[padLen] = 255;
@@ -53,13 +53,10 @@ var asymmetric = {
       if (!prehashed)
         data = hash.digest(data);
 
-      var tmp = [1].concat(pad)
+      return [1].concat(pad)
                 .concat([0])
                 .concat(hash.der)
                 .concat(data);
-      console.log(tmp)
-
-      return tmp;
     }
   },
 
