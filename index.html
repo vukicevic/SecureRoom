@@ -340,9 +340,9 @@
       
       ex.innerHTML = 'PUBLIC KEY';
       ex.className = 'switch';
-      ex.onclick = function(elem) { 
-        return function() { iToggleExport(elem); }
-      }(di);
+      ex.onclick = function(elem, button) { 
+        return function() { iToggleExport(elem, button); }
+      }(di, ex);
 
       h3.appendChild(document.createTextNode(app.keychain[keyid].name));
       li.appendChild(di);
@@ -471,8 +471,15 @@
     }
   }
 
-  function iToggleExport(elem) {
-    elem.style.display = (elem.style.display == 'none') ? 'block' : 'none'; 
+  function iToggleExport(elem, button) {
+    if (elem.style.display == 'none') {
+      elem.style.display = 'block';
+      button.className = 'switch selected';
+    } else {
+      elem.style.display = 'none';
+      button.className = 'switch';
+    }
+    
     elem.style.left    = (elem.parentNode.getBoundingClientRect().left - 1)+'px';
     elem.style.top     = '-'+(elem.offsetHeight - (elem.parentNode.getBoundingClientRect().top - elem.parentNode.parentNode.getBoundingClientRect().top))+'px';
   }

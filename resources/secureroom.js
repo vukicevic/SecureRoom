@@ -35,15 +35,16 @@ var app = {
 
   completeKeyGeneration: function() {
     if (app.signkey.ready && app.encryptkey.ready) {
-      var key = new PublicKey({ "name": app.nickname,
-                                "encrypt": { "type": 2,
-                                             "created": app.encryptkey.created, 
-                                             "mpi": { "e": app.encryptkey.mpi.e,
-                                                      "n": app.encryptkey.mpi.n} },
-                                "sign": {"type": 3,
-                                         "created": app.signkey.created,
-                                         "mpi": { "e": app.signkey.mpi.e,
-                                                  "n": app.signkey.mpi.n} } });
+      var key = new PublicKey({ name: app.nickname,
+                                encrypt: { created: app.encryptkey.created, 
+                                           mpi: { e: app.encryptkey.mpi.e,
+                                                  n: app.encryptkey.mpi.n }
+                                           },
+                                sign: { created: app.signkey.created,
+                                        mpi: { e: app.signkey.mpi.e,
+                                               n: app.signkey.mpi.n }
+                                        } 
+                              });
 
       app.myid = key.sign.id;
       app.keychain[app.myid] = key;
@@ -299,9 +300,9 @@ function PublicKey(data) {
     return (bits) ?  m : [m >> 8, m & 0xff];
   }
 
-  this.calcFingerprint = function(data) {
+  this.calcFingerprint = function(data, type) {
     data = [4].concat(array.fromWord(data.created))
-              .concat([data.type])
+              .concat([type])
               .concat(this.calcMpiLength(data.mpi.n))
               .concat(data.mpi.n)
               .concat(this.calcMpiLength(data.mpi.e))
@@ -310,9 +311,9 @@ function PublicKey(data) {
     return array.toHex(hash.digest([0x99, (data.length >> 8), (data.length & 0xff)].concat(data)));
   }
 
-  this.calcKeyInfo = function(key) {
+  this.calcKeyInfo = function(key, type) {
     key.size        = this.calcMpiLength(key.mpi.n, true);
-    key.fingerprint = this.calcFingerprint(key);
+    key.fingerprint = this.calcFingerprint(key, type);
     key.id          = key.fingerprint.substr(-16);
   }
 
@@ -320,10 +321,10 @@ function PublicKey(data) {
     this.name = data.name;
     
     this.encrypt = data.encrypt;
-    this.calcKeyInfo(this.encrypt);
+    this.calcKeyInfo(this.encrypt, 2);
 
     this.sign = data.sign;
-    this.calcKeyInfo(this.sign);
+    this.calcKeyInfo(this.sign, 3);
   }
 }
 
