@@ -32,14 +32,32 @@ var keytools = {
     return [m >> 8, m & 0xff].concat(mpi);
   },
 
-  createKeyPacket: function(key, type, private) {
-    var len = 10 + key.mpi.n.length + key.mpi.e.length,
-        tag, result, temp;
+  createKeyPacket: function(key, type, privateMpi) {
+    var len, tag, result, tmp;
 
-    if (type == 3) {
-      tag = (private) ? 5 : 6;
+    if (privateMpi) {
+      len = 21 + key.mpi.n.length + key.mpi.e.length + privateMpi.d.length + privateMpi.p.length + privateMpi.q.length + privateMpi.u.length;
+      tag = (type == 3) ? 5 : 7;
+      tmp = [0].concat(this.createMpi(privateMpi.d));
+      
+      if (mpi.cmp(privateMpi.p, privateMpi.q) == -1) {
+        tmp = tmp.concat(this.createMpi(privateMpi.p))
+                 .concat(this.createMpi(privateMpi.q));
+      } else {
+        tmp = tmp.concat(this.createMpi(privateMpi.q))
+                 .concat(this.createMpi(privateMpi.p));
+      }
+      
+      tmp = tmp.concat(this.createMpi(privateMpi.u));
+      
+      for (var c = 0, i = 0; i < tmp.length; i++)
+        c += tmp[i];
+
+      tmp = tmp.concat([(c%65536) >> 8, (c%65536) & 0xff]);
     } else {
-      tag = (private) ? 7 : 14;
+      len = 10 + key.mpi.n.length + key.mpi.e.length;
+      tag = (type == 3) ? 6 : 14;
+      tmp = [];
     }
 
     result = [this.createTag(tag, len)].concat(this.createLength(len))
@@ -49,25 +67,7 @@ var keytools = {
                                        .concat(this.createMpi(key.mpi.n))
                                        .concat(this.createMpi(key.mpi.e));
 
-    if (private) {
-      temp = [0].concat(this.createMpi(key.mpi.d));
-      
-      if (mpi.cmp(key.mpi.p, key.mpi.q) == -1) {
-        temp = temp.concat(this.createMpi(key.mpi.p)).concat(this.createMpi(key.mpi.q));
-      } else {
-        temp = temp.concat(this.createMpi(key.mpi.q)).concat(this.createMpi(key.mpi.p));
-      }
-      
-      temp = temp.concat(this.createMpi(key.mpi.u));
-      
-      for (var c = 0, i = 0; i < temp.length; i++)
-        c += temp[i];
-
-      result = result.concat(temp.concat([(c%65536) >> 8, (c%65536) & 0xff]));
-
-    }
-
-    return result;
+    return result.concat(tmp);
   },
 
   createNamePacket: function(name) {
@@ -143,12 +143,12 @@ var keytools = {
     );
   },
 
-  exportKey: function(name, encrypt, sign, private) {
+  exportKey: function(name, sign, encrypt, privateSignMpi, privateEncryptMpi) {
     var headers       = {"Version": "SecureRoom 1.0"},
-        type          = (private) ? "PRIVATE KEY BLOCK" : "PUBLIC KEY BLOCK",
+        type          = (privateSignMpi) ? "PRIVATE KEY BLOCK" : "PUBLIC KEY BLOCK",
         namePacket    = this.createNamePacket(name),
-        encryptPacket = this.createKeyPacket(encrypt, 2, private),
-        signPacket    = this.createKeyPacket(sign, 3, private),
+        encryptPacket = this.createKeyPacket(encrypt, 2, privateEncryptMpi),
+        signPacket    = this.createKeyPacket(sign, 3, privateSignMpi),
         signSigPacket = this.createSignaturePacket(sign, name), 
         encSigPacket  = this.createSignaturePacket(sign, encrypt);
     

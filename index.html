@@ -295,60 +295,70 @@
 
   function iRefreshKeychain() {
     var kc = document.getElementById('keychain'),
-        li, sp, h3, ex, di, tx;
+        li, nm, b1, b2, pu, pr, tu, tr;
 
     while (kc.firstChild) kc.removeChild(kc.firstChild);
 
     for (keyid in app.keychain) {
       li = document.createElement('li');
-      h3 = document.createElement('h3');
-      sp = document.createElement('span');
-      ex = document.createElement('span');
-      di = document.createElement('div');
-      tx = document.createElement('textarea');
+      nm = document.createElement('h3');
+      b1 = document.createElement('span');
+      b2 = document.createElement('span');
+      pu = document.createElement('div');
+      tu = document.createElement('textarea');
       
       if (app.myid != keyid) {
         if (app.keychain[keyid].active) {
-          sp.className = 'switch';
-          sp.innerHTML = 'ACTIVE';
+          b1.className = 'switch';
+          b1.innerHTML = 'ACTIVE';
         } else {
           li.className = 'inactive';
-          sp.className = 'switch inactive';
-          sp.innerHTML = 'DISABLED';
+          b1.className = 'switch inactive';
+          b1.innerHTML = 'DISABLED';
         }
         
-        sp.onclick = function(elem) { 
+        b1.onclick = function(elem) { 
                       return function() { iToggleKey(elem); } 
-                     }(sp);
+                     }(b1);
 
-        sp.id = 'switch'+keyid;
+        b1.id = 'switch'+keyid;
       } else {
         li.className = 'mykey';
-        sp.className = 'switch';
-        sp.innerHTML = 'PRIVATE KEY';
-        sp.onclick = function(elem) { 
-          return function() { iToggleExport(elem); }
-        }(di);
+        
+        tr = document.createElement('textarea');
+        tr.innerHTML = keytools.exportKey(app.keychain[keyid].name, app.keychain[keyid].sign, app.keychain[keyid].encrypt, app.signkey.mpi, app.encryptkey.mpi);
+
+        pr = document.createElement('div');
+        pr.appendChild(tr);
+        pr.className     = 'export';
+        pr.style.display = 'none';
+
+        b1.className = 'switch';
+        b1.innerHTML = 'PRIVATE KEY';
+        b1.onclick = function(elem, ctrl) { 
+          return function() { iToggleExport(elem, ctrl); }
+        }(pr, b1);
       }
       
       li.id = keyid;
-      
-      di.className = 'export';
-      di.style.display = 'none';
-      tx.innerHTML = keytools.exportKey(app.keychain[keyid].name, app.keychain[keyid].encrypt, app.keychain[keyid].sign);
-      di.appendChild(tx);
-      
-      ex.innerHTML = 'PUBLIC KEY';
-      ex.className = 'switch';
-      ex.onclick = function(elem, button) { 
-        return function() { iToggleExport(elem, button); }
-      }(di, ex);
 
-      h3.appendChild(document.createTextNode(app.keychain[keyid].name));
-      li.appendChild(di);
-      li.appendChild(h3);
-      li.appendChild(ex);
-      li.appendChild(sp);
+      tu.innerHTML     = keytools.exportKey(app.keychain[keyid].name, app.keychain[keyid].sign, app.keychain[keyid].encrypt);
+      pu.appendChild(tu);
+      pu.className     = 'export';
+      pu.style.display = 'none';
+
+      b2.innerHTML = 'PUBLIC KEY';
+      b2.className = 'switch';
+      b2.onclick = function(elem, ctrl) { 
+        return function() { iToggleExport(elem, ctrl); }
+      }(pu, b2);
+
+      nm.appendChild(document.createTextNode(app.keychain[keyid].name));
+      li.appendChild(pu);
+      li.appendChild(pr);
+      li.appendChild(nm);
+      li.appendChild(b2);
+      li.appendChild(b1);
       li.appendChild(iKeyInfo(app.keychain[keyid]));
 
       kc.appendChild(li);

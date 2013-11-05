@@ -37,23 +37,23 @@ var app = {
     if (app.signkey.ready && app.encryptkey.ready) {
       var key = new PublicKey({ name: app.nickname,
                                 encrypt: { created: app.encryptkey.created, 
-                                           mpi: { e: app.encryptkey.mpi.e,
-                                                  n: app.encryptkey.mpi.n }
-                                           },
+                                           mpi: { e: app.encryptkey.mpi.e, n: app.encryptkey.mpi.n }
+                                         },
                                 sign: { created: app.signkey.created,
-                                        mpi: { e: app.signkey.mpi.e,
-                                               n: app.signkey.mpi.n }
-                                        } 
+                                        mpi: { e: app.signkey.mpi.e, n: app.signkey.mpi.n }
+                                      }
                               });
 
-      app.myid = key.sign.id;
-      app.keychain[app.myid] = key;
+      app.myid                   = key.sign.id;
+      app.keychain[app.myid]     = key;
       app.keymap[key.encrypt.id] = app.myid;
+
+      app.signkey.size    = key.sign.size;
+      app.encryptkey.size = key.encrypt.size;
 
       if (app.room == '') app.room = app.myid.substr(-8);
 
       app.generateKeySignature();
-      console.log(app.keychain[app.myid]);
       app.cbKeygen();
     } else {
       window.setTimeout("app.completeKeyGeneration()", 200);

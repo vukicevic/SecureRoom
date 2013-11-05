@@ -44,11 +44,10 @@ var asymmetric = {
 
     encode: function(keysize, data, prehashed) {
       var pad = [],
-          //padLen = Math.floor(keysize/8) - (2 + hash.der.length + hash.length);
-          padLen = Math.floor(keysize/8) - 38; //problem with padding - GPG not accepting shorter padding
+          len = Math.floor((keysize + 7)/8) - (3 + hash.der.length + hash.length);
 
-      while(padLen--)
-        pad[padLen] = 255;
+      while(len--)
+        pad[len] = 255;
 
       if (!prehashed)
         data = hash.digest(data);
@@ -173,7 +172,6 @@ function Keygen(bits) {
     if (this.mpi.d.length != 0) {
       this.ready = true;
       this.created = Math.round(+new Date()/1000);
-      this.size = mpi.msb(this.mpi.n[0]) + (this.mpi.n.length-1)*28;
     } else {
       this.mpi.p = null;
       this.mpi.q = null;
