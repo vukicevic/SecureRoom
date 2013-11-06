@@ -434,6 +434,12 @@
     if (button.className == 'open' || close) {
       button.className = 'closed';
       menu.style.bottom = '-'+menu.clientHeight+'px';
+      
+      for (var i = 0, e = menu.getElementsByClassName('export'); i < e.length; i++)
+        e[i].style.display = 'none';
+
+      while (menu.getElementsByClassName('selected').length)
+        menu.getElementsByClassName('selected')[0].className = 'switch';
     } else {
       button.className = 'open';
       menu.style.bottom = (button.clientHeight-5)+'px';
