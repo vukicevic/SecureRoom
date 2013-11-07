@@ -295,31 +295,31 @@
 
   function iRefreshKeychain() {
     var kc = document.getElementById('keychain'),
-        li, nm, b1, b2, pu, pr, tu, tr;
+        li, nm, b1, b2, pu, pr, tu, tr, ct;
 
     while (kc.firstChild) kc.removeChild(kc.firstChild);
 
     for (keyid in app.keychain) {
       li = document.createElement('li');
-      nm = document.createElement('h3');
-      b1 = document.createElement('span');
-      b2 = document.createElement('span');
       pu = document.createElement('div');
       tu = document.createElement('textarea');
-      
+      nm = document.createElement('h3');
+      ct = document.createElement('div');
+      b1 = document.createElement('span');
+      b2 = document.createElement('span');
+
       if (app.myid != keyid) {
         if (app.keychain[keyid].active) {
-          b1.className = 'switch';
           b1.innerHTML = 'ACTIVE';
         } else {
           li.className = 'inactive';
-          b1.className = 'switch inactive';
+          b1.className = 'inactive';
           b1.innerHTML = 'DISABLED';
         }
         
-        b1.onclick = function(elem) { 
-                      return function() { iToggleKey(elem); } 
-                     }(b1);
+        b1.onclick = function(elem, ctrl) { 
+                      return function() { iToggleKey(elem, ctrl); } 
+                     }(li, b1);
 
         b1.id = 'switch'+keyid;
       } else {
@@ -333,14 +333,16 @@
         pr.className     = 'export';
         pr.style.display = 'none';
 
-        b1.className = 'switch';
         b1.innerHTML = 'PRIVATE KEY';
         b1.onclick = function(elem, ctrl) { 
           return function() { iToggleExport(elem, ctrl); }
         }(pr, b1);
+
+        li.appendChild(pr);
       }
       
       li.id = keyid;
+      ct.className = 'controls';
 
       tu.innerHTML     = keytools.exportKey(app.keychain[keyid].name, app.keychain[keyid].sign, app.keychain[keyid].encrypt);
       pu.appendChild(tu);
@@ -348,17 +350,17 @@
       pu.style.display = 'none';
 
       b2.innerHTML = 'PUBLIC KEY';
-      b2.className = 'switch';
       b2.onclick = function(elem, ctrl) { 
         return function() { iToggleExport(elem, ctrl); }
       }(pu, b2);
 
+      ct.appendChild(b1);
+      ct.appendChild(b2);
       nm.appendChild(document.createTextNode(app.keychain[keyid].name));
+
       li.appendChild(pu);
-      li.appendChild(pr);
       li.appendChild(nm);
-      li.appendChild(b2);
-      li.appendChild(b1);
+      li.appendChild(ct);
       li.appendChild(iKeyInfo(app.keychain[keyid]));
 
       kc.appendChild(li);
@@ -380,29 +382,24 @@
   }
 
   function iSetSize(elem) {
-    var i, nodes = elem.parentNode.childNodes;
-    for(i = 0; i < nodes.length; i++) {
-      if (nodes[i].nodeName.toLowerCase() == 'span') nodes[i].className = '';
-    }
+    while(elem.parentNode.getElementsByClassName('selected').length)
+      elem.parentNode.getElementsByClassName('selected')[0].className = '';
     elem.className = 'selected';
     return parseInt(elem.textContent);
   }
 
   function iDisableSettings() {
-    var i, server, nodes = document.getElementById('asymsize').childNodes;
-    for (i = 0; i < nodes.length; i++) {
-      if (nodes[i].nodeName.toLowerCase() == 'span') {
-        if (nodes[i].className == 'selected') {
-          nodes[i].onclick = null;
-          nodes[i].className = 'readonly';
-        } else {
-          nodes[i].parentNode.removeChild(nodes[i]);
-        }
+    for (var i = 0, n = document.getElementById('asymsize').querySelectorAll('span'); i < n.length; i++) {
+      if (n[i].className == 'selected') {
+        n[i].onclick = null;
+        n[i].className = 'disabled';
+      } else {
+        n[i].parentNode.removeChild(n[i]);
       }
     }
-    
-    server = document.getElementById("serverurl");
-    server.className = 'readonly';
+
+    var server = document.getElementById("serverurl");
+    server.className = 'disabled';
     server.contentEditable = false;
   }
 
@@ -439,23 +436,22 @@
         e[i].style.display = 'none';
 
       while (menu.getElementsByClassName('selected').length)
-        menu.getElementsByClassName('selected')[0].className = 'switch';
+        menu.getElementsByClassName('selected')[0].className = '';
+
     } else {
       button.className = 'open';
       menu.style.bottom = (button.clientHeight-5)+'px';
     }
   }
 
-  function iToggleKey(button) {
-    var key = button.parentNode;
-
+  function iToggleKey(key, button) {
     if (app.keychain[key.id].active) {
-      button.className = 'switch inactive';
+      button.className = 'inactive';
       button.innerHTML = 'DISABLED';
       key.className = 'inactive';
       app.keychain[key.id].active = false;
     } else {
-      button.className = 'switch';
+      button.className = '';
       button.innerHTML = 'ACTIVE';
       key.className = '';
       app.keychain[key.id].active = true;
@@ -490,10 +486,10 @@
   function iToggleExport(elem, button) {
     if (elem.style.display == 'none') {
       elem.style.display = 'block';
-      button.className = 'switch selected';
+      button.className = 'selected';
     } else {
       elem.style.display = 'none';
-      button.className = 'switch';
+      button.className = '';
     }
     
     elem.style.left    = (elem.parentNode.getBoundingClientRect().left - 1)+'px';
@@ -516,15 +512,15 @@
   <ul id="settings">
     <li>
       <h3>Symmetric Cipher (AES)</h3>
-      <p>Size (bits): <span class="selected" onclick="app.ciphersize=iSetSize(this)">128</span> <span onclick="app.ciphersize=iSetSize(this)">192</span> <span onclick="app.ciphersize=iSetSize(this)">256</span></p>
+      <div class="controls">Size (bits): <span class="selected" onclick="app.ciphersize=iSetSize(this)">128</span><span onclick="app.ciphersize=iSetSize(this)">192</span><span onclick="app.ciphersize=iSetSize(this)">256</span></div>
     </li>
     <li>
       <h3>Asymmetric Key (RSA)</h3>
-      <p id="asymsize">Size (bits): <span class="selected" onclick="app.keysize=iSetSize(this)">1024</span> <span onclick="app.keysize=iSetSize(this)">1536</span> <span onclick="app.keysize=iSetSize(this)">2048</span></p>
+      <div class="controls" id="asymsize">Size (bits): <span class="selected" onclick="app.keysize=iSetSize(this)">1024</span><span onclick="app.keysize=iSetSize(this)">1536</span><span onclick="app.keysize=iSetSize(this)">2048</span></div>
     </li>
     <li>
       <h3>WebSocket Connection</h3>
-      <p>URL: <span id="serverurl" contenteditable="true" onkeydown="if(event.keyCode === 13)event.preventDefault();" onkeyup="app.server=this.textContent;"></span></p>
+      <div class="controls">URL: <span id="serverurl" contenteditable="true" onkeydown="if(event.keyCode === 13)event.preventDefault();" onkeyup="app.server=this.textContent;"></span></div>
     </li>
   </ul>
 
