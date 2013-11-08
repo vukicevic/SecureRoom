@@ -14,9 +14,10 @@
  **/
 
 hash = {
-  size: 20,
+  length: 20,
   algorithm: 2,
   name: 'SHA-1',
+  der: [48, 33, 48, 9, 6, 5, 43, 14, 3, 2, 26, 5, 0, 4, 20],
 
   digest: function digest(data) {
     var p = 0,

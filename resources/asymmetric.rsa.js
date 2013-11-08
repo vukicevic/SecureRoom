@@ -18,30 +18,49 @@ var asymmetric = {
   name: 'RSA',
 
   encrypt: function(key, data) {
-    var pad = this.padding.encode(data, key.size);
+    var pad = this.encryptPadding.encode(data, key.size);
     return mpi.c28to8(mpi.exp(mpi.c8to28(pad), mpi.c8to28(key.mpi.e), mpi.c8to28(key.mpi.n)));
   },
 
   decrypt: function(key, data) {
     var pad = mpi.c28to8(mpi.gar(mpi.c8to28(data), mpi.c8to28(key.mpi.p), mpi.c8to28(key.mpi.q), mpi.c8to28(key.mpi.d), mpi.c8to28(key.mpi.u), mpi.c8to28(key.mpi.dp), mpi.c8to28(key.mpi.dq)));
-    return this.padding.decode(pad);
+    return this.encryptPadding.decode(pad);
   },
 
-  sign: function(key, data) {
-    return mpi.c28to8(mpi.gar(mpi.c8to28(hash.digest(data)), mpi.c8to28(key.mpi.p), mpi.c8to28(key.mpi.q), mpi.c8to28(key.mpi.d), mpi.c8to28(key.mpi.u), mpi.c8to28(key.mpi.dp), mpi.c8to28(key.mpi.dq)));
+  sign: function(key, data, prehashed) {
+    var dat = this.signaturePadding.encode(key.size, data, prehashed);
+    return mpi.c28to8(mpi.gar(mpi.c8to28(dat), mpi.c8to28(key.mpi.p), mpi.c8to28(key.mpi.q), mpi.c8to28(key.mpi.d), mpi.c8to28(key.mpi.u), mpi.c8to28(key.mpi.dp), mpi.c8to28(key.mpi.dq)));
   },
 
-  verify: function(key, data, signature) {
-    if (mpi.cmp(mpi.c8to28(hash.digest(data)), mpi.exp(mpi.c8to28(signature), mpi.c8to28(key.mpi.e), mpi.c8to28(key.mpi.n))) === 0) {
-      return true;
-    } else {
-      return false;
+  verify: function(key, data, signature, prehashed) {
+    var dat = mpi.c8to28(this.signaturePadding.encode(key.size, data, prehashed)),
+        sig = mpi.exp(mpi.c8to28(signature), mpi.c8to28(key.mpi.e), mpi.c8to28(key.mpi.n));
+
+    return (mpi.cmp(dat, sig) === 0);
+  },
+
+  signaturePadding: {
+    name: 'EMSA-PKCS1-v1_5',
+
+    encode: function(keysize, data, prehashed) {
+      var pad = [],
+          len = Math.floor((keysize + 7)/8) - (3 + hash.der.length + hash.length);
+
+      while(len--)
+        pad[len] = 255;
+
+      if (!prehashed)
+        data = hash.digest(data);
+
+      return [1].concat(pad)
+                .concat([0])
+                .concat(hash.der)
+                .concat(data);
     }
   },
 
-  padding: {
-    name: 'OAEP',
-    algorithm: 1,
+  encryptPadding: {
+    name: 'RSA-OAEP',
 
     mgf: function(z, l) {
       for (var t = [], c = [0,0,0,0], s = Math.ceil(l/20)-1, i = 0; i <= s; i++) {
@@ -91,7 +110,7 @@ var asymmetric = {
 function Keygen(bits) {
   this.size  = bits;
   this.mpi   = {n: [], e: [], p: [], q: [], f: [], d: [], u: [], dp: [], dq: []};
-  this.time  = 0;
+  this.created = 0;
   this.ready = false;
   this.timer = null;
 
@@ -152,7 +171,7 @@ function Keygen(bits) {
 
     if (this.mpi.d.length != 0) {
       this.ready = true;
-      this.time  = Math.round(+new Date()/1000);
+      this.created = Math.round(+new Date()/1000);
     } else {
       this.mpi.p = null;
       this.mpi.q = null;
@@ -174,7 +193,6 @@ function Keygen(bits) {
     this.mpi.d = mpi.c28to8(this.mpi.d);
     this.mpi.p = mpi.c28to8(this.mpi.p);
     this.mpi.q = mpi.c28to8(this.mpi.q);
-
   };
 
   this.createPworker();

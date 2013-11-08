@@ -7,16 +7,14 @@ body {
   font-family: Lucida Sans Unicode, Lucida Grande, sans-serif;
   font-size: 16px;
   line-height: 1.2em;
-  /*min-width: 26em;*/
   width: 100%;
 }
 
 /* MENU STYLES */
 #menu {
   width: 100%;
-  /*min-width: 26em;*/
-  background-color: #000;
-  color: #fff;
+  background-color: black;
+  color: white;
   position: fixed;
   top: 0;
   list-style-type: none;
@@ -33,7 +31,7 @@ body {
 
 #settings {
   list-style-type: none;
-  border-bottom: 1px solid #000;
+  border-bottom: 1px solid black;
   margin: 3em 0 0;
   padding: 1em 0;
   overflow: hidden;
@@ -44,26 +42,6 @@ body {
   display: block;
   float: left;
   padding: 0.5em 1em;
-}
-
-#settings span {
-  font-weight: bold;
-  padding: 0.2em 0.4em 0.1em;
-  border-radius: 0.3em;
-  border: 1px solid #000;
-  cursor: pointer;
-}
-
-#settings .selected {
-  background-color: #000;
-  color: #fff;
-  fill: #fff;
-}
-
-#settings .readonly {
-  background-color: #aaa;
-  color: #fff;
-  cursor: default;
 }
 
 #settings h3 {
@@ -121,8 +99,8 @@ body {
 }
 
 .alert {
-  background-color: #000;
-  color: #fff;
+  background-color: black;
+  color: white;
   margin: 0.5em 0;  
   overflow: hidden;
 }
@@ -132,8 +110,7 @@ body {
 }
 
 .loading {
-  background-color: #fff;
-
+  background-color: white;
   width: 10em;
   height: 1em;
   -webkit-animation: load 1s linear infinite;
@@ -156,8 +133,8 @@ body {
   padding: 0.3em 0.5em 0;
   margin: 0.5em 0.3em 0 0;
   height: 1.15em;
-  background-color: #fff;
-  color: #000;
+  background-color: white;
+  color: black;
   border-radius: 0.2em;
 }
 
@@ -168,8 +145,8 @@ body {
   padding: 0.3em 0.5em 0;
   margin: 0.5em 0.3em 0 0;
   height: 1.15em;
-  background-color: #fff;
-  color: #000;
+  background-color: white;
+  color: black;
   border-radius: 0.2em;
   cursor: pointer;
 }
@@ -181,18 +158,6 @@ body {
   visibility: hidden;
   clear: both;
 }
-/*.down:after {
-  content: ' \25BE';
-}
-
-.up:after {
-  content: ' \25B4';
-}*/
-
-.selected {
-  background-color: #fff;
-  color: #000;
-}
 
 .small {
   font-size: 0.8em;
@@ -203,27 +168,10 @@ body {
   color: #999 !important;
 }
 
-.mykey {
-  //color: #E87600;
-}
-
 .keyinfo {
   font-size: 0.8em;
   margin: 0.6em 0;
   line-height: 1.1em;
-}
-
-.switch {
-  float: right;
-  color: #000;
-  background-color: #fff;
-  border: 1px solid #000;
-  border-radius: 0.3em;
-  font-size: 0.7em;
-  padding: 0.1em 0.2em;
-  line-height: 1em;
-  margin-top: -1.7em;
-  cursor: pointer;
 }
 
 #nickname {
@@ -241,7 +189,7 @@ body {
   height: 3em;
   padding: 0 0.3em;
   background-color: #000;
-  color: #fff;
+  color: white;
   list-style-type: none;
   z-index: 1000;
   transition: bottom 400ms ease;
@@ -259,20 +207,20 @@ body {
 }
 
 .closed {
-  background-color: #000;
-  fill: #fff;
+  background-color: black;
+  fill: white;
 }
 
 .open {
-  background-color: #fff;
-  fill: #000;
+  background-color: white;
+  fill: black;
 }
 
 #keychain {
   position: fixed;
-  background-color: #fff;
+  background-color: white;
   bottom: -7em;
-  border-top: 1px solid #000;
+  border-top: 0.0625em solid #000;
   list-style-type: none;
   width: 100%;
   z-index: 500;
@@ -284,8 +232,8 @@ body {
   float: left;
   padding: 0.5em 1em;
   width: 15em;
-  border-right: 1px dotted #222;
-  border-bottom: 1px dotted #222;
+  border-right: 0.0625em dotted #222;
+  border-bottom: 0.0625em dotted #222;
 }
 
 #keychain p {
@@ -294,4 +242,62 @@ body {
 
 #keychain h3 {
   font-size: 1em;
+}
+
+#keychain .export {
+  background-color: white;
+  border: 0.0625em dotted black;
+  border-bottom: none;
+  position: absolute;
+  width: 15em;
+  height: 17em;
+  padding: 1em;
+  padding-bottom: 0.7em;
+}
+
+#keychain .export>textarea {
+  font-size: 0.7em; 
+  margin: 0; 
+  width: 100%; 
+  height: 100%;
+  resize: none;
+  white-space: nowrap;
+  overflow: auto;
+}
+
+#keychain .controls {
+  float: right;
+  margin-top: -1.8em;
+  margin-right: -1.2em;
+  font-size: 0.7em;
+}
+
+div.controls>span {
+  background-color: white;
+  color: black;
+  border: 1px solid black;
+  border-left: none;
+  padding: 0.1em 0.5em;
+  margin: 0;
+  cursor: pointer;
+}
+div.controls>span:first-child {
+  border-top-left-radius: 0.3em;
+  border-bottom-left-radius: 0.3em;
+  border-left: 1px solid black;
+}
+div.controls>span:last-child {
+  border-top-right-radius: 0.3em;
+  border-bottom-right-radius: 0.3em;
+}
+div.controls>span.selected {
+  background-color: black;
+  color: white;
+}
+div.controls>span.inactive {
+  color: gray;
+}
+div.controls>span.disabled {
+  background-color: lightgray;
+  color: white;
 }
