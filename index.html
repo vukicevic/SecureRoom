@@ -24,15 +24,15 @@
     var l = document.createElement('li'),
         p = document.createElement('p'),
         b = document.createElement('b'),
-        d = iPrintTime(new Date(message.metadata.recvtime*1000)),// = document.createElement('div'),
-        c = app.messages++;
+        d = iPrintTime(new Date(message.metadata.recvtime*1000)),
+        c = app.messages++,
+        i = iCreateInfo(c, message);
 
     l.id = 'msg'+c;
     l.className = 'msg';
 
     d.id = 'toggle'+c;
-    d.className += ' down';
-    d.onclick = function() { iToggleMsgInfo(c); };
+    d.onclick = function() { iToggleInfo(i, 0, 4.5); };
 
     //if a large time difference exists
     if (Math.abs(message.metadata.recvtime - message.metadata.sendtime) > 10) {
@@ -58,7 +58,7 @@
 
     l.appendChild(d);
     l.appendChild(p);
-    l.appendChild(iCreateInfo(c, message));
+    l.appendChild(i);
 
     document.getElementById('content').appendChild(l);
     window.scroll(0,document.body.offsetHeight);
@@ -113,7 +113,7 @@
     h4.appendChild(document.createTextNode('Your keys have been generated.'));
 
     bu.id = 'distribute';
-    bu.className = 'button';
+    bu.className = 'field button';
     bu.appendChild(document.createTextNode('Connect & Distribute'));
     bu.onclick = function() {
       comm.connect();
@@ -145,8 +145,7 @@
 
     while (li.firstChild) li.removeChild(li.firstChild);
 
-    di.className += ' down';
-    di.onclick = function() { iToggleKeyInfo(this); }
+    di.onclick = function() { iToggleInfo(li, 1, 6); }
     
     li.appendChild(document.createTextNode('Connected.'));
     li.appendChild(di);
@@ -179,11 +178,11 @@
     li.id        = 'alert'+key.sign.id;
     document.getElementById('content').appendChild(li);
 
-    di.className = 'info';
+    di.className = 'time';
     pa.appendChild(document.createTextNode(key.name+' wants to join. Do you accept?'));
 
-    ba.className = 'button';
-    br.className = 'button';
+    ba.className = 'field button';
+    br.className = 'field button';
 
     ba.appendChild(document.createTextNode('Accept'));
     ba.onclick = function() {
@@ -225,7 +224,7 @@
       alert.appendChild(document.createTextNode(key.name+' joined.'));
     }
     info.className += ' down';
-    info.onclick = function() { iToggleKeyInfo(this); };
+    info.onclick = function() { iToggleInfo(alert, 1, 6); };
     alert.appendChild(info);
     alert.appendChild(iKeyInfo(key));
   }
@@ -271,11 +270,10 @@
   }
   
   function iPrintTime(date) {
-    var di = document.createElement('div');
-    
-    di.className = 'info';
-    di.innerHTML = ('0'+date.getHours()).slice(-2)+'<br>'+('0'+date.getMinutes()).slice(-2)+'<br>'+('0'+date.getSeconds()).slice(-2);
-    return di;
+    var d = document.createElement('div');
+    d.className = 'time';
+    d.innerHTML = ('0'+date.getHours()).slice(-2)+'<br>'+('0'+date.getMinutes()).slice(-2)+'<br>'+('0'+date.getSeconds()).slice(-2);
+    return d;
   }
 
   function iShowInput() {
@@ -284,7 +282,7 @@
         s = document.getElementById('send'),
         k = document.getElementById('toggleKeychain');
 
-    m.style.width = (i.offsetWidth-(s.offsetWidth+k.offsetWidth+45))+'px';
+    m.style.width = (i.offsetWidth-(s.offsetWidth+k.offsetWidth+50))+'px';
     i.style.bottom = '0';
     m.focus();
   }
@@ -370,14 +368,14 @@
   }
 
   function iSendMessage() {
-    var input = document.getElementById('message'),
-        button = document.getElementById('send');
+    var i = document.getElementById('message'),
+        b = document.getElementById('send');
 
-    if (input.textContent.length > 0) {
-      button.style.backgroundColor = '#f00';
-      iCreateMessage(comm.sendMessage(input.textContent));
-      input.innerHTML = '';
-      window.setTimeout(function(){button.style.backgroundColor = '#fff'}, '50');
+    if (i.textContent.length > 0) {
+      b.style.backgroundColor = '#f00';
+      iCreateMessage(comm.sendMessage(i.textContent));
+      i.innerHTML = '';
+      window.setTimeout(function() {b.style.backgroundColor = '#fff'}, '50');
     }
   }
 
@@ -414,7 +412,7 @@
         menu   = document.getElementById('settings');
 
     if (button.className == 'open' || close) {
-      window.scroll(0,document.body.offsetHeight);
+      window.scroll(0, document.body.offsetHeight);
       button.className = 'closed';
       menu.style.marginTop = '-'+(menu.clientHeight-button.clientHeight)+'px';
     } else {
@@ -458,29 +456,8 @@
     }
   }
 
-  function iToggleMsgInfo(id) {
-    var button = document.getElementById('toggle'+id),
-        menu = document.getElementById('info'+id);
-
-    if (button.className == 'info down') {
-      button.className = 'info up';
-      menu.style.height = '4.5em';
-    } else {
-      button.className = 'info down';
-      menu.style.height = '0';
-    }
-  }
-
-  function iToggleKeyInfo(button) {
-    var alert = button.parentNode;
-
-    if (button.className == 'info down') {
-      alert.style.height = '6em';
-      button.className = 'info up';
-    } else {
-      alert.style.height = '1em';
-      button.className = 'info down';
-    }
+  function iToggleInfo(elem, min, max) {
+    elem.style.height = (elem.style.height == max+'em') ? min+'em' : max+'em';
   }
 
   function iToggleExport(elem, button) {
@@ -492,8 +469,8 @@
       button.className = '';
     }
     
-    elem.style.left    = (elem.parentNode.getBoundingClientRect().left - 1)+'px';
-    elem.style.top     = '-'+(elem.offsetHeight - (elem.parentNode.getBoundingClientRect().top - elem.parentNode.parentNode.getBoundingClientRect().top))+'px';
+    elem.style.left = (elem.parentNode.getBoundingClientRect().left - 1)+'px';
+    elem.style.top  = '-'+(elem.offsetHeight - (elem.parentNode.getBoundingClientRect().top - elem.parentNode.parentNode.getBoundingClientRect().top))+'px';
   }
   </script>
 </head>
@@ -529,13 +506,13 @@
       <p>Enter a nickname.</p>
       <span class="field" id="nickname" contenteditable="true" onkeyup="document.getElementById('generate').style.display=(this.textContent.length<3)?'none':'block';"
       onkeypress="if(event.keyCode === 13) { event.preventDefault(); if(this.textContent.length>=3){iGenerate();}}"></span>
-      <span class="button" id="generate" onclick="iGenerate();">Generate</span>
+      <span class="field button" id="generate" onclick="iGenerate();">Generate</span>
     </li>
   </ul>
 
   <div id="input">
     <span class="field" id="message" contenteditable="true" onkeydown="if(event.keyCode === 13){event.preventDefault(); iSendMessage();}"></span>
-    <span class="button" id="send" onclick="iSendMessage();">Send</span>
+    <span class="field button" id="send" onclick="iSendMessage();">Send</span>
     <span class="closed" id="toggleKeychain" onclick="iToggleKeychain();">
     <svg height="19" width="12" xmlns="http://www.w3.org/2000/svg" version="1.1">
       <rect y="3" width="4" height="3" />
