@@ -24,7 +24,7 @@
     var l = document.createElement('li'),
         p = document.createElement('p'),
         b = document.createElement('b'),
-        d = iPrintTime(new Date(message.metadata.recvtime*1000)),
+        d = iPrintTime(new Date(message.recvtime*1000)),
         c = app.messages++,
         i = iCreateInfo(c, message);
 
@@ -35,12 +35,12 @@
     d.onclick = function() { iToggleInfo(i, 0, 4.5); };
 
     //if a large time difference exists
-    if (Math.abs(message.metadata.recvtime - message.metadata.sendtime) > 10) {
+    if (Math.abs(message.recvtime - message.sendtime) > 10) {
       l.className = 'alert warning';
     }
 
     //if recv message was sent to rejected or unknown key, attach warning
-    for (keyid in message.encrypted.sessionkeys) {
+    for (var keyid in message.encrypted.keys) {
       if (typeof app.keychain[app.keymap[keyid]] == "undefined") {
         l.className = 'alert warning';
         break;
@@ -48,13 +48,13 @@
     }
 
     //if signature is wrong
-    if (!message.metadata.verified) {
+    if (!message.verified) {
       l.className = 'alert warning';
     }
 
-    b.appendChild(document.createTextNode(app.keychain[message.metadata.sender].name+': '));
+    b.appendChild(document.createTextNode(app.keychain[message.sender].name+': '));
     p.appendChild(b);
-    p.appendChild(document.createTextNode(message.plaintext.string));
+    p.appendChild(document.createTextNode(message.plaintext));
 
     l.appendChild(d);
     l.appendChild(p);
@@ -62,6 +62,13 @@
 
     document.getElementById('content').appendChild(l);
     window.scroll(0,document.body.offsetHeight);
+  }
+
+  function iCreateMessage2(message) {
+    var render = Template('template-message'),
+        content = document.getElementById('content');
+
+    content.innerHTML += render({id: app.messages++, time: iPrintTime(new Date(message.recvtime*1000)), sender: app.keychain[message.sender].name, message: message.plaintext});
   }
 
   function iKeyInfo(key) {
@@ -236,13 +243,13 @@
     div.className = 'msginfo';
     div.id = 'info'+id;
 
-    info += ' <b>Sent By:</b> '+iFormatId(message.metadata.sender);
-    info += ' <b>At:</b> '+iPrintDate(new Date(message.metadata.sendtime*1000));
+    info += ' <b>Sent By:</b> '+iFormatId(message.sender);
+    info += ' <b>At:</b> '+iPrintDate(new Date(message.sendtime*1000));
     info += ' <b>Verified:</b> ';
-    info += (message.metadata.verified) ? 'True<br>' : '<u>False</u><br>';
+    info += (message.verified) ? 'True<br>' : '<u>False</u><br>';
 
     info += ' <b>Sent To:</b> ';
-    for (keyid in message.encrypted.sessionkeys) {
+    for (keyid in message.encrypted.keys) {
       info += iFormatId(keyid);
       if (typeof app.keychain[app.keymap[keyid]] != "undefined") {
         info += ' ['+app.keychain[app.keymap[keyid]].name.replace(/[`~!@#$%^&*()_|+\-=?;:'",.<>\{\}\[\]\\\/]/gi, '')+'] ';
@@ -257,7 +264,7 @@
     }
     info += (m==8192) ? '&#8212;<br>' : '<br>';
 
-    info += ' <b>Cipher:</b> '+symmetric.name+'-'+(message.plaintext.sessionkey.length*8)+' ['+symmetric.mode+']';
+    info += ' <b>Cipher:</b> '+symmetric.name+'-'+(message.sessionkey.length*8)+' ['+symmetric.mode+']';
     info += ' <b>Weakest key:</b> ';
     info += (m>0&&m<8192) ? m+' bits' : 'Unknown';
 
@@ -272,7 +279,7 @@
   function iPrintTime(date) {
     var d = document.createElement('div');
     d.className = 'time';
-    d.innerHTML = ('0'+date.getHours()).slice(-2)+'<br>'+('0'+date.getMinutes()).slice(-2)+'<br>'+('0'+date.getSeconds()).slice(-2);
+    d.innerHTML = ('0'+date.getHours()).slice(-2)+' '+('0'+date.getMinutes()).slice(-2)+' '+('0'+date.getSeconds()).slice(-2);
     return d;
   }
 
@@ -472,6 +479,32 @@
     elem.style.left = (elem.parentNode.getBoundingClientRect().left - 1)+'px';
     elem.style.top  = '-'+(elem.offsetHeight - (elem.parentNode.getBoundingClientRect().top - elem.parentNode.parentNode.getBoundingClientRect().top))+'px';
   }
+
+  function Template(templ) {
+    var templ = document.getElementById(templ).innerHTML.replace(/\n|\r/g, "").replace(/>\s+</g, "><").trim();
+    return function compile(data, template) {
+      var match, tpart, i, template = template || templ;
+
+      while (match = /\{\{#([a-zA-Z]+)\}\}(.+)\{\{\/\1\}\}/g.exec(template)) {
+        for (tpart = '', i = 0; i < data[match[1]].length; i++)
+          tpart += compile(match[2], data[match[1]][i]);
+
+        template = template.split(match[0]).join(tpart);
+        delete data[match[1]];
+      }
+
+      for (match in data)
+        template = template.split('{{'+match+'}}').join(data[match]);
+
+      return template;
+    }
+  }
+  </script>
+  <script type="text/html" id="template-message">
+  <li id="message-{{id}}" class="msg">
+    <div id="message-time-{{id}}" class="time">{{time}}</div>
+    <p><b>{{sender}}:</b> {{message}}</p>
+  </li>
   </script>
 </head>
 <body>

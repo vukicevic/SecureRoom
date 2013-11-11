@@ -82,6 +82,7 @@ body {
   font-size: 0.5em;
   line-height: 1em;
   margin-top: -0.5em;
+  width: 1em;
 }
 
 #content .msginfo {

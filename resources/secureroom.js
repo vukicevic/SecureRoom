@@ -146,109 +146,95 @@ var comm = {
     }
   },
 
-  encryptMessage: function(message) {
-    var padkey, 
-        keyid,
-        paddata,
-        count = 0;
+  encryptMessage: function(message, data) {
+    var keyid,
+        paddata;
 
     if (Object.keys(app.keychain).length < 2) return null;
 
     for (keyid in app.keychain) {
       if (app.myid != keyid && app.keychain[keyid].active) {
-        message.encrypted.sessionkeys[app.keychain[keyid].encrypt.id] = asymmetric.encrypt(app.keychain[keyid].encrypt, message.plaintext.sessionkey);
-        count++;
+        message.encrypted.keys[app.keychain[keyid].encrypt.id] = asymmetric.encrypt(app.keychain[keyid].encrypt, message.sessionkey);
       }
     }
 
-    if (count == 0) return null;
+    if (Object.keys(message.encrypted.keys).length == 0) return null;
 
     //random x+2 octets & plaintext, where x is block size
     paddata = random.generate(app.ciphersize);
     paddata = paddata.concat(paddata.slice(-2))
-                     .concat(message.plaintext.data);
+                     .concat(data);
 
-    return symmetric.encrypt(message.plaintext.sessionkey, paddata);
+    return symmetric.encrypt(message.sessionkey, paddata);
   },
 
   decryptMessage: function(message) {
-    var keyid, 
-        padkey;
+    var keyid;
 
-    for (keyid in message.encrypted.sessionkeys) {
+    for (keyid in message.encrypted.keys) {
       if (keyid == app.keychain[app.myid].encrypt.id) {
-         message.plaintext.sessionkey = asymmetric.decrypt(app.encryptkey, message.encrypted.sessionkeys[keyid]);
+         message.sessionkey = asymmetric.decrypt(app.encryptkey, message.encrypted.keys[keyid]);
          break;
       }
     }
 
-    if (message.plaintext.sessionkey) {
+    if (message.sessionkey) {
       //discard x+2 random data, should check (x-1 == x+1 && x ==x+2)
-      return symmetric.decrypt(message.plaintext.sessionkey, message.encrypted.data)
-                      .slice(message.plaintext.sessionkey.length+2);
+      return symmetric.decrypt(message.sessionkey, message.encrypted.data)
+                      .slice(message.sessionkey.length+2);
     } else {
       return null;
     }
   },
 
   sendMessage: function(text) {
-    var message = new Message();
+    var rawdata, message = new Message();
 
-    message.metadata.sendtime = Math.round(+new Date()/1000);
-    message.metadata.recvtime = message.metadata.sendtime;
-    message.metadata.sender   = app.myid;
+    message.sendtime = Math.round(+new Date()/1000);
+    message.recvtime = message.sendtime;
+    message.sender   = app.myid;
 
-    message.plaintext.string = text;
-    message.plaintext.data   = array.fromString(text)
-                                    .concat(0)
-                                    .concat(array.fromWord(message.metadata.sendtime))
-                                    .concat(array.fromHex(message.metadata.sender));
+    message.plaintext = text;
+    rawdata = array.fromString(text)
+                   .concat(0)
+                   .concat(array.fromWord(message.sendtime))
+                   .concat(array.fromHex(message.sender));
 
-    message.metadata.signature = asymmetric.sign(app.signkey, message.plaintext.data);
-    message.metadata.verified  = true;
+    message.signature = asymmetric.sign(app.signkey, rawdata);
+    message.verified  = true;
 
-    message.plaintext.data = message.plaintext.data.concat(message.metadata.signature);
-    message.encrypted.data = this.encryptMessage(message);
+    rawdata = rawdata.concat(message.signature);
+    message.encrypted.data = this.encryptMessage(message, rawdata);
 
-    //console.debug(message);
-
-    if (message.encrypted.data != null) {
-      var str = JSON.stringify({"type": "message",
-                                "data": message.encrypted});
-      console.log(str);
-      this.socket.send(str);
-    }
+    if (message.encrypted.data != null)
+      this.socket.send(JSON.stringify({"type": "message", "data": message.encrypted}));
 
     return message;
   },
 
   receiveMessage: function(data) {
     var message = new Message(data),
-        i;
+        rawdata = this.decryptMessage(message),
+        i = rawdata.indexOf(0);
 
-    message.metadata.recvtime = Math.round(+new Date()/1000);
-    message.plaintext.data = this.decryptMessage(message);
+    message.recvtime = Math.round(+new Date()/1000);
 
-    if (message.plaintext.data == null) return null;
-    i = message.plaintext.data.indexOf(0);
+    if (rawdata == null) return null;
 
-    message.plaintext.string   = array.toString(message.plaintext.data.slice(0, i));
-    message.metadata.sendtime  = array.toWord(message.plaintext.data.slice(i+1, i+5));
-    message.metadata.sender    = array.toHex(message.plaintext.data.slice(i+5, i+13));
-    message.metadata.signature = message.plaintext.data.slice(i+13);
+    message.plaintext = array.toString(rawdata.slice(0, i));
+    message.sendtime  = array.toWord(rawdata.slice(i+1, i+5));
+    message.sender    = array.toHex(rawdata.slice(i+5, i+13));
+    message.signature = rawdata.slice(i+13);
 
-    if (typeof app.keychain[message.metadata.sender] == 'undefined') return null; //messages from rejected and unknown senders will be ignored at this point
+    if (typeof app.keychain[message.sender] == 'undefined') return null; //messages from rejected and unknown senders will be ignored at this point
 
-    message.metadata.verified  = asymmetric.verify(app.keychain[message.metadata.sender].sign, message.plaintext.data.slice(0,i+13), message.metadata.signature);
+    message.verified  = asymmetric.verify(app.keychain[message.sender].sign, rawdata.slice(0,i+13), message.signature);
 
     return message;
   },
 
   sendKey: function() {
-    var str = JSON.stringify({"type": "key",
-                              "data": app.keychain[app.myid]});
-
-    this.socket.send(str);
+    this.socket.send(JSON.stringify({"type": "key", "data": app.keychain[app.myid]}));
   },
 
   receiveKey: function(data) {
@@ -329,13 +315,27 @@ function PublicKey(data) {
 }
 
 function Message(message) {
-  this.encrypted = {sessionkeys: {}, data: []};
-  this.plaintext = {sessionkey: null, data: null, string: null};
-  this.metadata  = {sender: null, signature: null, sendtime: null, recvtime: null, verified: false};
+  this.encrypted  = {keys: {}, data: null};
+  
+  this.sessionkey = null;
+  this.plaintext  = null;
+
+  this.sender     = null;
+  this.sendtime   = null;
+  this.recvtime   = null;
+  
+  this.signature  = null;
+  this.verified   = false;
 
   if (typeof message == 'undefined') {
-    this.plaintext.sessionkey = random.generate(app.ciphersize);
+    this.sessionkey = random.generate(app.ciphersize);
   } else {
     this.encrypted = message;
   }
+
+  Object.defineProperty(this, "recipients", {
+    get: function() {
+        return Object.keys(this.encrypted.keys);
+    }
+  });
 }
