@@ -62,20 +62,19 @@ body {
   list-style-type: none;
 }
 
-#content li {
+#content>li {
   padding: 0.8125em 1em;
-  transition: all 200ms ease;
 }
 
-#content li>p {
+#content>li>p {
   margin-right: 6em;
 }
 
-#content li>p>b:after {
+#content b:after {
   content: ": ";
 }
 
-#content .msg {
+#content .message {
   padding: 0.375em 1em 0;
   margin-bottom: 0.0625em;
 }
@@ -89,25 +88,25 @@ body {
   width: 1em;
 }
 
-#content .msginfo {
+#content .info {
   font-size: 0.8125em;
   text-align: right;
-  height: 0;
   overflow: hidden;
-  margin-top: 0.308em;
+  margin: 0.308em 0;
+  list-style-type: none;
   transition: height 300ms ease;
+}
+
+#content .alert {
+  background-color: black;
+  color: white;
+  margin: 0.5em 0;  
+  overflow: hidden;
 }
 
 #alertKeyGen {
   overflow: hidden;
   height: 4em;
-}
-
-.alert {
-  background-color: black;
-  color: white;
-  margin: 0.5em 0;  
-  overflow: hidden;
 }
 
 .warning {
@@ -154,6 +153,12 @@ body {
   height: 0;
   visibility: hidden;
   clear: both;
+}
+
+.hidden-height {
+  position: absolute;
+  visibility: hidden;
+  display: block;
 }
 
 .small {

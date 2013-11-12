@@ -69,8 +69,8 @@ var app = {
   },
 
   generateKeySignature: function() {
-    var shsh = keytools.generateSignatureHash(app.keychain[app.myid].sign, app.nickname),
-        ehsh = keytools.generateSignatureHash(app.keychain[app.myid].sign, app.keychain[app.myid].encrypt);
+    var shsh = KeyTools.generateSignatureHash(app.keychain[app.myid].sign, app.nickname),
+        ehsh = KeyTools.generateSignatureHash(app.keychain[app.myid].sign, app.keychain[app.myid].encrypt);
 
     app.keychain[app.myid].sign.signature    = asymmetric.sign(app.signkey, shsh, true);
     app.keychain[app.myid].encrypt.signature = asymmetric.sign(app.signkey, ehsh, true);
@@ -195,10 +195,10 @@ var comm = {
     message.sender   = app.myid;
 
     message.plaintext = text;
-    rawdata = array.fromString(text)
+    rawdata = ArrayUtil.fromString(text)
                    .concat(0)
-                   .concat(array.fromWord(message.sendtime))
-                   .concat(array.fromHex(message.sender));
+                   .concat(ArrayUtil.fromWord(message.sendtime))
+                   .concat(ArrayUtil.fromHex(message.sender));
 
     message.signature = asymmetric.sign(app.signkey, rawdata);
     message.verified  = true;
@@ -221,9 +221,9 @@ var comm = {
 
     if (rawdata == null) return null;
 
-    message.plaintext = array.toString(rawdata.slice(0, i));
-    message.sendtime  = array.toWord(rawdata.slice(i+1, i+5));
-    message.sender    = array.toHex(rawdata.slice(i+5, i+13));
+    message.plaintext = ArrayUtil.toString(rawdata.slice(0, i));
+    message.sendtime  = ArrayUtil.toWord(rawdata.slice(i+1, i+5));
+    message.sender    = ArrayUtil.toHex(rawdata.slice(i+5, i+13));
     message.signature = rawdata.slice(i+13);
 
     if (typeof app.keychain[message.sender] == 'undefined') return null; //messages from rejected and unknown senders will be ignored at this point
@@ -242,7 +242,7 @@ var comm = {
   }
 }
 
-var array = {
+var ArrayUtil = {
   //to/from string not currently handling charcode < 16 - if needed use ('0'+s).slice(-2);
   toString: function(input) {
     return decodeURIComponent(input.map(function(v) {return '%'+v.toString(16);}).join(''));
@@ -287,14 +287,14 @@ function PublicKey(data) {
   }
 
   this.calcFingerprint = function(data, type) {
-    data = [4].concat(array.fromWord(data.created))
+    data = [4].concat(ArrayUtil.fromWord(data.created))
               .concat([type])
               .concat(this.calcMpiLength(data.mpi.n))
               .concat(data.mpi.n)
               .concat(this.calcMpiLength(data.mpi.e))
               .concat(data.mpi.e);
 
-    return array.toHex(hash.digest([0x99, (data.length >> 8), (data.length & 0xff)].concat(data)));
+    return ArrayUtil.toHex(hash.digest([0x99, (data.length >> 8), (data.length & 0xff)].concat(data)));
   }
 
   this.calcKeyInfo = function(key, type) {

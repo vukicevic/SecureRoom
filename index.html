@@ -324,7 +324,7 @@
         li.className = 'mykey';
         
         tr = document.createElement('textarea');
-        tr.innerHTML = keytools.exportKey(app.keychain[keyid].name, app.keychain[keyid].sign, app.keychain[keyid].encrypt, app.signkey.mpi, app.encryptkey.mpi);
+        tr.innerHTML = KeyTools.exportKey(app.keychain[keyid].name, app.keychain[keyid].sign, app.keychain[keyid].encrypt, app.signkey.mpi, app.encryptkey.mpi);
 
         pr = document.createElement('div');
         pr.appendChild(tr);
@@ -342,7 +342,7 @@
       li.id = keyid;
       ct.className = 'controls';
 
-      tu.innerHTML     = keytools.exportKey(app.keychain[keyid].name, app.keychain[keyid].sign, app.keychain[keyid].encrypt);
+      tu.innerHTML     = KeyTools.exportKey(app.keychain[keyid].name, app.keychain[keyid].sign, app.keychain[keyid].encrypt);
       pu.appendChild(tu);
       pu.className     = 'export';
       pu.style.display = 'none';
@@ -373,7 +373,7 @@
 
     if (i.textContent.length > 0) {
       b.style.backgroundColor = '#f00';
-      iCreateMessage2(comm.sendMessage(i.textContent));
+      UiUtil.addMessage(comm.sendMessage(i.textContent));
       i.innerHTML = '';
       window.setTimeout(function() {b.style.backgroundColor = '#fff'}, '50');
     }
@@ -473,7 +473,7 @@
     elem.style.top  = '-'+(elem.offsetHeight - (elem.parentNode.getBoundingClientRect().top - elem.parentNode.parentNode.getBoundingClientRect().top))+'px';
   }
 
-  function Template(templ) {
+  function TemplateTools(templ) {
     if (typeof templ != "undefined")
       templ = document.getElementById(templ).innerHTML.replace(/\n|\r/g, "").replace(/>\s+</g, "><").trim();
 
@@ -495,7 +495,7 @@
     }
   }
 
-  var Print = {
+  var PrintUtil = {
     time: function(timestamp) {
       var date = new Date(timestamp*1000);
       return ('0'+date.getHours()).slice(-2)+' '+('0'+date.getMinutes()).slice(-2)+' '+('0'+date.getSeconds()).slice(-2);
@@ -523,53 +523,48 @@
     }
   }
 
-  function MessageUtil(message) {
+  function MessageTools(message) {
     return {
       strength: function() {
         var key, min = 8192;
 
         for (key in message.encrypted.keys) {
-          console.log(key);
           if (typeof app.keychain[app.keymap[key]] == "undefined") {
-            min = 0;
+            min = 8192;
             break;
           }
-          
           min = Math.min(app.keychain[app.keymap[key]].encrypt.size, min);
         }
+
         return {
-          term: 'Weakest Key:',
-          data: (min > 0 && min < 8192) ? min+' bits' : 'Unknown',
-          class: (min) ? '' : 'alert',
+          term: 'Weakest Key',
+          data: (min < 8192) ? min+' bits' : 'Unknown',
         };
       },
 
       recipients: function() {
-        var key, list = '', alert = '';
+        var key, list = '';
 
         for (key in message.encrypted.keys) {
           if (list) 
             list += ', ';
           if (typeof app.keychain[app.keymap[key]] != "undefined") {
-            list += Print.text(app.keychain[app.keymap[key]].name);
+            list += PrintUtil.text(app.keychain[app.keymap[key]].name);
           } else {
             list += (typeof app.rejected[app.keymap[key]] != "undefined") ? 'Rejected' : 'Unknown';
-            alert = 'alert';
           }
         }
 
         return {
           term: 'Recipients',
-          data: list,
-          class: alert
+          data: list
         };
       },
 
       cipher: function() {
         return {
           term: 'Cipher',
-          data: symmetric.name+'-'+(message.sessionkey.length*8)+' ['+symmetric.mode+']',
-          class: ''
+          data: symmetric.name+'-'+(message.sessionkey.length*8)+' ['+symmetric.mode+']'
         };
       },
 
@@ -581,61 +576,131 @@
 
         return {
           term: 'Delay',
-          data: diff+' sec',
-          class: (Math.abs(diff) > 10) ? 'alert' : ''
+          data: diff+' sec'
         };
       },
 
       verified: function() {
         return {
           term: 'Verified',
-          data: Print.bool(message.verified),
-          class: (message.verified) ? '' : 'alert'
+          data: PrintUtil.bool(message.verified)
         };
       },
 
       sender: function() {
         return {
           term: 'Author',
-          data: Print.id(message.sender),
-          class: ''
+          data: PrintUtil.id(message.sender)
         };
       }
     }
   }
 
-  function iCreateMessage2(message) {
-    var messageUtil = MessageUtil(message),
-        container = document.getElementById('content'),
-        template = Template('template-message'),
-        content = { id: Print.number(app.messages++),
-                    time: Print.time(message.recvtime),
-                    sender: Print.text(app.keychain[message.sender].name),
-                    message: Print.text(message.plaintext),
-                    info: [] };
+  var UiUtil = {
+    toggleHeight: function(elem) {
+      var height = elem.offsetHeight;
 
-    content.info.push(messageUtil.verified());
-    content.info.push(messageUtil.sender());
-    content.info.push(messageUtil.recipients());
-    content.info.push(messageUtil.cipher());
-    content.info.push(messageUtil.delay());
-    content.info.push(messageUtil.strength());    
-    
-    container.insertAdjacentHTML('beforeend', template(content));
+      elem.style.height = '0px';
+      elem.classList.remove('hidden-height');
 
-    //onclick events
+      return function() {
+        elem.style.height = (elem.style.height == '0px') ? height+'px' : '0px';
+      }
+    },
+
+    addMessage: function(message) {
+      var container = document.getElementById('content'),
+          build = TemplateTools('template-message'),
+          content = {};
+
+      content.id      = PrintUtil.number(app.messages++);
+      content.time    = PrintUtil.time(message.recvtime);
+      content.sender  = PrintUtil.text(app.keychain[message.sender].name);
+      content.message = PrintUtil.text(message.plaintext);
+      content.info    = UiUtil.buildMsgInfo(MessageTools(message));
+      content.class   = (!message.verified) ? ' warning' : '';
+
+      container.insertAdjacentHTML('beforeend', build(content));
+
+      //onclick events
+      var e = document.getElementById('message-'+content.id);
+      e.addEventListener('click', UiUtil.toggleHeight(e.getElementsByClassName('info').item(0)));
+    },
+
+    addJoined: function(key) {
+      var container = document.getElementById('content'),
+          build = TemplateTools('template-joined'),
+          content = {};
+
+      content.time    = Print.time(Math.round(+new Date()/1000));
+      content.message = key.name+' has joined.';
+      content.info    = UiUtil.buildKeyInfo(key, true);
+
+      build(content);
+    },
+
+    buildMsgInfo: function(messageTool) {
+      var build = TemplateTools('template-message-info'),
+          content = {info: []};
+
+      content.info.push(messageTool.verified());
+      content.info.push(messageTool.sender());
+      content.info.push(messageTool.recipients());
+      content.info.push(messageTool.cipher());
+      content.info.push(messageTool.delay());
+      content.info.push(messageTool.strength());
+
+      return build(content);
+    },
+
+    buildKeyInfo: function(key, hidden) {
+      var build = TemplateTools('template-key-info'),
+          content = {};
+
+      content.class = (hidden) ? ' hidden-height' : '';
+
+      content.sid   = PrintUtil.id(key.sign.id);
+      content.ssize = PrintUtil.number(key.sign.size);
+      content.sdate = PrintUtil.date(key.sign.created);
+
+      content.eid   = PrintUtil.id(key.encrypt.id);
+      content.esize = PrintUtil.number(key.encrypt.size);
+      content.edate = PrintUtil.date(key.encrypt.created);
+
+      return build(content);
+    }
   }
   </script>
+
   <script type="text/html" id="template-message">
-  <li id="message-{{id}}" class="msg">
-    <div class="time">{{time}}</div>
-    <p><b class="sender">{{sender}}</b>{{message}}</p>
-    <ul class="info">
+    <li id="message-{{id}}" class="message{{class}}">
+      <div class="time">{{time}}</div>
+      <p><b class="sender">{{sender}}</b>{{message}}</p>
+      {{info}}
+    </li>
+  </script>
+
+  <script type="text/html" id="template-message-info">
+    <ul class="info hidden-height">
       {{#info}}
-      <li class="{{class}}"><b>{{term}}</b>{{data}}</li>
+      <li><b>{{term}}</b>{{data}}</li>
       {{/info}}
     </ul>
-  </li>
+  </script>
+
+  <script type="text/html" id="template-joined">
+    <li id="alert-{{id}}" class="alert">
+      <div class="time">{{time}}</div>
+      <p>{{message}}</p>
+      {{info}}
+    </li>
+  </script>
+
+  <script type="text/html" id="template-key-info">
+    <div class="info{{class}}">
+      <p><b>{{sid}}</b><br><small>{{ssize}} | {{sdate}} | SIGNING</small></p>
+      <p>{{eid}}<br><small>{{esize}} | {{edate}} | ENCRYPTION</small></p>
+    </div>
   </script>
 </head>
 <body>
@@ -709,7 +774,7 @@
         iHideInput();
       },
       function(msg) {
-        iCreateMessage2(msg);
+        UiUtil.addMessage(msg);
       },
       function(key) {
         iCreateReceive(key);

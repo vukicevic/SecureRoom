@@ -1,4 +1,6 @@
-var keytools = {
+//change to function
+//create private key type during keychain rewrite
+var KeyTools = {
 
   createTag: function(tag, length) {
     tag = tag*4 + 128;
@@ -18,7 +20,7 @@ var keytools = {
     } else if (l < 65536) {
       return [l>>8, l&0xff];
     } else {
-      return array.fromWord(l);
+      return ArrayUtil.fromWord(l);
     }
   },
 
@@ -62,7 +64,7 @@ var keytools = {
 
     result = [this.createTag(tag, len)].concat(this.createLength(len))
                                        .concat([4])
-                                       .concat(array.fromWord(key.created))
+                                       .concat(ArrayUtil.fromWord(key.created))
                                        .concat([type])
                                        .concat(this.createMpi(key.mpi.n))
                                        .concat(this.createMpi(key.mpi.e));
@@ -71,7 +73,7 @@ var keytools = {
   },
 
   createNamePacket: function(name) {
-    var namePacket = array.fromString(name);
+    var namePacket = ArrayUtil.fromString(name);
     return [this.createTag(13, namePacket.length)].concat(this.createLength(namePacket.length)).concat(namePacket);
   },
 
@@ -88,7 +90,7 @@ var keytools = {
 
     sigHash   = this.generateSignatureHash(signer, data);
     sigPacket = sigMeta.concat([0,10,9,16])
-                       .concat(array.fromHex(signer.id))
+                       .concat(ArrayUtil.fromHex(signer.id))
                        .concat(sigHash.slice(0,2))
                        .concat(this.createMpi(sigSigned));
 
@@ -96,22 +98,22 @@ var keytools = {
   },
 
   encryptSignatureMeta: function(encrypt) {
-    return [4,24,2,2,0,15,5,2].concat(array.fromWord(encrypt.created+2))
+    return [4,24,2,2,0,15,5,2].concat(ArrayUtil.fromWord(encrypt.created+2))
                               .concat([2,27,4,5,9])
-                              .concat(array.fromWord(86400));
+                              .concat(ArrayUtil.fromWord(86400));
   },
 
   signSignatureMeta: function(sign) {
-    return [4,19,3,2,0,26,5,2].concat(array.fromWord(sign.created+2))
+    return [4,19,3,2,0,26,5,2].concat(ArrayUtil.fromWord(sign.created+2))
                               .concat([2,27,3,5,9])
-                              .concat(array.fromWord(86400))
+                              .concat(ArrayUtil.fromWord(86400))
                               .concat([4,11,7,8,9,2,21,2,2,22,0]);
   },
 
   generateSignatureHash: function(sign, data) {
     var sdat, edat, meta, suff;
 
-    sdat = [153,0,0,4].concat(array.fromWord(sign.created))
+    sdat = [153,0,0,4].concat(ArrayUtil.fromWord(sign.created))
                       .concat([3])
                       .concat(this.createMpi(sign.mpi.n))
                       .concat(this.createMpi(sign.mpi.e));
@@ -120,12 +122,12 @@ var keytools = {
     sdat[2] = (sdat.length-3) & 0xff;
 
     if(typeof data == "string") {
-      edat = [180].concat(array.fromWord(data.length))
-                  .concat(array.fromString(data));
+      edat = [180].concat(ArrayUtil.fromWord(data.length))
+                  .concat(ArrayUtil.fromString(data));
 
       meta = this.signSignatureMeta(sign);
     } else {
-      edat = [153,0,0,4].concat(array.fromWord(data.created))
+      edat = [153,0,0,4].concat(ArrayUtil.fromWord(data.created))
                         .concat([2])
                         .concat(this.createMpi(data.mpi.n))
                         .concat(this.createMpi(data.mpi.e));
@@ -136,7 +138,7 @@ var keytools = {
       meta = this.encryptSignatureMeta(data);
     }
 
-    suff = [4,255].concat(array.fromWord(meta.length));
+    suff = [4,255].concat(ArrayUtil.fromWord(meta.length));
 
     return hash.digest(
       sdat.concat(edat).concat(meta).concat(suff)
@@ -152,11 +154,11 @@ var keytools = {
         signSigPacket = this.createSignaturePacket(sign, name), 
         encSigPacket  = this.createSignaturePacket(sign, encrypt);
     
-    return armor.dress({"type": type, "headers": headers, "packets": signPacket.concat(namePacket).concat(signSigPacket).concat(encryptPacket).concat(encSigPacket)});
+    return ArmorUtil.dress({"type": type, "headers": headers, "packets": signPacket.concat(namePacket).concat(signSigPacket).concat(encryptPacket).concat(encSigPacket)});
   }
 }
 
-var armor = {
+var ArmorUtil = {
   crc: function(data) {
     var crc = 0xb704ce,
         ply = 0x1864cfb,
@@ -188,12 +190,12 @@ var armor = {
         var pair = item.split(': ');
         output.headers[pair[0]] = pair[1];
       });
-      temp[3] = base64.decode(temp[3]);
+      temp[3] = Base64Util.decode(temp[3]);
 
       output.type     = temp[0];
-      output.packets  = base64.decode(temp[2]);
+      output.packets  = Base64Util.decode(temp[2]);
       output.checksum = temp[3][0]*65536 + temp[3][1]*256 + temp[3][2];
-      output.valid    = (armor.crc(output.packets) == output.checksum);
+      output.valid    = (ArmorUtil.crc(output.packets) == output.checksum);
     }
 
     return output;
@@ -202,7 +204,7 @@ var armor = {
   dress: function(input) {
     var output;
 
-    input.checksum = armor.crc(input.packets);
+    input.checksum = ArmorUtil.crc(input.packets);
     input.valid    = true;
 
     output  = '-----BEGIN PGP ' + input.type + '-----\n'
@@ -211,15 +213,15 @@ var armor = {
       output += header + ': ' + input.headers[header] + '\n';
     }
 
-    output += '\n' + base64.encode(input.packets, true) + '\n';
-    output += '=' + base64.encode([input.checksum>>16, (input.checksum>>8)&0xff, input.checksum&0xff]) + '\n';
+    output += '\n' + Base64Util.encode(input.packets, true) + '\n';
+    output += '=' + Base64Util.encode([input.checksum>>16, (input.checksum>>8)&0xff, input.checksum&0xff]) + '\n';
     output += '-----END PGP ' + input.type + '-----';
 
     return output;
   }
 }
 
-var base64 = {
+var Base64Util = {
   r64 : ['A','B','C','D','E','F','G','H',
          'I','J','K','L','M','N','O','P',
          'Q','R','S','T','U','V','W','X',
