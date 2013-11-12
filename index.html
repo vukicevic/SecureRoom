@@ -64,13 +64,6 @@
     window.scroll(0,document.body.offsetHeight);
   }
 
-  function iCreateMessage2(message) {
-    var render = Template('template-message'),
-        content = document.getElementById('content');
-
-    content.innerHTML += render({id: app.messages++, time: iPrintTime(new Date(message.recvtime*1000)), sender: app.keychain[message.sender].name, message: message.plaintext});
-  }
-
   function iKeyInfo(key) {
     var wrap = document.createElement('div'),
         key1 = document.createElement('p'),
@@ -380,7 +373,7 @@
 
     if (i.textContent.length > 0) {
       b.style.backgroundColor = '#f00';
-      iCreateMessage(comm.sendMessage(i.textContent));
+      iCreateMessage2(comm.sendMessage(i.textContent));
       i.innerHTML = '';
       window.setTimeout(function() {b.style.backgroundColor = '#fff'}, '50');
     }
@@ -481,13 +474,15 @@
   }
 
   function Template(templ) {
-    var templ = document.getElementById(templ).innerHTML.replace(/\n|\r/g, "").replace(/>\s+</g, "><").trim();
+    if (typeof templ != "undefined")
+      templ = document.getElementById(templ).innerHTML.replace(/\n|\r/g, "").replace(/>\s+</g, "><").trim();
+
     return function compile(data, template) {
       var match, tpart, i, template = template || templ;
 
       while (match = /\{\{#([a-zA-Z]+)\}\}(.+)\{\{\/\1\}\}/g.exec(template)) {
         for (tpart = '', i = 0; i < data[match[1]].length; i++)
-          tpart += compile(match[2], data[match[1]][i]);
+          tpart += compile(data[match[1]][i], match[2]);
 
         template = template.split(match[0]).join(tpart);
         delete data[match[1]];
@@ -499,11 +494,147 @@
       return template;
     }
   }
+
+  var Print = {
+    time: function(timestamp) {
+      var date = new Date(timestamp*1000);
+      return ('0'+date.getHours()).slice(-2)+' '+('0'+date.getMinutes()).slice(-2)+' '+('0'+date.getSeconds()).slice(-2);
+    },
+
+    date: function(timestamp) {
+      var date = new Date(timestamp*1000);
+      return date.getHours()+':'+('0'+date.getMinutes()).slice(-2)+':'+('0'+date.getSeconds()).slice(-2)+' '+date.getDate()+'/'+(date.getMonth()+1)+'/'+date.getFullYear();
+    },
+
+    text: function(text) {
+      return text.replace(/["<>&]/g, function(m){return ({'"':'&quot;','<':'&lt;','>':'&gt;','&':'&amp;'})[m]});
+    },
+
+    bool: function(boolean) {
+      return (boolean) ? 'True' : 'False';
+    },
+
+    number: function(number) {
+      return number.toString();
+    },
+
+    id: function(id) {
+      return id.match(/.{2}/g).map(function(v){return v;}).join(':').toUpperCase();
+    }
+  }
+
+  function MessageUtil(message) {
+    return {
+      strength: function() {
+        var key, min = 8192;
+
+        for (key in message.encrypted.keys) {
+          console.log(key);
+          if (typeof app.keychain[app.keymap[key]] == "undefined") {
+            min = 0;
+            break;
+          }
+          
+          min = Math.min(app.keychain[app.keymap[key]].encrypt.size, min);
+        }
+        return {
+          term: 'Weakest Key:',
+          data: (min > 0 && min < 8192) ? min+' bits' : 'Unknown',
+          class: (min) ? '' : 'alert',
+        };
+      },
+
+      recipients: function() {
+        var key, list = '', alert = '';
+
+        for (key in message.encrypted.keys) {
+          if (list) 
+            list += ', ';
+          if (typeof app.keychain[app.keymap[key]] != "undefined") {
+            list += Print.text(app.keychain[app.keymap[key]].name);
+          } else {
+            list += (typeof app.rejected[app.keymap[key]] != "undefined") ? 'Rejected' : 'Unknown';
+            alert = 'alert';
+          }
+        }
+
+        return {
+          term: 'Recipients',
+          data: list,
+          class: alert
+        };
+      },
+
+      cipher: function() {
+        return {
+          term: 'Cipher',
+          data: symmetric.name+'-'+(message.sessionkey.length*8)+' ['+symmetric.mode+']',
+          class: ''
+        };
+      },
+
+      delay: function() {
+        var diff = message.recvtime - message.sendtime;
+
+        if (diff >= 0)
+          diff = '+'+diff;
+
+        return {
+          term: 'Delay',
+          data: diff+' sec',
+          class: (Math.abs(diff) > 10) ? 'alert' : ''
+        };
+      },
+
+      verified: function() {
+        return {
+          term: 'Verified',
+          data: Print.bool(message.verified),
+          class: (message.verified) ? '' : 'alert'
+        };
+      },
+
+      sender: function() {
+        return {
+          term: 'Author',
+          data: Print.id(message.sender),
+          class: ''
+        };
+      }
+    }
+  }
+
+  function iCreateMessage2(message) {
+    var messageUtil = MessageUtil(message),
+        container = document.getElementById('content'),
+        template = Template('template-message'),
+        content = { id: Print.number(app.messages++),
+                    time: Print.time(message.recvtime),
+                    sender: Print.text(app.keychain[message.sender].name),
+                    message: Print.text(message.plaintext),
+                    info: [] };
+
+    content.info.push(messageUtil.verified());
+    content.info.push(messageUtil.sender());
+    content.info.push(messageUtil.recipients());
+    content.info.push(messageUtil.cipher());
+    content.info.push(messageUtil.delay());
+    content.info.push(messageUtil.strength());    
+    
+    container.insertAdjacentHTML('beforeend', template(content));
+
+    //onclick events
+  }
   </script>
   <script type="text/html" id="template-message">
   <li id="message-{{id}}" class="msg">
-    <div id="message-time-{{id}}" class="time">{{time}}</div>
-    <p><b>{{sender}}:</b> {{message}}</p>
+    <div class="time">{{time}}</div>
+    <p><b class="sender">{{sender}}</b>{{message}}</p>
+    <ul class="info">
+      {{#info}}
+      <li class="{{class}}"><b>{{term}}</b>{{data}}</li>
+      {{/info}}
+    </ul>
   </li>
   </script>
 </head>
@@ -578,7 +709,7 @@
         iHideInput();
       },
       function(msg) {
-        iCreateMessage(msg);
+        iCreateMessage2(msg);
       },
       function(key) {
         iCreateReceive(key);

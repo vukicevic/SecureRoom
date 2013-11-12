@@ -67,8 +67,12 @@ body {
   transition: all 200ms ease;
 }
 
-#content p {
+#content li>p {
   margin-right: 6em;
+}
+
+#content li>p>b:after {
+  content: ": ";
 }
 
 #content .msg {
