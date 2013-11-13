@@ -63,7 +63,7 @@ body {
 }
 
 #content>li {
-  padding: 0.8125em 1em;
+  padding: 0.8125em 1em 0.625em;
 }
 
 #content>li>p {
@@ -81,11 +81,11 @@ body {
 
 #content .time {
   float: right;
-  cursor: pointer;
   font-size: 0.5em;
   line-height: 1em;
   margin-top: -0.5em;
   width: 1em;
+  cursor: pointer;
 }
 
 #content ul.info {
@@ -99,16 +99,42 @@ body {
 
 #content div.info {
   font-size: 0.8125em;
-  margin: 0.615em 0 0.308em;
   line-height: 1.154em;
   overflow: hidden;
   transition: height 300ms ease;
+}
+
+#content div.info>p {
+  margin: 0.3125em 0;
+}
+
+#content button {
+  font-size: 1.5em;
+  font-weight: bold;
+  padding: 0.25em 0.5em 0.125em;
+  margin: 0.25em 0.3125em 0 0;
+  border-radius: 0.25em;
+  background-color: white;
+  border: none;
+  cursor: pointer;
 }
 
 #content .alert {
   background-color: black;
   color: white;
   margin: 0.5em 0;  
+}
+
+#content p.join:after {
+  content: " wishes to join.";
+}
+
+#content p.reject:after {
+  content: "'s key rejected.";
+}
+
+#content p.accept:after {
+  content: " joined.";
 }
 
 #alertKeyGen {
@@ -177,12 +203,6 @@ body {
   color: gray;
 }
 
-.keyinfo {
-  font-size: 0.8125em;
-  margin: 0.615em 0;
-  line-height: 1.154em;
-}
-
 #nickname {
   width: 5em;
 }
@@ -247,6 +267,8 @@ body {
 
 #keychain p {
   font-size: 0.8125em;
+  line-height: 1.125em;
+  margin-top: 0.5em;
 }
 
 #keychain h3 {

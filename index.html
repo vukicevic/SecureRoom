@@ -18,76 +18,11 @@
     return id.match(/.{2}/g).map(function(v){return v;}).join(':').toUpperCase();
   }
 
-  function iCreateMessage(message) {
-    if (message === null) return;
-
-    var l = document.createElement('li'),
-        p = document.createElement('p'),
-        b = document.createElement('b'),
-        d = iPrintTime(new Date(message.recvtime*1000)),
-        c = app.messages++,
-        i = iCreateInfo(c, message);
-
-    l.id = 'msg'+c;
-    l.className = 'msg';
-
-    d.id = 'toggle'+c;
-    d.onclick = function() { iToggleInfo(i, 0, 4.5); };
-
-    //if a large time difference exists
-    if (Math.abs(message.recvtime - message.sendtime) > 10) {
-      l.className = 'alert warning';
-    }
-
-    //if recv message was sent to rejected or unknown key, attach warning
-    for (var keyid in message.encrypted.keys) {
-      if (typeof app.keychain[app.keymap[keyid]] == "undefined") {
-        l.className = 'alert warning';
-        break;
-      }
-    }
-
-    //if signature is wrong
-    if (!message.verified) {
-      l.className = 'alert warning';
-    }
-
-    b.appendChild(document.createTextNode(app.keychain[message.sender].name+': '));
-    p.appendChild(b);
-    p.appendChild(document.createTextNode(message.plaintext));
-
-    l.appendChild(d);
-    l.appendChild(p);
-    l.appendChild(i);
-
-    document.getElementById('content').appendChild(l);
-    window.scroll(0,document.body.offsetHeight);
-  }
-
-  function iKeyInfo(key) {
-    var wrap = document.createElement('div'),
-        key1 = document.createElement('p'),
-        key2 = document.createElement('p');
-
-    key1.className = 'keyinfo';
-    key2.className = 'keyinfo';
-
-    key1.appendChild(document.createElement("b"));
-    key1.lastChild.appendChild(document.createTextNode(iFormatId(key.sign.id)));
-    key1.appendChild(document.createElement("br"));
-    key1.appendChild(document.createElement("small"));
-    key1.lastChild.appendChild(document.createTextNode(key.sign.size + " BITS | " + iPrintDate(new Date(key.sign.created*1000)) + " | SIGNING"));
-
-    wrap.appendChild(key1);
-
-    key2.appendChild(document.createTextNode(iFormatId(key.encrypt.id)));
-    key2.appendChild(document.createElement("br"));
-    key2.appendChild(document.createElement("small"));
-    key2.lastChild.appendChild(document.createTextNode(key.encrypt.size + " BITS |  " + iPrintDate(new Date(key.encrypt.created*1000)) + " | ENCRYPTION"));
-
-    wrap.appendChild(key2);
-
-    return wrap;
+  /* BEGIN KEYGEN */
+  function iGenerate() {
+    app.generateKeys(document.getElementById('nickname').textContent);
+    iCreateProgress();
+    iDisableSettings();
   }
 
   function iCreateProgress() {
@@ -122,7 +57,7 @@
     }
 
     li.appendChild(h4);
-    li.appendChild(iKeyInfo(app.keychain[app.myid]));
+    //li.appendChild(iKeyInfo(app.keychain[app.myid]));
     li.appendChild(bu);
 
     iToggleSettings(true);
@@ -147,12 +82,14 @@
 
     di.onclick = function() { iToggleInfo(li, 1, 6); }
     
-    li.appendChild(document.createTextNode('Connected.'));
     li.appendChild(di);
-    li.appendChild(iKeyInfo(app.keychain[app.myid]));
+    li.appendChild(document.createTextNode('Connected.'));
+    
+    //add mykey to keychain
     
     li.style.height = '1em';
   }
+  /* END KEYGEN */
   
   function iDisconnect() {
     var li = document.createElement('li'),
@@ -163,110 +100,6 @@
     li.appendChild(di);
     
     document.getElementById('content').appendChild(li);
-  }
-
-  function iCreateReceive(key) {
-    if (document.getElementById('alert'+key.sign.id)) return;
-
-    var li = document.createElement('li'),
-        pa = document.createElement('p'),
-        ba = document.createElement('span'),
-        br = document.createElement('span'),
-        di = document.createElement('div');
-
-    li.className = 'alert clear';
-    li.id        = 'alert'+key.sign.id;
-    document.getElementById('content').appendChild(li);
-
-    di.className = 'time';
-    pa.appendChild(document.createTextNode(key.name+' wants to join. Do you accept?'));
-
-    ba.className = 'field button';
-    br.className = 'field button';
-
-    ba.appendChild(document.createTextNode('Accept'));
-    ba.onclick = function() {
-      key.active = true;
-      app.keychain[key.sign.id] = key;
-      app.keymap[key.encrypt.id] = key.sign.id;
-      iRefreshKeychain();
-      iCreateReceived(this, key);
-      comm.sendKey();
-    }
-
-    br.appendChild(document.createTextNode('Reject'));
-    br.onclick = function() {
-      key.active = false;
-      app.rejected[key.sign.id] = key;
-      app.keymap[key.encrypt.id] = key.sign.id;
-      iCreateReceived(this, key, true);
-    }
-
-    li.appendChild(pa);
-    li.appendChild(iKeyInfo(key));
-    li.appendChild(ba);
-    li.appendChild(br);
-
-    li.style.height = '9em';
-    window.scroll(0,document.body.offsetHeight);
-  }
-
-  function iCreateReceived(control, key, reject) {
-    var alert = control.parentNode,
-        info = iPrintTime(new Date());
-
-    while (alert.firstChild) alert.removeChild(alert.firstChild);
-    alert.style.height = '1em';
-    if (reject) {
-      alert.appendChild(document.createTextNode(key.name+'\'s key rejected.'));
-      alert.className = 'alert warning';
-    } else {
-      alert.appendChild(document.createTextNode(key.name+' joined.'));
-    }
-    info.className += ' down';
-    info.onclick = function() { iToggleInfo(alert, 1, 6); };
-    alert.appendChild(info);
-    alert.appendChild(iKeyInfo(key));
-  }
-  
-  function iCreateInfo(id, message) {
-    var div  = document.createElement('div'), m = 8192,
-        info = '';
-
-    div.className = 'msginfo';
-    div.id = 'info'+id;
-
-    info += ' <b>Sent By:</b> '+iFormatId(message.sender);
-    info += ' <b>At:</b> '+iPrintDate(new Date(message.sendtime*1000));
-    info += ' <b>Verified:</b> ';
-    info += (message.verified) ? 'True<br>' : '<u>False</u><br>';
-
-    info += ' <b>Sent To:</b> ';
-    for (keyid in message.encrypted.keys) {
-      info += iFormatId(keyid);
-      if (typeof app.keychain[app.keymap[keyid]] != "undefined") {
-        info += ' ['+app.keychain[app.keymap[keyid]].name.replace(/[`~!@#$%^&*()_|+\-=?;:'",.<>\{\}\[\]\\\/]/gi, '')+'] ';
-        m = Math.min(app.keychain[app.keymap[keyid]].encrypt.size, m);
-      } else if (typeof app.rejected[app.keymap[keyid]] != "undefined") {
-        info += ' [<b>REJECTED</b>] ';
-        m = 0;
-      } else {
-        info += ' [<b>UNKNOWN</b>] ';
-        m = 0;
-      }
-    }
-    info += (m==8192) ? '&#8212;<br>' : '<br>';
-
-    info += ' <b>Cipher:</b> '+symmetric.name+'-'+(message.sessionkey.length*8)+' ['+symmetric.mode+']';
-    info += ' <b>Weakest key:</b> ';
-    info += (m>0&&m<8192) ? m+' bits' : 'Unknown';
-
-    div.innerHTML = info;
-    return div;
-  }
-
-  function iPrintDate(date) {
-    return date.getHours()+':'+('0'+date.getMinutes()).slice(-2)+':'+('0'+date.getSeconds()).slice(-2)+' '+date.getDate()+'/'+(date.getMonth()+1)+'/'+date.getFullYear();
   }
   
   function iPrintTime(date) {
@@ -289,82 +122,6 @@
   
   function iHideInput() {
     document.getElementById('input').style.bottom = '-2.7em';
-  }
-
-  function iRefreshKeychain() {
-    var kc = document.getElementById('keychain'),
-        li, nm, b1, b2, pu, pr, tu, tr, ct;
-
-    while (kc.firstChild) kc.removeChild(kc.firstChild);
-
-    for (keyid in app.keychain) {
-      li = document.createElement('li');
-      pu = document.createElement('div');
-      tu = document.createElement('textarea');
-      nm = document.createElement('h3');
-      ct = document.createElement('div');
-      b1 = document.createElement('span');
-      b2 = document.createElement('span');
-
-      if (app.myid != keyid) {
-        if (app.keychain[keyid].active) {
-          b1.innerHTML = 'ACTIVE';
-        } else {
-          li.className = 'inactive';
-          b1.className = 'inactive';
-          b1.innerHTML = 'DISABLED';
-        }
-        
-        b1.onclick = function(elem, ctrl) { 
-                      return function() { iToggleKey(elem, ctrl); } 
-                     }(li, b1);
-
-        b1.id = 'switch'+keyid;
-      } else {
-        li.className = 'mykey';
-        
-        tr = document.createElement('textarea');
-        tr.innerHTML = KeyTools.exportKey(app.keychain[keyid].name, app.keychain[keyid].sign, app.keychain[keyid].encrypt, app.signkey.mpi, app.encryptkey.mpi);
-
-        pr = document.createElement('div');
-        pr.appendChild(tr);
-        pr.className     = 'export';
-        pr.style.display = 'none';
-
-        b1.innerHTML = 'PRIVATE KEY';
-        b1.onclick = function(elem, ctrl) { 
-          return function() { iToggleExport(elem, ctrl); }
-        }(pr, b1);
-
-        li.appendChild(pr);
-      }
-      
-      li.id = keyid;
-      ct.className = 'controls';
-
-      tu.innerHTML     = KeyTools.exportKey(app.keychain[keyid].name, app.keychain[keyid].sign, app.keychain[keyid].encrypt);
-      pu.appendChild(tu);
-      pu.className     = 'export';
-      pu.style.display = 'none';
-
-      b2.innerHTML = 'PUBLIC KEY';
-      b2.onclick = function(elem, ctrl) { 
-        return function() { iToggleExport(elem, ctrl); }
-      }(pu, b2);
-
-      ct.appendChild(b1);
-      ct.appendChild(b2);
-      nm.appendChild(document.createTextNode(app.keychain[keyid].name));
-
-      li.appendChild(pu);
-      li.appendChild(nm);
-      li.appendChild(ct);
-      li.appendChild(iKeyInfo(app.keychain[keyid]));
-
-      kc.appendChild(li);
-    }
-
-    iToggleKeychain(true);
   }
 
   function iSendMessage() {
@@ -399,12 +156,6 @@
     var server = document.getElementById("serverurl");
     server.className = 'disabled';
     server.contentEditable = false;
-  }
-
-  function iGenerate() {
-    app.generateKeys(document.getElementById('nickname').textContent);
-    iCreateProgress();
-    iDisableSettings();
   }
 
   function iToggleSettings(close) {
@@ -613,7 +364,10 @@
     },
 
     removeContent: function(elem) {
+      elem.style.height = elem.offsetHeight+'px';
+
       return function() {
+        elem.style.height = '0px';
         while (elem.firstChild) elem.removeChild(elem.firstChild);
       }
     },
@@ -632,7 +386,10 @@
 
       container.insertAdjacentHTML('beforeend', build(content));
 
-      var e = document.getElementById('message-'+content.id);
+      UiUtil.addMessageListeners(document.getElementById('message-'+content.id));
+    },
+
+    addMessageListeners: function(e) {
       e.addEventListener('click', UiUtil.toggleHeight(e.getElementsByClassName('info').item(0)));
     },
 
@@ -641,19 +398,21 @@
           build = TemplateTools('template-key-alert'),
           content = {};
 
-      content.id      = PrintUtil.number(app.messages++);
-      content.time    = PrintUtil.time(Math.round(+new Date()/1000));
-      content.message = PrintUtil.text(key.name+' has joined.');
-      content.info    = UiUtil.buildKeyInfo(key);
+      content.id   = PrintUtil.number(app.messages++);
+      content.time = PrintUtil.time(Math.round(+new Date()/1000));
+      content.name = PrintUtil.text(key.name);
+      content.info = UiUtil.buildKeyInfo(key);
 
       container.insertAdjacentHTML('beforeend', build(content));
 
-      var e = document.getElementById('alert-'+content.id),
-          a = e.getElementsByTagName('span').item(0),
-          r = e.getElementsByTagName('span').item(1),
-          i = e.getElementsByClassName('info').item(0);
+      UiUtil.addKeyListeners(document.getElementById('alert-'+content.id), key);
+    },
 
-      e.addEventListener('click', UiUtil.toggleHeight(i));
+    addKeyListeners: function(e, key) {
+      var a = e.getElementsByTagName('button').item(0),
+          r = e.getElementsByTagName('button').item(1),
+          p = e.getElementsByClassName('join').item(0),
+          d = UiUtil.removeContent(a.parentNode);
 
       a.addEventListener('click', function() { 
         key.active = true;
@@ -662,7 +421,13 @@
         comm.sendKey();
       });
 
-      a.addEventListener('click', UiUtil.removeContent(a.parentNode));
+      a.addEventListener('click', function() { 
+        p.classList.remove('join');
+        p.classList.add('accept');
+        UiUtil.buildKeyChain();
+      });
+
+      a.addEventListener('click', d);
 
       r.addEventListener('click', function() { 
         key.active = false;
@@ -670,7 +435,13 @@
         app.keymap[key.encrypt.id] = key.sign.id;
       });
 
-      r.addEventListener('click', UiUtil.removeContent(r.parentNode));
+      r.addEventListener('click', function() { 
+        e.classList.add('warning');
+        p.classList.remove('join');
+        p.classList.add('reject');
+      });
+      
+      r.addEventListener('click', d);
     },
 
     buildMsgInfo: function(messageTool) {
@@ -687,11 +458,9 @@
       return build(content);
     },
 
-    buildKeyInfo: function(key, hidden) {
+    buildKeyInfo: function(key) {
       var build = TemplateTools('template-key-info'),
           content = {};
-
-      content.class = (hidden) ? ' hidden-height' : '';
 
       content.sid   = PrintUtil.id(key.sign.id);
       content.ssize = PrintUtil.number(key.sign.size);
@@ -702,6 +471,25 @@
       content.edate = PrintUtil.date(key.encrypt.created);
 
       return build(content);
+    },
+
+    buildKeyChain: function() {
+      var container = document.getElementById('keychain'),
+          build = TemplateTools('template-key-chain'),
+          content = {};
+
+      while (container.lastChild != container.firstChild) container.removeChild(container.lastChild);
+
+      for (var id in app.keychain) {
+        if (app.myid != id) {
+          content.id     = PrintUtil.text(id);
+          content.name   = PrintUtil.text(app.keychain[id].name);
+          content.status = (app.keychain[id].active) ? '' : 'inactive';
+          content.info   = UiUtil.buildKeyInfo(app.keychain[id]);
+
+          container.insertAdjacentHTML('beforeend', build(content));
+        }
+      }
     }
   }
   </script>
@@ -725,19 +513,26 @@
   <script type="text/html" id="template-key-alert">
     <li id="alert-{{id}}" class="alert">
       <div class="time">{{time}}</div>
-      <p>{{message}}</p>
-      {{info}}
-      <div class="options clear">
-        <span class="field button">Accept</span> <span class="field button">Reject</span>
+      <p class="join">{{name}}</p>
+      <div class="info">
+        {{info}}
+        <button>Accept</button><button>Reject</button>
       </div>
     </li>
   </script>
 
   <script type="text/html" id="template-key-info">
-    <div class="info{{class}}">
-      <p><b>{{sid}}</b><br><small>{{ssize}} | {{sdate}} | SIGNING</small></p>
-      <p>{{eid}}<br><small>{{esize}} | {{edate}} | ENCRYPTION</small></p>
-    </div>
+    <p><b>{{sid}}</b><br><small>{{ssize}} | {{sdate}} | SIGNING</small></p>
+    <p>{{eid}}<br><small>{{esize}} | {{edate}} | ENCRYPTION</small></p>
+  </script>
+
+  <script type="text/html" id="template-key-chain">
+    <li id="key-{{id}}">
+      <div class="export" style="display: none;"><textarea>...</textarea></div>
+      <h3>{{name}}</h3>
+      <div class="controls"><span class="{{status}}">ACTIVE</span><span>PUBLIC KEY</span></div>
+      <div class="info">{{info}}</div>
+    </li>
   </script>
 </head>
 <body>
@@ -789,6 +584,13 @@
   </div>
 
   <ul id="keychain">
+    <li id="mykey">
+      <div class="export" style="display: none;"><textarea></textarea></div>
+      <div class="export" style="display: none;"><textarea></textarea></div>
+      <h3></h3>
+      <div class="controls"><span>PRIVATE KEY</span><span>PUBLIC KEY</span></div>
+      <div class="info"></div>
+    </li>
   </ul>
 
   <script>
@@ -804,7 +606,6 @@
       function() {
         iConnect();
         iShowInput();
-        iRefreshKeychain();
       },
       function() {
         iDisconnect();
