@@ -600,11 +600,21 @@
     toggleHeight: function(elem) {
       var height = elem.offsetHeight;
 
-      elem.style.height = '0px';
-      elem.classList.remove('hidden-height');
+      if (elem.classList.contains('hidden-height')) {
+        elem.style.height = '0px';
+        elem.classList.remove('hidden-height');
+      } else {
+        elem.style.height = height+'px';
+      }
 
       return function() {
         elem.style.height = (elem.style.height == '0px') ? height+'px' : '0px';
+      }
+    },
+
+    removeContent: function(elem) {
+      return function() {
+        while (elem.firstChild) elem.removeChild(elem.firstChild);
       }
     },
 
@@ -622,21 +632,45 @@
 
       container.insertAdjacentHTML('beforeend', build(content));
 
-      //onclick events
       var e = document.getElementById('message-'+content.id);
       e.addEventListener('click', UiUtil.toggleHeight(e.getElementsByClassName('info').item(0)));
     },
 
-    addJoined: function(key) {
+    addKey: function(key) {
       var container = document.getElementById('content'),
-          build = TemplateTools('template-joined'),
+          build = TemplateTools('template-key-alert'),
           content = {};
 
-      content.time    = Print.time(Math.round(+new Date()/1000));
-      content.message = key.name+' has joined.';
-      content.info    = UiUtil.buildKeyInfo(key, true);
+      content.id      = PrintUtil.number(app.messages++);
+      content.time    = PrintUtil.time(Math.round(+new Date()/1000));
+      content.message = PrintUtil.text(key.name+' has joined.');
+      content.info    = UiUtil.buildKeyInfo(key);
 
-      build(content);
+      container.insertAdjacentHTML('beforeend', build(content));
+
+      var e = document.getElementById('alert-'+content.id),
+          a = e.getElementsByTagName('span').item(0),
+          r = e.getElementsByTagName('span').item(1),
+          i = e.getElementsByClassName('info').item(0);
+
+      e.addEventListener('click', UiUtil.toggleHeight(i));
+
+      a.addEventListener('click', function() { 
+        key.active = true;
+        app.keychain[key.sign.id] = key;
+        app.keymap[key.encrypt.id] = key.sign.id;
+        comm.sendKey();
+      });
+
+      a.addEventListener('click', UiUtil.removeContent(a.parentNode));
+
+      r.addEventListener('click', function() { 
+        key.active = false;
+        app.rejected[key.sign.id] = key;
+        app.keymap[key.encrypt.id] = key.sign.id;
+      });
+
+      r.addEventListener('click', UiUtil.removeContent(r.parentNode));
     },
 
     buildMsgInfo: function(messageTool) {
@@ -675,7 +709,7 @@
   <script type="text/html" id="template-message">
     <li id="message-{{id}}" class="message{{class}}">
       <div class="time">{{time}}</div>
-      <p><b class="sender">{{sender}}</b>{{message}}</p>
+      <p><b class="cln">{{sender}}</b>{{message}}</p>
       {{info}}
     </li>
   </script>
@@ -683,16 +717,19 @@
   <script type="text/html" id="template-message-info">
     <ul class="info hidden-height">
       {{#info}}
-      <li><b>{{term}}</b>{{data}}</li>
+      <li><b class="cln">{{term}}</b>{{data}}</li>
       {{/info}}
     </ul>
   </script>
 
-  <script type="text/html" id="template-joined">
+  <script type="text/html" id="template-key-alert">
     <li id="alert-{{id}}" class="alert">
       <div class="time">{{time}}</div>
       <p>{{message}}</p>
       {{info}}
+      <div class="options clear">
+        <span class="field button">Accept</span> <span class="field button">Reject</span>
+      </div>
     </li>
   </script>
 
@@ -777,7 +814,8 @@
         UiUtil.addMessage(msg);
       },
       function(key) {
-        iCreateReceive(key);
+        //iCreateReceive(key);
+        UiUtil.addKey(key);
       }
     )
     
