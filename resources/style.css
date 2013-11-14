@@ -109,7 +109,7 @@ body {
 }
 
 #content button {
-  font-size: 1.5em;
+  font-size: 1.3125em;
   font-weight: bold;
   padding: 0.25em 0.5em 0.125em;
   margin: 0.25em 0.3125em 0 0;
@@ -119,10 +119,19 @@ body {
   cursor: pointer;
 }
 
+#content input {
+  font-size: 1.3125em;
+  padding: 0.25em 0.5em 0.125em;
+  margin: 0.25em 0.25em 0.25em 0;
+  border-radius: 0.25em;
+  border: none;
+}
+
 #content .alert {
   background-color: black;
   color: white;
-  margin: 0.5em 0;  
+  margin: 0.5em 0;
+  overflow: hidden;
 }
 
 #content p.join:after {
@@ -137,11 +146,6 @@ body {
   content: " joined.";
 }
 
-#alertKeyGen {
-  overflow: hidden;
-  height: 4em;
-}
-
 .warning {
   background-color: #E87600 !important;
 }
@@ -150,6 +154,7 @@ body {
   background-color: white;
   width: 10em;
   height: 1em;
+  margin-bottom: 0.3125em;
   -webkit-animation: load 1s linear infinite;
   animation: load 1s linear infinite;
 }
@@ -201,14 +206,6 @@ body {
 .inactive {
   border-color: gray;
   color: gray;
-}
-
-#nickname {
-  width: 5em;
-}
-
-#generate {
-  display: none;
 }
 
 #input {

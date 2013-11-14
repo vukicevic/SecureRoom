@@ -13,55 +13,6 @@
 
   <script src="resources/keytools.js"></script>
   <script>
-  
-  function iFormatId(id) {
-    return id.match(/.{2}/g).map(function(v){return v;}).join(':').toUpperCase();
-  }
-
-  /* BEGIN KEYGEN */
-  function iGenerate() {
-    app.generateKeys(document.getElementById('nickname').textContent);
-    iCreateProgress();
-    iDisableSettings();
-  }
-
-  function iCreateProgress() {
-    var li = document.getElementById('alertKeyGen'),
-        di = document.createElement('div');
-
-    while (li.firstChild) li.removeChild(li.firstChild);
-
-    di.className = 'loading';
-    li.appendChild(di);
-    li.style.height = '1em';
-  }
-
-  function iCreateDistribute() {
-    var li = document.getElementById('alertKeyGen'),
-        h4 = document.createElement('p'),
-        bu = document.createElement('span');
-
-    li.style.height = '9em';
-
-    while (li.firstChild) li.removeChild(li.firstChild);
-
-    h4.appendChild(document.createTextNode('Your keys have been generated.'));
-
-    bu.id = 'distribute';
-    bu.className = 'field button';
-    bu.appendChild(document.createTextNode('Connect & Distribute'));
-    bu.onclick = function() {
-      comm.connect();
-      iSetRoom();
-      iCreateProgress();
-    }
-
-    li.appendChild(h4);
-    //li.appendChild(iKeyInfo(app.keychain[app.myid]));
-    li.appendChild(bu);
-
-    iToggleSettings(true);
-  }
 
   function iSetRoom() {
     if (app.room != '') {
@@ -72,41 +23,6 @@
       }
       document.getElementById('room').innerHTML = 'Room: '+app.room;
     }
-  }
-
-  function iConnect() {
-    var li = document.getElementById('alertKeyGen'),
-        di = iPrintTime(new Date());
-
-    while (li.firstChild) li.removeChild(li.firstChild);
-
-    di.onclick = function() { iToggleInfo(li, 1, 6); }
-    
-    li.appendChild(di);
-    li.appendChild(document.createTextNode('Connected.'));
-    
-    //add mykey to keychain
-    
-    li.style.height = '1em';
-  }
-  /* END KEYGEN */
-  
-  function iDisconnect() {
-    var li = document.createElement('li'),
-        di = iPrintTime(new Date());
-
-    li.className = 'alert';
-    li.appendChild(document.createTextNode('Disconnected.'));
-    li.appendChild(di);
-    
-    document.getElementById('content').appendChild(li);
-  }
-  
-  function iPrintTime(date) {
-    var d = document.createElement('div');
-    d.className = 'time';
-    d.innerHTML = ('0'+date.getHours()).slice(-2)+' '+('0'+date.getMinutes()).slice(-2)+' '+('0'+date.getSeconds()).slice(-2);
-    return d;
   }
 
   function iShowInput() {
@@ -193,7 +109,7 @@
     }
   }
 
-  function iToggleKey(key, button) {
+  /*function iToggleKey(key, button) {
     if (app.keychain[key.id].active) {
       button.className = 'inactive';
       button.innerHTML = 'DISABLED';
@@ -207,10 +123,6 @@
     }
   }
 
-  function iToggleInfo(elem, min, max) {
-    elem.style.height = (elem.style.height == max+'em') ? min+'em' : max+'em';
-  }
-
   function iToggleExport(elem, button) {
     if (elem.style.display == 'none') {
       elem.style.display = 'block';
@@ -222,7 +134,7 @@
     
     elem.style.left = (elem.parentNode.getBoundingClientRect().left - 1)+'px';
     elem.style.top  = '-'+(elem.offsetHeight - (elem.parentNode.getBoundingClientRect().top - elem.parentNode.parentNode.getBoundingClientRect().top))+'px';
-  }
+  }*/
 
   function TemplateTools(templ) {
     if (typeof templ != "undefined")
@@ -490,6 +402,27 @@
           container.insertAdjacentHTML('beforeend', build(content));
         }
       }
+    },
+
+    addWelcome: function(type) {
+      var container = document.getElementById('welcome');
+      while (container.firstChild) container.removeChild(container.firstChild);
+      
+      switch(type) {
+      case 'distribute':
+        container.insertAdjacentHTML('beforeend', '<p>Your keys have been generated.</p><div class="info">'+UiUtil.buildKeyInfo(app.keychain[app.myid])+'</div><button>Connect &amp; Distribute</button>');
+        container.getElementsByTagName('button').item(0).addEventListener('click', function() { comm.connect(); iSetRoom(); UiUtil.addWelcome('progress') });
+        break;
+      case 'progress':
+        container.insertAdjacentHTML('beforeend', '<div class="loading"></div>');
+        break;
+      case 'connect':
+        container.insertAdjacentHTML('beforeend', '<div class="time">'+PrintUtil.time(Math.round(+new Date()/1000))+'</div><p>Connected.</p>');
+        break;
+      case 'disconnect':
+        container.insertAdjacentHTML('beforeend', '<div class="time">'+PrintUtil.time(Math.round(+new Date()/1000))+'</div><p>Disconnected.</p>');
+        break;   
+      }
     }
   }
   </script>
@@ -563,11 +496,8 @@
   </ul>
 
   <ul id="content">
-    <li class="alert clear" id="alertKeyGen">
-      <p>Enter a nickname.</p>
-      <span class="field" id="nickname" contenteditable="true" onkeyup="document.getElementById('generate').style.display=(this.textContent.length<3)?'none':'block';"
-      onkeypress="if(event.keyCode === 13) { event.preventDefault(); if(this.textContent.length>=3){iGenerate();}}"></span>
-      <span class="field button" id="generate" onclick="iGenerate();">Generate</span>
+    <li class="alert" id="welcome">
+      <input type="text" id="nickname" autocomplete="off" placeholder="Enter a nickname..." onkeyup="this.nextSibling.disabled=(this.value.length<3);" onkeypress="(event.keyCode===13) && this.nextSibling.onclick();"><button onclick="if (!this.disabled) { app.generateKeys(this.previousSibling.value); UiUtil.addWelcome('progress'); }" disabled>Generate</button>
     </li>
   </ul>
 
@@ -583,39 +513,36 @@
     </span>
   </div>
 
-  <ul id="keychain">
-    <li id="mykey">
+  <ul id="keychain"><li id="mykey">
       <div class="export" style="display: none;"><textarea></textarea></div>
       <div class="export" style="display: none;"><textarea></textarea></div>
       <h3></h3>
       <div class="controls"><span>PRIVATE KEY</span><span>PUBLIC KEY</span></div>
       <div class="info"></div>
-    </li>
-  </ul>
+  </li></ul>
 
   <script>
   if (typeof window.crypto.getRandomValues === 'function' && typeof window.WebSocket === 'function' && typeof window.Worker === 'function') {
     app.setCallbacks(
       function() {
-        iCreateDistribute();
+        UiUtil.addWelcome('distribute');
         iSetRoom();
       }
     )
 
     comm.setCallbacks(
       function() {
-        iConnect();
+        UiUtil.addWelcome('connect');
         iShowInput();
       },
       function() {
-        iDisconnect();
+        UiUtil.addWelcome('disconnect');
         iHideInput();
       },
       function(msg) {
         UiUtil.addMessage(msg);
       },
       function(key) {
-        //iCreateReceive(key);
         UiUtil.addKey(key);
       }
     )
