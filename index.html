@@ -412,6 +412,7 @@
       case 'distribute':
         container.insertAdjacentHTML('beforeend', '<p>Your keys have been generated.</p><div class="info">'+UiUtil.buildKeyInfo(app.keychain[app.myid])+'</div><button>Connect &amp; Distribute</button>');
         container.getElementsByTagName('button').item(0).addEventListener('click', function() { comm.connect(); iSetRoom(); UiUtil.addWelcome('progress') });
+        UiUtil.addMyKey();
         break;
       case 'progress':
         container.insertAdjacentHTML('beforeend', '<div class="loading"></div>');
@@ -423,6 +424,11 @@
         container.insertAdjacentHTML('beforeend', '<div class="time">'+PrintUtil.time(Math.round(+new Date()/1000))+'</div><p>Disconnected.</p>');
         break;   
       }
+    },
+
+    addMyKey: function() {
+      document.getElementById('myinfo').insertAdjacentHTML('beforeend', UiUtil.buildKeyInfo(app.keychain[app.myid]));
+      document.getElementById('myname').insertAdjacentHTML('beforeend', PrintUtil.text(app.keychain[app.myid].name));
     }
   }
   </script>
@@ -516,9 +522,9 @@
   <ul id="keychain"><li id="mykey">
       <div class="export" style="display: none;"><textarea></textarea></div>
       <div class="export" style="display: none;"><textarea></textarea></div>
-      <h3></h3>
-      <div class="controls"><span>PRIVATE KEY</span><span>PUBLIC KEY</span></div>
-      <div class="info"></div>
+      <h3 id="myname"></h3>
+      <div id="mycontrols" class="controls"><span>PRIVATE KEY</span><span>PUBLIC KEY</span></div>
+      <div id="myinfo" class="info"></div>
   </li></ul>
 
   <script>
