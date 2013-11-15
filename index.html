@@ -89,26 +89,6 @@
     }
   }
 
-  function iToggleKeychain(close) {
-    var button = document.getElementById('toggleKeychain'),
-        menu = document.getElementById('keychain');
-
-    if (button.className == 'open' || close) {
-      button.className = 'closed';
-      menu.style.bottom = '-'+menu.clientHeight+'px';
-      
-      /*for (var i = 0, e = menu.getElementsByClassName('export'); i < e.length; i++)
-        e[i].style.display = 'none';*/
-
-      /*while (menu.getElementsByClassName('selected').length)
-        menu.getElementsByClassName('selected')[0].className = '';*/
-
-    } else {
-      button.className = 'open';
-      menu.style.bottom = (button.clientHeight-5)+'px';
-    }
-  }
-
   function TemplateTools(templ) {
     if (typeof templ != "undefined")
       templ = document.getElementById(templ).innerHTML.replace(/\n|\r/g, "").replace(/>\s+</g, "><").trim();
@@ -185,25 +165,6 @@
             list.push((typeof app.rejected[app.keymap[key]] != "undefined") ? 'Rejected' : 'Unknown');
 
         return { term: 'Recipients', data: list.join(', ') };
-      },
-
-      cipher: function() {
-        return { term: 'Cipher', data: symmetric.name+'-'+(message.sessionkey.length*8)+' ['+symmetric.mode+']' };
-      },
-
-      delay: function() {
-        var diff = message.recvtime - message.sendtime;
-        if (diff >= 0) diff = '+'+diff;
-
-        return { term: 'Delay', data: diff+' sec' };
-      },
-
-      verified: function() {
-        return { term: 'Verified', data: PrintUtil.bool(message.verified) };
-      },
-
-      sender: function() {
-        return { term: 'Author', data: PrintUtil.id(message.sender) };
       }
     }
   }
@@ -222,6 +183,22 @@
       return function() {
         elem.style.height = (elem.style.height == '0px') ? height+'px' : '0px';
       }
+    },
+
+    toggleKeychain: function(elem, ctrl) {
+      return function(close) {
+        if (ctrl.classList.contains('open') || close == 'close') {
+          ctrl.classList.remove('open');
+          elem.style.bottom = '-'+elem.clientHeight+'px';
+
+          var node;
+          while ( (node = elem.querySelector('.export:not(.hidden)')) ) node.classList.add('hidden');
+          while ( (node = elem.querySelector('.selected')) ) node.classList.remove('selected');
+        } else {
+          ctrl.classList.add('open');
+          elem.style.bottom = (ctrl.clientHeight-5)+'px';
+        }
+      };     
     },
 
     toggleKey: function(id, ctrl) {
@@ -271,7 +248,7 @@
       content.time    = PrintUtil.time(message.recvtime);
       content.sender  = PrintUtil.text(app.keychain[message.sender].name);
       content.message = PrintUtil.text(message.plaintext);
-      content.info    = UiUtil.buildMsgInfo(MessageTools(message));
+      content.info    = UiUtil.buildMsgInfo(message);
       content.class   = (!message.verified) ? ' warning' : '';
 
       container.insertAdjacentHTML('beforeend', build(content));
@@ -334,16 +311,17 @@
       r.addEventListener('click', d);
     },
 
-    buildMsgInfo: function(messageTool) {
-      var build = TemplateTools('template-message-info'),
+    buildMsgInfo: function(message) {
+      var tools = MessageTools(message),
+          build = TemplateTools('template-message-info'),
           content = {info: []};
 
-      content.info.push(messageTool.verified());
-      content.info.push(messageTool.sender());
-      content.info.push(messageTool.recipients());
-      content.info.push(messageTool.cipher());
-      content.info.push(messageTool.delay());
-      content.info.push(messageTool.strength());
+      content.info.push({term: 'Verified', data: PrintUtil.bool(message.verified)});
+      content.info.push({term: 'Author', data: PrintUtil.id(message.sender)});
+      content.info.push({term: 'Cipher', data: symmetric.name+'-'+(message.sessionkey.length*8)+' ['+symmetric.mode+']'});
+      content.info.push({term: 'Delay', data: (message.recvtime - message.sendtime)+' sec'});
+      content.info.push(tools.recipients());
+      content.info.push(tools.strength());
 
       return build(content);
     },
@@ -383,6 +361,8 @@
           UiUtil.addKeychainListeners(container.lastChild, id);
         }
       }
+
+      UiUtil.toggleKeychain(container, document.getElementById("toggleKeychain"))('close');
     },
 
     addKeychainListeners: function(elem, id) {
@@ -400,15 +380,12 @@
       
       switch(type) {
       case 'distribute':
-        container.insertAdjacentHTML('beforeend', '<div class="hidden-height"><p>Your keys have been generated.</p><div class="info">'+UiUtil.buildKeyInfo(app.keychain[app.myid])+'</div><button>Connect &amp; Distribute</button></div>');
+        container.insertAdjacentHTML('beforeend', '<p>Your keys have been generated.</p><div class="info">'+UiUtil.buildKeyInfo(app.keychain[app.myid])+'</div><button>Connect &amp; Distribute</button>');
         container.getElementsByTagName('button').item(0).addEventListener('click', function() { comm.connect(); iSetRoom(); UiUtil.addWelcome('progress') });
-        container.style.height = container.firstChild.clientHeight+'px';
-        container.firstChild.classList.remove('hidden-height');
         UiUtil.addMyKey();
         break;
       case 'progress':
         container.insertAdjacentHTML('beforeend', '<div class="loading"></div>');
-        container.style.height = '20px';
         break;
       case 'connect':
         container.insertAdjacentHTML('beforeend', '<div class="time">'+PrintUtil.time(Math.round(+new Date()/1000))+'</div><p>Connected.</p>');
@@ -495,17 +472,15 @@
   </ul>
 
   <ul id="content">
-    <li class="alert">
-      <div id="welcome">
-        <input type="text" id="nickname" autocomplete="off" placeholder="Enter a nickname..." onkeyup="this.nextSibling.disabled=(this.value.length<3);" onkeypress="(event.keyCode===13) && this.nextSibling.onclick();"><button onclick="if (!this.disabled) { app.generateKeys(this.previousSibling.value); UiUtil.addWelcome('progress'); }" disabled>Generate</button>
-      </div>
+    <li class="alert" id="welcome">
+      <input type="text" id="nickname" autocomplete="off" placeholder="Enter a nickname..." onkeyup="this.nextSibling.disabled=(this.value.length<3);" onkeypress="(event.keyCode===13) && this.nextSibling.onclick();"><button onclick="if (!this.disabled) { app.generateKeys(this.previousSibling.value); UiUtil.addWelcome('progress'); }" disabled>Generate</button>
     </li>
   </ul>
 
   <div id="input">
     <span class="field" id="message" contenteditable="true" onkeydown="if(event.keyCode === 13){event.preventDefault(); iSendMessage();}"></span>
     <span class="field button" id="send" onclick="iSendMessage();">Send</span>
-    <span class="closed" id="toggleKeychain" onclick="iToggleKeychain();">
+    <span class="closed" id="toggleKeychain">
     <svg height="19" width="12" xmlns="http://www.w3.org/2000/svg" version="1.1">
       <rect y="3" width="4" height="3" />
       <rect y="8" width="4" height="3" />
@@ -554,7 +529,7 @@
       
       iSetRoom();
 
-      document.getElementById("welcome").style.height = document.getElementById("welcome").offsetHeight+'px';
+      document.getElementById("toggleKeychain").addEventListener('click', UiUtil.toggleKeychain(document.getElementById("keychain"), document.getElementById("toggleKeychain")));
       document.getElementById("serverurl").innerHTML = app.server;
       document.getElementById("nickname").focus();
     }
@@ -562,7 +537,7 @@
     window.onresize = function(event) {
       if (comm.connected) {
         iShowInput();
-        iToggleKeychain(true);
+        UiUtil.toggleKeychain(document.getElementById("keychain"), document.getElementById("toggleKeychain"))('close');
       }
       iToggleSettings(true);
     }
