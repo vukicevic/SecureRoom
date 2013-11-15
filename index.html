@@ -97,44 +97,17 @@
       button.className = 'closed';
       menu.style.bottom = '-'+menu.clientHeight+'px';
       
-      for (var i = 0, e = menu.getElementsByClassName('export'); i < e.length; i++)
-        e[i].style.display = 'none';
+      /*for (var i = 0, e = menu.getElementsByClassName('export'); i < e.length; i++)
+        e[i].style.display = 'none';*/
 
-      while (menu.getElementsByClassName('selected').length)
-        menu.getElementsByClassName('selected')[0].className = '';
+      /*while (menu.getElementsByClassName('selected').length)
+        menu.getElementsByClassName('selected')[0].className = '';*/
 
     } else {
       button.className = 'open';
       menu.style.bottom = (button.clientHeight-5)+'px';
     }
   }
-
-  /*function iToggleKey(key, button) {
-    if (app.keychain[key.id].active) {
-      button.className = 'inactive';
-      button.innerHTML = 'DISABLED';
-      key.className = 'inactive';
-      app.keychain[key.id].active = false;
-    } else {
-      button.className = '';
-      button.innerHTML = 'ACTIVE';
-      key.className = '';
-      app.keychain[key.id].active = true;
-    }
-  }
-
-  function iToggleExport(elem, button) {
-    if (elem.style.display == 'none') {
-      elem.style.display = 'block';
-      button.className = 'selected';
-    } else {
-      elem.style.display = 'none';
-      button.className = '';
-    }
-    
-    elem.style.left = (elem.parentNode.getBoundingClientRect().left - 1)+'px';
-    elem.style.top  = '-'+(elem.offsetHeight - (elem.parentNode.getBoundingClientRect().top - elem.parentNode.parentNode.getBoundingClientRect().top))+'px';
-  }*/
 
   function TemplateTools(templ) {
     if (typeof templ != "undefined")
@@ -199,62 +172,38 @@
           min = Math.min(app.keychain[app.keymap[key]].encrypt.size, min);
         }
 
-        return {
-          term: 'Weakest Key',
-          data: (min < 8192) ? min+' bits' : 'Unknown',
-        };
+        return { term: 'Weakest Key', data: (min < 8192) ? min+' bits' : 'Unknown' };
       },
 
       recipients: function() {
-        var key, list = '';
+        var key, list = [];
 
-        for (key in message.encrypted.keys) {
-          if (list) 
-            list += ', ';
-          if (typeof app.keychain[app.keymap[key]] != "undefined") {
-            list += PrintUtil.text(app.keychain[app.keymap[key]].name);
-          } else {
-            list += (typeof app.rejected[app.keymap[key]] != "undefined") ? 'Rejected' : 'Unknown';
-          }
-        }
+        for (key in message.encrypted.keys)
+          if (typeof app.keychain[app.keymap[key]] != "undefined")
+            list.push(PrintUtil.text(app.keychain[app.keymap[key]].name));
+          else
+            list.push((typeof app.rejected[app.keymap[key]] != "undefined") ? 'Rejected' : 'Unknown');
 
-        return {
-          term: 'Recipients',
-          data: list
-        };
+        return { term: 'Recipients', data: list.join(', ') };
       },
 
       cipher: function() {
-        return {
-          term: 'Cipher',
-          data: symmetric.name+'-'+(message.sessionkey.length*8)+' ['+symmetric.mode+']'
-        };
+        return { term: 'Cipher', data: symmetric.name+'-'+(message.sessionkey.length*8)+' ['+symmetric.mode+']' };
       },
 
       delay: function() {
         var diff = message.recvtime - message.sendtime;
+        if (diff >= 0) diff = '+'+diff;
 
-        if (diff >= 0)
-          diff = '+'+diff;
-
-        return {
-          term: 'Delay',
-          data: diff+' sec'
-        };
+        return { term: 'Delay', data: diff+' sec' };
       },
 
       verified: function() {
-        return {
-          term: 'Verified',
-          data: PrintUtil.bool(message.verified)
-        };
+        return { term: 'Verified', data: PrintUtil.bool(message.verified) };
       },
 
       sender: function() {
-        return {
-          term: 'Author',
-          data: PrintUtil.id(message.sender)
-        };
+        return { term: 'Author', data: PrintUtil.id(message.sender) };
       }
     }
   }
@@ -273,6 +222,35 @@
       return function() {
         elem.style.height = (elem.style.height == '0px') ? height+'px' : '0px';
       }
+    },
+
+    toggleKey: function(id, ctrl) {
+      return function() {
+        if (app.keychain[id].active) {
+          ctrl.classList.add('inactive');
+          ctrl.textContent = 'DISABLED';
+          app.keychain[id].active = false;
+        } else {
+          ctrl.classList.remove('inactive')
+          ctrl.textContent = 'ACTIVE';
+          app.keychain[id].active = true;
+        }
+      };
+    },
+
+    toggleExport: function(elem, ctrl) {
+      return function() {
+        if (elem.classList.contains('hidden')) {
+          elem.classList.remove('hidden');
+          ctrl.classList.add('selected');
+        } else {
+          elem.classList.add('hidden');
+          ctrl.classList.remove('selected');
+        }
+
+        elem.style.left = (elem.parentNode.getBoundingClientRect().left - 1)+'px';
+        elem.style.top  = '-'+(elem.offsetHeight - (elem.parentNode.getBoundingClientRect().top - elem.parentNode.parentNode.getBoundingClientRect().top))+'px';
+      };
     },
 
     removeContent: function(elem) {
@@ -301,8 +279,8 @@
       UiUtil.addMessageListeners(document.getElementById('message-'+content.id));
     },
 
-    addMessageListeners: function(e) {
-      e.addEventListener('click', UiUtil.toggleHeight(e.getElementsByClassName('info').item(0)));
+    addMessageListeners: function(elem) {
+      elem.addEventListener('click', UiUtil.toggleHeight(elem.getElementsByClassName('info').item(0)));
     },
 
     addKey: function(key) {
@@ -320,10 +298,10 @@
       UiUtil.addKeyListeners(document.getElementById('alert-'+content.id), key);
     },
 
-    addKeyListeners: function(e, key) {
-      var a = e.getElementsByTagName('button').item(0),
-          r = e.getElementsByTagName('button').item(1),
-          p = e.getElementsByClassName('join').item(0),
+    addKeyListeners: function(elem, key) {
+      var a = elem.getElementsByTagName('button').item(0),
+          r = elem.getElementsByTagName('button').item(1),
+          p = elem.getElementsByClassName('join').item(0),
           d = UiUtil.removeContent(a.parentNode);
 
       a.addEventListener('click', function() { 
@@ -336,7 +314,7 @@
       a.addEventListener('click', function() { 
         p.classList.remove('join');
         p.classList.add('accept');
-        UiUtil.buildKeyChain();
+        UiUtil.buildKeychain();
       });
 
       a.addEventListener('click', d);
@@ -348,7 +326,7 @@
       });
 
       r.addEventListener('click', function() { 
-        e.classList.add('warning');
+        elem.classList.add('warning');
         p.classList.remove('join');
         p.classList.add('reject');
       });
@@ -385,7 +363,7 @@
       return build(content);
     },
 
-    buildKeyChain: function() {
+    buildKeychain: function() {
       var container = document.getElementById('keychain'),
           build = TemplateTools('template-key-chain'),
           content = {};
@@ -398,10 +376,22 @@
           content.name   = PrintUtil.text(app.keychain[id].name);
           content.status = (app.keychain[id].active) ? '' : 'inactive';
           content.info   = UiUtil.buildKeyInfo(app.keychain[id]);
+          content.data   = KeyTools.exportKey(app.keychain[id].name, app.keychain[id].sign, app.keychain[id].encrypt);
 
           container.insertAdjacentHTML('beforeend', build(content));
+
+          UiUtil.addKeychainListeners(container.lastChild, id);
         }
       }
+    },
+
+    addKeychainListeners: function(elem, id) {
+      var b1 = elem.getElementsByTagName('span').item(0),
+          b2 = elem.getElementsByTagName('span').item(1),
+          ex = elem.getElementsByClassName('export').item(0);
+      
+      b1.addEventListener('click', UiUtil.toggleKey(id, b1));
+      b2.addEventListener('click', UiUtil.toggleExport(ex, b2));
     },
 
     addWelcome: function(type) {
@@ -410,12 +400,15 @@
       
       switch(type) {
       case 'distribute':
-        container.insertAdjacentHTML('beforeend', '<p>Your keys have been generated.</p><div class="info">'+UiUtil.buildKeyInfo(app.keychain[app.myid])+'</div><button>Connect &amp; Distribute</button>');
+        container.insertAdjacentHTML('beforeend', '<div class="hidden-height"><p>Your keys have been generated.</p><div class="info">'+UiUtil.buildKeyInfo(app.keychain[app.myid])+'</div><button>Connect &amp; Distribute</button></div>');
         container.getElementsByTagName('button').item(0).addEventListener('click', function() { comm.connect(); iSetRoom(); UiUtil.addWelcome('progress') });
+        container.style.height = container.firstChild.clientHeight+'px';
+        container.firstChild.classList.remove('hidden-height');
         UiUtil.addMyKey();
         break;
       case 'progress':
         container.insertAdjacentHTML('beforeend', '<div class="loading"></div>');
+        container.style.height = '20px';
         break;
       case 'connect':
         container.insertAdjacentHTML('beforeend', '<div class="time">'+PrintUtil.time(Math.round(+new Date()/1000))+'</div><p>Connected.</p>');
@@ -467,7 +460,7 @@
 
   <script type="text/html" id="template-key-chain">
     <li id="key-{{id}}">
-      <div class="export" style="display: none;"><textarea>...</textarea></div>
+      <div class="export hidden"><textarea>{{data}}</textarea></div>
       <h3>{{name}}</h3>
       <div class="controls"><span class="{{status}}">ACTIVE</span><span>PUBLIC KEY</span></div>
       <div class="info">{{info}}</div>
@@ -502,8 +495,10 @@
   </ul>
 
   <ul id="content">
-    <li class="alert" id="welcome">
-      <input type="text" id="nickname" autocomplete="off" placeholder="Enter a nickname..." onkeyup="this.nextSibling.disabled=(this.value.length<3);" onkeypress="(event.keyCode===13) && this.nextSibling.onclick();"><button onclick="if (!this.disabled) { app.generateKeys(this.previousSibling.value); UiUtil.addWelcome('progress'); }" disabled>Generate</button>
+    <li class="alert">
+      <div id="welcome">
+        <input type="text" id="nickname" autocomplete="off" placeholder="Enter a nickname..." onkeyup="this.nextSibling.disabled=(this.value.length<3);" onkeypress="(event.keyCode===13) && this.nextSibling.onclick();"><button onclick="if (!this.disabled) { app.generateKeys(this.previousSibling.value); UiUtil.addWelcome('progress'); }" disabled>Generate</button>
+      </div>
     </li>
   </ul>
 
@@ -520,8 +515,8 @@
   </div>
 
   <ul id="keychain"><li id="mykey">
-      <div class="export" style="display: none;"><textarea></textarea></div>
-      <div class="export" style="display: none;"><textarea></textarea></div>
+      <div class="export hidden"><textarea></textarea></div>
+      <div class="export hidden"><textarea></textarea></div>
       <h3 id="myname"></h3>
       <div id="mycontrols" class="controls"><span>PRIVATE KEY</span><span>PUBLIC KEY</span></div>
       <div id="myinfo" class="info"></div>
@@ -558,6 +553,8 @@
       app.room = app.getRoom();
       
       iSetRoom();
+
+      document.getElementById("welcome").style.height = document.getElementById("welcome").offsetHeight+'px';
       document.getElementById("serverurl").innerHTML = app.server;
       document.getElementById("nickname").focus();
     }

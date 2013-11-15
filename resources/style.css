@@ -125,6 +125,7 @@ body {
   margin: 0.25em 0.25em 0.25em 0;
   border-radius: 0.25em;
   border: none;
+  outline: none;
 }
 
 #content .alert {
@@ -144,6 +145,10 @@ body {
 
 #content p.accept:after {
   content: " joined.";
+}
+
+#welcome {
+  transition: height 300ms ease;
 }
 
 .warning {
@@ -197,6 +202,10 @@ body {
   position: absolute;
   visibility: hidden;
   display: block;
+}
+
+.hidden {
+  display: none;
 }
 
 .small {
