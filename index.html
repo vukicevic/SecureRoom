@@ -157,6 +157,10 @@
       };
     },
 
+    toggleInput: function(close) {
+      document.getElementById('input').style.bottom = (close) ? '-2.25em' : '0em';
+    },
+
     toggleKey: function(id, ctrl) {
       return function() {
         if (app.keychain[id].active) {
@@ -486,11 +490,11 @@
     comm.setCallbacks(
       function() {
         UiUtil.addWelcome('connect');
-        document.getElementById('input').style.bottom = '0';
+        UiUtil.toggleInput(false);
       },
       function() {
         UiUtil.addWelcome('disconnect');
-        document.getElementById('input').style.bottom = '-2.25em';
+        UiUtil.toggleInput(true);
       },
       function(msg) {
         UiUtil.addMessage(msg);
@@ -509,8 +513,8 @@
       document.getElementById("keychainToggle").addEventListener('click', UiUtil.toggleKeychain());
       document.getElementById("settingsToggle").addEventListener('click', UiUtil.toggleSettings());
 
-      document.getElementById("symcsize").addEventListener('click', function (e) { if (e.target.tagName.toLowerCase() == "span") app.ciphersize = UiUtil.setSize(e.target); });
-      document.getElementById("asymsize").addEventListener('click', function (e) { if (e.target.tagName.toLowerCase() == "span") app.keysize = UiUtil.setSize(e.target); });
+      document.getElementById("symcsize").addEventListener('click', function (e) { if (e.target.tagName.toLowerCase() == "span") app.ciphersize = UiUtil.setSize(e.target) });
+      document.getElementById("asymsize").addEventListener('click', function (e) { if (e.target.tagName.toLowerCase() == "span") app.keysize = UiUtil.setSize(e.target) });
 
       document.getElementById("serverurl").innerHTML = app.server;
       document.getElementById("nickname").focus();
