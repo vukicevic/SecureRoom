@@ -25,70 +25,6 @@
     }
   }
 
-  function iShowInput() {
-    var i = document.getElementById('input'),
-        m = document.getElementById('message'),
-        s = document.getElementById('send'),
-        k = document.getElementById('toggleKeychain');
-
-    m.style.width = (i.offsetWidth-(s.offsetWidth+k.offsetWidth+50))+'px';
-    i.style.bottom = '0';
-    m.focus();
-  }
-  
-  function iHideInput() {
-    document.getElementById('input').style.bottom = '-2.7em';
-  }
-
-  function iSendMessage() {
-    var i = document.getElementById('message'),
-        b = document.getElementById('send');
-
-    if (i.textContent.length > 0) {
-      b.style.backgroundColor = '#f00';
-      UiUtil.addMessage(comm.sendMessage(i.textContent));
-      i.innerHTML = '';
-      window.setTimeout(function() {b.style.backgroundColor = '#fff'}, '50');
-    }
-  }
-
-  function iSetSize(elem) {
-    while(elem.parentNode.getElementsByClassName('selected').length)
-      elem.parentNode.getElementsByClassName('selected')[0].className = '';
-    elem.className = 'selected';
-    return parseInt(elem.textContent);
-  }
-
-  function iDisableSettings() {
-    for (var i = 0, n = document.getElementById('asymsize').querySelectorAll('span'); i < n.length; i++) {
-      if (n[i].className == 'selected') {
-        n[i].onclick = null;
-        n[i].className = 'disabled';
-      } else {
-        n[i].parentNode.removeChild(n[i]);
-      }
-    }
-
-    var server = document.getElementById("serverurl");
-    server.className = 'disabled';
-    server.contentEditable = false;
-  }
-
-  function iToggleSettings(close) {
-    var button = document.getElementById('toggleSettings'),
-        menu   = document.getElementById('settings');
-
-    if (button.className == 'open' || close) {
-      window.scroll(0, document.body.offsetHeight);
-      button.className = 'closed';
-      menu.style.marginTop = '-'+(menu.clientHeight-button.clientHeight)+'px';
-    } else {
-      window.scrollTo(0, 0);
-      button.className = 'open';
-      menu.style.marginTop = '3em';
-    }
-  }
-
   function TemplateTools(templ) {
     if (typeof templ != "undefined")
       templ = document.getElementById(templ).innerHTML.replace(/\n|\r/g, "").replace(/>\s+</g, "><").trim();
@@ -185,7 +121,10 @@
       }
     },
 
-    toggleKeychain: function(elem, ctrl) {
+    toggleKeychain: function() {
+      var elem = document.getElementById('keychain'),
+          ctrl = document.getElementById('keychainToggle');
+
       return function(close) {
         if (ctrl.classList.contains('open') || close == 'close') {
           ctrl.classList.remove('open');
@@ -199,6 +138,23 @@
           elem.style.bottom = (ctrl.clientHeight-5)+'px';
         }
       };     
+    },
+
+    toggleSettings: function() {
+      var ctrl = document.getElementById('settingsToggle'),
+          elem = document.getElementById('settings');
+
+      return function(close) {
+        if (ctrl.classList.contains('open') || close == 'close') {
+          window.scroll(0, document.body.offsetHeight);
+          ctrl.classList.remove('open');
+          elem.style.marginTop = '-'+(elem.clientHeight-ctrl.clientHeight)+'px';
+        } else {
+          window.scrollTo(0, 0);
+          ctrl.classList.add('open');
+          elem.style.marginTop = ctrl.clientHeight+'px';
+        }
+      };
     },
 
     toggleKey: function(id, ctrl) {
@@ -236,6 +192,26 @@
       return function() {
         elem.style.height = '0px';
         while (elem.firstChild) elem.removeChild(elem.firstChild);
+      }
+    },
+
+    setSize: function(elem) {
+      elem.parentNode.querySelector('.selected').classList.remove('selected');
+      elem.classList.add('selected');
+      return parseInt(elem.textContent);
+    },
+
+    disableSettings: function(setting) {
+      var parent = document.getElementById(setting), node;
+    
+      switch(setting) {
+      case 'asymsize':
+        while ((node = parent.querySelector('span:not(.selected)')) ) parent.removeChild(node);
+        break;
+      case 'serverurl':
+        parent.classList.add('selected');
+        parent.contentEditable = false;
+        break;
       }
     },
 
@@ -362,7 +338,7 @@
         }
       }
 
-      UiUtil.toggleKeychain(container, document.getElementById("toggleKeychain"))('close');
+      UiUtil.toggleKeychain()('close');
     },
 
     addKeychainListeners: function(elem, id) {
@@ -381,7 +357,7 @@
       switch(type) {
       case 'distribute':
         container.insertAdjacentHTML('beforeend', '<p>Your keys have been generated.</p><div class="info">'+UiUtil.buildKeyInfo(app.keychain[app.myid])+'</div><button>Connect &amp; Distribute</button>');
-        container.getElementsByTagName('button').item(0).addEventListener('click', function() { comm.connect(); iSetRoom(); UiUtil.addWelcome('progress') });
+        container.getElementsByTagName('button').item(0).addEventListener('click', function() { comm.connect(); iSetRoom(); UiUtil.addWelcome('progress'); UiUtil.disableSettings('serverurl') });
         UiUtil.addMyKey();
         break;
       case 'progress':
@@ -446,7 +422,7 @@
 </head>
 <body>
   <div id="menu">
-    <span class="open" id="toggleSettings" onclick="iToggleSettings();">
+    <span class="closed open" id="settingsToggle">
     <svg height="19" width="16" xmlns="http://www.w3.org/2000/svg" version="1.1">
       <rect y="3" width="16" height="3" />
       <rect y="8" width="16" height="3" />
@@ -459,11 +435,11 @@
   <ul id="settings">
     <li>
       <h3>Symmetric Cipher (AES)</h3>
-      <div class="controls">Size (bits): <span class="selected" onclick="app.ciphersize=iSetSize(this)">128</span><span onclick="app.ciphersize=iSetSize(this)">192</span><span onclick="app.ciphersize=iSetSize(this)">256</span></div>
+      <div class="controls" id="symcsize">Size (bits): <span class="selected">128</span><span>192</span><span>256</span></div>
     </li>
     <li>
       <h3>Asymmetric Key (RSA)</h3>
-      <div class="controls" id="asymsize">Size (bits): <span class="selected" onclick="app.keysize=iSetSize(this)">1024</span><span onclick="app.keysize=iSetSize(this)">1536</span><span onclick="app.keysize=iSetSize(this)">2048</span></div>
+      <div class="controls" id="asymsize">Size (bits): <span class="selected">1024</span><span>1536</span><span>2048</span></div>
     </li>
     <li>
       <h3>WebSocket Connection</h3>
@@ -473,20 +449,20 @@
 
   <ul id="content">
     <li class="alert" id="welcome">
-      <input type="text" id="nickname" autocomplete="off" placeholder="Enter a nickname..." onkeyup="this.nextSibling.disabled=(this.value.length<3);" onkeypress="(event.keyCode===13) && this.nextSibling.onclick();"><button onclick="if (!this.disabled) { app.generateKeys(this.previousSibling.value); UiUtil.addWelcome('progress'); }" disabled>Generate</button>
+      <input type="text" id="nickname" autocomplete="off" placeholder="Enter a nickname..." onkeyup="this.nextSibling.disabled = (this.value.length<3);" onkeypress="(event.keyCode===13) && this.nextSibling.onclick();"><button onclick="if (!this.disabled) { app.generateKeys(this.previousSibling.value); UiUtil.addWelcome('progress'); UiUtil.disableSettings('asymsize'); }" disabled>Generate</button>
     </li>
   </ul>
 
   <div id="input">
-    <span class="field" id="message" contenteditable="true" onkeydown="if(event.keyCode === 13){event.preventDefault(); iSendMessage();}"></span>
-    <span class="field button" id="send" onclick="iSendMessage();">Send</span>
-    <span class="closed" id="toggleKeychain">
-    <svg height="19" width="12" xmlns="http://www.w3.org/2000/svg" version="1.1">
-      <rect y="3" width="4" height="3" />
-      <rect y="8" width="4" height="3" />
-      <rect y="13" width="4" height="3" />
-    </svg>
-    </span>
+    <div class="closed" id="keychainToggle">
+      <svg height="19" width="12" xmlns="http://www.w3.org/2000/svg" version="1.1">
+        <rect y="5" width="4" height="3" />
+        <rect y="10" width="4" height="3" />
+        <rect y="15" width="4" height="3" />
+      </svg>
+    </div>
+    <button id="send" onclick="var e = document.getElementById('message'); if (e.value) UiUtil.addMessage(comm.sendMessage(e.value)); e.value = '';">Send</button>
+    <span><input type="text" id="message" onkeyup="(event.keyCode === 13) && document.getElementById('send').click()"></span>
   </div>
 
   <ul id="keychain"><li id="mykey">
@@ -502,6 +478,7 @@
     app.setCallbacks(
       function() {
         UiUtil.addWelcome('distribute');
+        UiUtil.toggleSettings()('close');
         iSetRoom();
       }
     )
@@ -509,11 +486,11 @@
     comm.setCallbacks(
       function() {
         UiUtil.addWelcome('connect');
-        iShowInput();
+        document.getElementById('input').style.bottom = '0';
       },
       function() {
         UiUtil.addWelcome('disconnect');
-        iHideInput();
+        document.getElementById('input').style.bottom = '-2.25em';
       },
       function(msg) {
         UiUtil.addMessage(msg);
@@ -529,17 +506,19 @@
       
       iSetRoom();
 
-      document.getElementById("toggleKeychain").addEventListener('click', UiUtil.toggleKeychain(document.getElementById("keychain"), document.getElementById("toggleKeychain")));
+      document.getElementById("keychainToggle").addEventListener('click', UiUtil.toggleKeychain());
+      document.getElementById("settingsToggle").addEventListener('click', UiUtil.toggleSettings());
+
+      document.getElementById("symcsize").addEventListener('click', function (e) { if (e.target.tagName.toLowerCase() == "span") app.ciphersize = UiUtil.setSize(e.target); });
+      document.getElementById("asymsize").addEventListener('click', function (e) { if (e.target.tagName.toLowerCase() == "span") app.keysize = UiUtil.setSize(e.target); });
+
       document.getElementById("serverurl").innerHTML = app.server;
       document.getElementById("nickname").focus();
     }
 
     window.onresize = function(event) {
-      if (comm.connected) {
-        iShowInput();
-        UiUtil.toggleKeychain(document.getElementById("keychain"), document.getElementById("toggleKeychain"))('close');
-      }
-      iToggleSettings(true);
+      UiUtil.toggleKeychain()('close');
+      UiUtil.toggleSettings()('close');
     }
   } else {
     alert('Unfortunately, your browser does not have the necessary features to run this application. Please try Firefox 21+ or Chrome 11+.');
