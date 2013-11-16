@@ -36,7 +36,7 @@
     }
   }
 
-  var UiUtil = {
+  var UI = {
     toggleKeychain: function() {
       var ctrl = document.getElementById('keychainToggle'),
           elem = document.getElementById('keychain');
@@ -162,17 +162,17 @@
       content.time    = PrintUtil.time(message.recvtime);
       content.sender  = PrintUtil.text(app.keychain[message.sender].name);
       content.message = PrintUtil.text(message.plaintext);
-      content.info    = UiUtil.buildMsgInfo(message);
+      content.info    = UI.buildMsgInfo(message);
       content.class   = (!message.verified) ? ' warning' : '';
 
       container.insertAdjacentHTML('beforeend', build(content));
 
-      UiUtil.addMessageListeners(document.getElementById('message-'+content.id));
+      UI.addMessageListeners(container.lastChild);
       window.scroll(0, document.body.offsetHeight);
     },
 
     addMessageListeners: function(elem) {
-      elem.addEventListener('click', UiUtil.toggleHeight(elem.querySelector('.info')));
+      elem.addEventListener('click', UI.toggleHeight(elem.querySelector('.info')));
     },
 
     addKey: function(key) {
@@ -185,11 +185,11 @@
       content.id   = PrintUtil.text(key.sign.id);
       content.time = PrintUtil.time(Math.round(+new Date()/1000));
       content.name = PrintUtil.text(key.name);
-      content.info = UiUtil.buildKeyInfo(key);
+      content.info = UI.buildKeyInfo(key);
 
       container.insertAdjacentHTML('beforeend', build(content));
 
-      UiUtil.addKeyListeners(document.getElementById('alert-'+content.id), key);
+      UI.addKeyListeners(document.getElementById('alert-'+content.id), key);
       window.scroll(0, document.body.offsetHeight);
     },
 
@@ -197,7 +197,7 @@
       var a = elem.getElementsByTagName('button').item(0),
           r = elem.getElementsByTagName('button').item(1),
           p = elem.querySelector('.join'),
-          d = UiUtil.removeContent(a.parentNode);
+          d = UI.removeContent(a.parentNode);
 
       a.addEventListener('click', function() { 
         key.active = true;
@@ -208,7 +208,7 @@
 
       a.addEventListener('click', function() { 
         p.classList.add('accept');
-        UiUtil.buildKeychain();
+        UI.buildKeychain();
       });
 
       a.addEventListener('click', d);
@@ -269,16 +269,16 @@
           content.id     = PrintUtil.text(id);
           content.name   = PrintUtil.text(app.keychain[id].name);
           content.status = (app.keychain[id].active) ? '' : 'inactive';
-          content.info   = UiUtil.buildKeyInfo(app.keychain[id]);
+          content.info   = UI.buildKeyInfo(app.keychain[id]);
           content.data   = KeyUtil.exportKey(app.keychain[id].name, app.keychain[id].sign, app.keychain[id].encrypt);
 
           container.insertAdjacentHTML('beforeend', build(content));
 
-          UiUtil.addKeychainListeners(container.lastChild, id);
+          UI.addKeychainListeners(container.lastChild, id);
         }
       }
 
-      UiUtil.toggleKeychain()('close');
+      UI.toggleKeychain()('close');
     },
 
     addKeychainListeners: function(elem, id) {
@@ -286,8 +286,8 @@
           b2 = elem.getElementsByTagName('span').item(1),
           ex = elem.querySelector('.export');
       
-      b1.addEventListener('click', UiUtil.toggleKey(id, b1));
-      b2.addEventListener('click', UiUtil.toggleExport(ex, b2));
+      b1.addEventListener('click', UI.toggleKey(id, b1));
+      b2.addEventListener('click', UI.toggleExport(ex, b2));
     },
 
     addWelcome: function(type) {
@@ -296,9 +296,9 @@
 
       switch(type) {
       case 'distribute':
-        container.insertAdjacentHTML('beforeend', '<p>Your keys have been generated.</p><div class="info">'+UiUtil.buildKeyInfo(app.keychain[app.myid])+'</div><button>Connect &amp; Distribute</button>');
-        container.querySelector('button').addEventListener('click', function() { comm.connect(); UiUtil.addWelcome('progress'); UiUtil.disableSettings('serverurl') });
-        UiUtil.addMyKey();
+        container.insertAdjacentHTML('beforeend', '<p>Your keys have been generated.</p><div class="info">'+UI.buildKeyInfo(app.keychain[app.myid])+'</div><button>Connect &amp; Distribute</button>');
+        container.querySelector('button').addEventListener('click', function() { comm.connect(); UI.addWelcome('progress'); UI.disableSettings('serverurl') });
+        UI.addMyKey();
         break;
       case 'progress':
         container.insertAdjacentHTML('beforeend', '<div class="loading"></div>');
@@ -314,7 +314,7 @@
 
     addMyKey: function() {
       document.getElementById('myname').textContent = PrintUtil.text(app.keychain[app.myid].name);
-      document.getElementById('myinfo').insertAdjacentHTML('beforeend', UiUtil.buildKeyInfo(app.keychain[app.myid]));
+      document.getElementById('myinfo').insertAdjacentHTML('beforeend', UI.buildKeyInfo(app.keychain[app.myid]));
       
       var my = document.getElementById('mykey'),
           e1 = my.getElementsByTagName('textarea').item(0),
@@ -325,8 +325,8 @@
       e1.textContent = KeyUtil.exportKey(app.keychain[app.myid].name, app.keychain[app.myid].sign, app.keychain[app.myid].encrypt, app.signkey.mpi, app.encryptkey.mpi);
       e2.textContent = KeyUtil.exportKey(app.keychain[app.myid].name, app.keychain[app.myid].sign, app.keychain[app.myid].encrypt);
 
-      b1.addEventListener('click', UiUtil.toggleExport(e1.parentNode, b1));
-      b2.addEventListener('click', UiUtil.toggleExport(e2.parentNode, b2));
+      b1.addEventListener('click', UI.toggleExport(e1.parentNode, b1));
+      b2.addEventListener('click', UI.toggleExport(e2.parentNode, b2));
     }
   }
   </script>
@@ -380,7 +380,7 @@
 
   <ul id="content">
     <li class="alert" id="welcome">
-      <input type="text" id="nickname" autocomplete="off" placeholder="Enter a nickname..." onkeyup="this.nextSibling.disabled = (this.value.length<3);" onkeypress="(event.keyCode===13) && this.nextSibling.onclick();"><button onclick="if (!this.disabled) { app.generateKeys(this.previousSibling.value); UiUtil.addWelcome('progress'); UiUtil.disableSettings('asymsize'); }" disabled>Generate</button>
+      <input type="text" id="nickname" autocomplete="off" placeholder="Enter a nickname..." onkeyup="this.nextSibling.disabled = (this.value.length<3);" onkeypress="(event.keyCode===13) && this.nextSibling.onclick();"><button onclick="if (!this.disabled) { app.generateKeys(this.previousSibling.value); UI.addWelcome('progress'); UI.disableSettings('asymsize'); }" disabled>Generate</button>
     </li>
   </ul>
 
@@ -392,7 +392,7 @@
         <rect y="15" width="4" height="3" />
       </svg>
     </div>
-    <button id="send" onclick="var e = document.getElementById('message'); if (e.value) UiUtil.addMessage(comm.sendMessage(e.value)); e.value = '';">Send</button>
+    <button id="send" onclick="var e = document.getElementById('message'); if (e.value) UI.addMessage(comm.sendMessage(e.value)); e.value = '';">Send</button>
     <span><input type="text" id="message" autocomplete="off" onkeyup="(event.keyCode === 13) && document.getElementById('send').click()"></span>
   </div>
 
@@ -408,46 +408,46 @@
   if (typeof window.crypto.getRandomValues === 'function' && typeof window.WebSocket === 'function' && typeof window.Worker === 'function') {
     app.setCallbacks(
       function() {
-        UiUtil.addWelcome('distribute');
-        UiUtil.toggleSettings()('close');
-        UiUtil.toggleKeychain()('close');
-        UiUtil.toggleRoom();
+        UI.addWelcome('distribute');
+        UI.toggleSettings()('close');
+        UI.toggleKeychain()('close');
+        UI.toggleRoom();
       }
     )
 
     comm.setCallbacks(
       function() {
-        UiUtil.addWelcome('connect');
-        UiUtil.toggleInput();
+        UI.addWelcome('connect');
+        UI.toggleInput();
       },
       function() {
-        UiUtil.addWelcome('disconnect');
-        UiUtil.toggleInput(true);
+        UI.addWelcome('disconnect');
+        UI.toggleInput(true);
       },
       function(msg) {
-        UiUtil.addMessage(msg);
+        UI.addMessage(msg);
       },
       function(key) {
-        UiUtil.addKey(key);
+        UI.addKey(key);
       }
     )
     
     window.onload = function() {
-      UiUtil.toggleRoom();
+      UI.toggleRoom();
 
-      document.getElementById("keychainToggle").addEventListener('click', UiUtil.toggleKeychain());
-      document.getElementById("settingsToggle").addEventListener('click', UiUtil.toggleSettings());
+      document.getElementById("keychainToggle").addEventListener('click', UI.toggleKeychain());
+      document.getElementById("settingsToggle").addEventListener('click', UI.toggleSettings());
 
-      document.getElementById("symcsize").addEventListener('click', function (e) { if (e.target.tagName.toLowerCase() == "span") app.ciphersize = UiUtil.toggleSize(e.target) });
-      document.getElementById("asymsize").addEventListener('click', function (e) { if (e.target.tagName.toLowerCase() == "span") app.keysize = UiUtil.toggleSize(e.target) });
+      document.getElementById("symcsize").addEventListener('click', function (e) { if (e.target.tagName.toLowerCase() == "span") app.ciphersize = UI.toggleSize(e.target) });
+      document.getElementById("asymsize").addEventListener('click', function (e) { if (e.target.tagName.toLowerCase() == "span") app.keysize = UI.toggleSize(e.target) });
 
       document.getElementById("serverurl").textContent = app.getServer();
       document.getElementById("nickname").focus();
     }
 
     window.onresize = function(event) {
-      UiUtil.toggleKeychain()('close');
-      UiUtil.toggleSettings()('close');
+      UI.toggleKeychain()('close');
+      UI.toggleSettings()('close');
     }
   } else {
     alert('Your browser does not have the necessary features to run this application. Please try the latest Firefox or Chrome.');
