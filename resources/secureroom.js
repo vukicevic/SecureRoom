@@ -69,11 +69,11 @@ var app = {
   },
 
   generateKeySignature: function() {
-    var shsh = KeyTools.generateSignatureHash(app.keychain[app.myid].sign, app.nickname),
-        ehsh = KeyTools.generateSignatureHash(app.keychain[app.myid].sign, app.keychain[app.myid].encrypt);
+    var shsh = KeyUtil.generateSignatureHash(app.keychain[app.myid].sign, app.nickname),
+        ehsh = KeyUtil.generateSignatureHash(app.keychain[app.myid].sign, app.keychain[app.myid].encrypt);
 
-    app.keychain[app.myid].sign.signature    = asymmetric.sign(app.signkey, shsh, true);
-    app.keychain[app.myid].encrypt.signature = asymmetric.sign(app.signkey, ehsh, true);
+    app.keychain[app.myid].sign.signature    = Asymmetric.sign(app.signkey, shsh, true);
+    app.keychain[app.myid].encrypt.signature = Asymmetric.sign(app.signkey, ehsh, true);
   },
 
   getServer: function() {
@@ -168,7 +168,7 @@ var comm = {
 
     for (keyid in app.keychain) {
       if (app.myid != keyid && app.keychain[keyid].active) {
-        message.encrypted.keys[app.keychain[keyid].encrypt.id] = asymmetric.encrypt(app.keychain[keyid].encrypt, message.sessionkey);
+        message.encrypted.keys[app.keychain[keyid].encrypt.id] = Asymmetric.encrypt(app.keychain[keyid].encrypt, message.sessionkey);
       }
     }
 
@@ -179,7 +179,7 @@ var comm = {
     paddata = paddata.concat(paddata.slice(-2))
                      .concat(data);
 
-    return symmetric.encrypt(message.sessionkey, paddata);
+    return Symmetric.encrypt(message.sessionkey, paddata);
   },
 
   decryptMessage: function(message) {
@@ -187,14 +187,14 @@ var comm = {
 
     for (keyid in message.encrypted.keys) {
       if (keyid == app.keychain[app.myid].encrypt.id) {
-         message.sessionkey = asymmetric.decrypt(app.encryptkey, message.encrypted.keys[keyid]);
+         message.sessionkey = Asymmetric.decrypt(app.encryptkey, message.encrypted.keys[keyid]);
          break;
       }
     }
 
     if (message.sessionkey) {
       //discard x+2 random data, should check (x-1 == x+1 && x ==x+2)
-      return symmetric.decrypt(message.sessionkey, message.encrypted.data)
+      return Symmetric.decrypt(message.sessionkey, message.encrypted.data)
                       .slice(message.sessionkey.length+2);
     } else {
       return null;
@@ -210,11 +210,11 @@ var comm = {
 
     message.plaintext = text;
     rawdata = ArrayUtil.fromString(text)
-                   .concat(0)
-                   .concat(ArrayUtil.fromWord(message.sendtime))
-                   .concat(ArrayUtil.fromHex(message.sender));
+                .concat(0)
+                .concat(ArrayUtil.fromWord(message.sendtime))
+                .concat(ArrayUtil.fromHex(message.sender));
 
-    message.signature = asymmetric.sign(app.signkey, rawdata);
+    message.signature = Asymmetric.sign(app.signkey, rawdata);
     message.verified  = true;
 
     rawdata = rawdata.concat(message.signature);
@@ -242,7 +242,7 @@ var comm = {
 
     if (typeof app.keychain[message.sender] == 'undefined') return null; //messages from rejected and unknown senders will be ignored at this point
 
-    message.verified  = asymmetric.verify(app.keychain[message.sender].sign, rawdata.slice(0,i+13), message.signature);
+    message.verified  = Asymmetric.verify(app.keychain[message.sender].sign, rawdata.slice(0,i+13), message.signature);
 
     return message;
   },
@@ -254,35 +254,6 @@ var comm = {
   receiveKey: function(data) {
     return new PublicKey(data);
   }
-}
-
-var ArrayUtil = {
-  //to/from string not currently handling charcode < 16 - if needed use ('0'+s).slice(-2);
-  toString: function(input) {
-    return decodeURIComponent(input.map(function(v) {return '%'+v.toString(16);}).join(''));
-  },
-
-  //replace match not followed by %: %25(?!%) - not needed as % is double encoded to %2525 anyway
-  fromString: function(input) {
-    return encodeURIComponent(input.split('').map(function(v){return (v.charCodeAt(0) < 128) ? '%'+v.charCodeAt(0).toString(16) : v;}).join('')).replace(/%25/g,'%')
-            .slice(1).split('%').map(function(v){return parseInt(v, 16);});
-  },
-
-  toHex: function(input) {
-    return input.map(function(v){return ('0'+v.toString(16)).slice(-2);}).join('');
-  },
-
-  fromHex: function(h) {
-    return h.match(/.{2}/g).map(function(v){return parseInt(v, 16);});
-  },
-
-  toWord: function(a) {
-    return (a[0]*16777216 + a[1]*65536 + a[2]*256 + a[3]);
-  },
-
-  fromWord: function(t) {
-    return [t>>24, (t>>16)&0xff, (t>>8)&0xff, t&0xff];
-  },
 }
 
 function PublicKey(data) {

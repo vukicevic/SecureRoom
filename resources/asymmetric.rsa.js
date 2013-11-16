@@ -13,7 +13,7 @@
  * GNU General Public License for more details.
  **/
 
-var asymmetric = {
+var Asymmetric = {
   algorithm: 1,
   name: 'RSA',
 

@@ -1,6 +1,19 @@
-//change to function
-//create private key type during keychain rewrite
-var KeyTools = {
+/**
+ * SecureRoom - Encrypted web browser based text communication software
+ * Copyright (C) 2013 Nenad Vukicevic
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ **/
+ 
+var KeyUtil = {
 
   createTag: function(tag, length) {
     tag = tag*4 + 128;
@@ -295,4 +308,60 @@ var Base64Util = {
 
     return out.join('');
   }
+}
+
+var PrintUtil = {
+  time: function(timestamp) {
+    var date = new Date(timestamp*1000);
+    return ('0'+date.getHours()).slice(-2)+' '+('0'+date.getMinutes()).slice(-2)+' '+('0'+date.getSeconds()).slice(-2);
+  },
+
+  date: function(timestamp) {
+    var date = new Date(timestamp*1000);
+    return date.getHours()+':'+('0'+date.getMinutes()).slice(-2)+':'+('0'+date.getSeconds()).slice(-2)+' '+date.getDate()+'/'+(date.getMonth()+1)+'/'+date.getFullYear();
+  },
+
+  text: function(text) {
+    return text.replace(/["<>&]/g, function(m){return ({'"':'&quot;','<':'&lt;','>':'&gt;','&':'&amp;'})[m]});
+  },
+
+  bool: function(boolean) {
+    return (boolean) ? 'True' : 'False';
+  },
+
+  number: function(number) {
+    return number.toString();
+  },
+
+  id: function(id) {
+    return id.match(/.{2}/g).map(function(v){return v;}).join(':').toUpperCase();
+  }
+}
+
+var ArrayUtil = {
+  //to/from string not currently handling charcode < 16 - if needed use ('0'+s).slice(-2);
+  toString: function(input) {
+    return decodeURIComponent(input.map(function(v) {return '%'+v.toString(16);}).join(''));
+  },
+
+  fromString: function(input) {
+    return encodeURIComponent(input.split('').map(function(v){return (v.charCodeAt(0) < 128) ? '%'+v.charCodeAt(0).toString(16) : v;}).join('')).replace(/%25/g,'%')
+            .slice(1).split('%').map(function(v){return parseInt(v, 16);});
+  },
+
+  toHex: function(input) {
+    return input.map(function(v){return ('0'+v.toString(16)).slice(-2);}).join('');
+  },
+
+  fromHex: function(h) {
+    return h.match(/.{2}/g).map(function(v){return parseInt(v, 16);});
+  },
+
+  toWord: function(a) {
+    return (a[0]*16777216 + a[1]*65536 + a[2]*256 + a[3]);
+  },
+
+  fromWord: function(t) {
+    return [t>>24, (t>>16)&0xff, (t>>8)&0xff, t&0xff];
+  },
 }
