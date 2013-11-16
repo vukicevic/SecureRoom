@@ -14,18 +14,7 @@
   <script src="resources/keytools.js"></script>
   <script>
 
-  function iSetRoom() {
-    if (app.room != '') {
-      if (app.getRoom() == '') {
-        var opts = (window.location.search) ? window.location.search+'&room=' : '?room=',
-            path = (window.location.pathname.substr(window.location.pathname.lastIndexOf('/')+1) == 'index.html') ? window.location.pathname+opts+app.room : window.location.pathname+app.room;
-        window.history.replaceState({} , 'SecureRoom', path);
-      }
-      document.getElementById('room').innerHTML = 'Room: '+app.room;
-    }
-  }
-
-  function TemplateTools(templ) {
+  function TemplateEngine(templ) {
     if (typeof templ != "undefined")
       templ = document.getElementById(templ).innerHTML.replace(/\n|\r/g, "").replace(/>\s+</g, "><").trim();
 
@@ -75,55 +64,10 @@
     }
   }
 
-  function MessageTools(message) {
-    return {
-      strength: function() {
-        var key, min = 8192;
-
-        for (key in message.encrypted.keys) {
-          if (typeof app.keychain[app.keymap[key]] == "undefined") {
-            min = 8192;
-            break;
-          }
-          min = Math.min(app.keychain[app.keymap[key]].encrypt.size, min);
-        }
-
-        return { term: 'Weakest Key', data: (min < 8192) ? min+' bits' : 'Unknown' };
-      },
-
-      recipients: function() {
-        var key, list = [];
-
-        for (key in message.encrypted.keys)
-          if (typeof app.keychain[app.keymap[key]] != "undefined")
-            list.push(PrintUtil.text(app.keychain[app.keymap[key]].name));
-          else
-            list.push((typeof app.rejected[app.keymap[key]] != "undefined") ? 'Rejected' : 'Unknown');
-
-        return { term: 'Recipients', data: list.join(', ') };
-      }
-    }
-  }
-
   var UiUtil = {
-    toggleHeight: function(elem) {
-      var height = elem.offsetHeight;
-
-      if (elem.classList.contains('hidden-height')) {
-        elem.style.height = '0px';
-        elem.classList.remove('hidden-height');
-      } else {
-        elem.style.height = height+'px';
-      }
-
-      return function() {
-        elem.style.height = (elem.style.height == '0px') ? height+'px' : '0px';
-      }
-    },
-
     toggleKeychain: function() {
-      var elem = document.getElementById('keychain'),
-          ctrl = document.getElementById('keychainToggle');
+      var ctrl = document.getElementById('keychainToggle'),
+          elem = document.getElementById('keychain');
 
       return function(close) {
         if (ctrl.classList.contains('open') || close == 'close') {
@@ -146,19 +90,15 @@
 
       return function(close) {
         if (ctrl.classList.contains('open') || close == 'close') {
-          window.scroll(0, document.body.offsetHeight);
           ctrl.classList.remove('open');
           elem.style.marginTop = '-'+(elem.clientHeight-ctrl.clientHeight)+'px';
+          window.scroll(0, document.body.offsetHeight);
         } else {
-          window.scrollTo(0, 0);
           ctrl.classList.add('open');
           elem.style.marginTop = ctrl.clientHeight+'px';
+          window.scrollTo(0, 0);
         }
       };
-    },
-
-    toggleInput: function(close) {
-      document.getElementById('input').style.bottom = (close) ? '-2.25em' : '0em';
     },
 
     toggleKey: function(id, ctrl) {
@@ -190,6 +130,35 @@
       };
     },
 
+    toggleSize: function(elem) {
+      elem.parentNode.querySelector('.selected').classList.remove('selected');
+      elem.classList.add('selected');
+      return parseInt(elem.textContent);
+    },
+
+    toggleInput: function(close) {
+      document.getElementById('input').style.bottom = (close) ? '-2.25em' : '0em';
+    },
+
+    toggleRoom: function() { 
+      document.getElementById('room').textContent = 'Room: '+app.getRoom();
+    },
+
+    toggleHeight: function(elem) {
+      var height = elem.offsetHeight;
+
+      if (elem.classList.contains('hidden-height')) {
+        elem.style.height = '0px';
+        elem.classList.remove('hidden-height');
+      } else {
+        elem.style.height = height+'px';
+      }
+
+      return function() {
+        elem.style.height = (elem.style.height == '0px') ? height+'px' : '0px';
+      }
+    },
+
     removeContent: function(elem) {
       elem.style.height = elem.offsetHeight+'px';
 
@@ -197,12 +166,6 @@
         elem.style.height = '0px';
         while (elem.firstChild) elem.removeChild(elem.firstChild);
       }
-    },
-
-    setSize: function(elem) {
-      elem.parentNode.querySelector('.selected').classList.remove('selected');
-      elem.classList.add('selected');
-      return parseInt(elem.textContent);
     },
 
     disableSettings: function(setting) {
@@ -221,7 +184,7 @@
 
     addMessage: function(message) {
       var container = document.getElementById('content'),
-          build = TemplateTools('template-message'),
+          build = TemplateEngine('template-message'),
           content = {};
 
       content.id      = PrintUtil.number(app.messages++);
@@ -234,6 +197,7 @@
       container.insertAdjacentHTML('beforeend', build(content));
 
       UiUtil.addMessageListeners(document.getElementById('message-'+content.id));
+      window.scroll(0, document.body.offsetHeight);
     },
 
     addMessageListeners: function(elem) {
@@ -241,11 +205,13 @@
     },
 
     addKey: function(key) {
+      if (document.getElementById('alert-'+key.sign.id)) return;
+
       var container = document.getElementById('content'),
-          build = TemplateTools('template-key-alert'),
+          build = TemplateEngine('template-key-alert'),
           content = {};
 
-      content.id   = PrintUtil.number(app.messages++);
+      content.id   = PrintUtil.text(key.sign.id);
       content.time = PrintUtil.time(Math.round(+new Date()/1000));
       content.name = PrintUtil.text(key.name);
       content.info = UiUtil.buildKeyInfo(key);
@@ -253,12 +219,13 @@
       container.insertAdjacentHTML('beforeend', build(content));
 
       UiUtil.addKeyListeners(document.getElementById('alert-'+content.id), key);
+      window.scroll(0, document.body.offsetHeight);
     },
 
     addKeyListeners: function(elem, key) {
       var a = elem.getElementsByTagName('button').item(0),
           r = elem.getElementsByTagName('button').item(1),
-          p = elem.getElementsByClassName('join').item(0),
+          p = elem.querySelector('.join'),
           d = UiUtil.removeContent(a.parentNode);
 
       a.addEventListener('click', function() { 
@@ -269,7 +236,6 @@
       });
 
       a.addEventListener('click', function() { 
-        p.classList.remove('join');
         p.classList.add('accept');
         UiUtil.buildKeychain();
       });
@@ -284,7 +250,6 @@
 
       r.addEventListener('click', function() { 
         elem.classList.add('warning');
-        p.classList.remove('join');
         p.classList.add('reject');
       });
       
@@ -293,7 +258,7 @@
 
     buildMsgInfo: function(message) {
       var tools = MessageTools(message),
-          build = TemplateTools('template-message-info'),
+          build = TemplateEngine('template-message-info'),
           content = {info: []};
 
       content.info.push({term: 'Verified', data: PrintUtil.bool(message.verified)});
@@ -307,7 +272,7 @@
     },
 
     buildKeyInfo: function(key) {
-      var build = TemplateTools('template-key-info'),
+      var build = TemplateEngine('template-key-info'),
           content = {};
 
       content.sid   = PrintUtil.id(key.sign.id);
@@ -323,7 +288,7 @@
 
     buildKeychain: function() {
       var container = document.getElementById('keychain'),
-          build = TemplateTools('template-key-chain'),
+          build = TemplateEngine('template-key-chain'),
           content = {};
 
       while (container.lastChild != container.firstChild) container.removeChild(container.lastChild);
@@ -348,7 +313,7 @@
     addKeychainListeners: function(elem, id) {
       var b1 = elem.getElementsByTagName('span').item(0),
           b2 = elem.getElementsByTagName('span').item(1),
-          ex = elem.getElementsByClassName('export').item(0);
+          ex = elem.querySelector('.export');
       
       b1.addEventListener('click', UiUtil.toggleKey(id, b1));
       b2.addEventListener('click', UiUtil.toggleExport(ex, b2));
@@ -357,11 +322,11 @@
     addWelcome: function(type) {
       var container = document.getElementById('welcome');
       while (container.firstChild) container.removeChild(container.firstChild);
-      
+
       switch(type) {
       case 'distribute':
         container.insertAdjacentHTML('beforeend', '<p>Your keys have been generated.</p><div class="info">'+UiUtil.buildKeyInfo(app.keychain[app.myid])+'</div><button>Connect &amp; Distribute</button>');
-        container.getElementsByTagName('button').item(0).addEventListener('click', function() { comm.connect(); iSetRoom(); UiUtil.addWelcome('progress'); UiUtil.disableSettings('serverurl') });
+        container.querySelector('button').addEventListener('click', function() { comm.connect(); UiUtil.addWelcome('progress'); UiUtil.disableSettings('serverurl') });
         UiUtil.addMyKey();
         break;
       case 'progress':
@@ -377,51 +342,44 @@
     },
 
     addMyKey: function() {
+      document.getElementById('myname').textContent = PrintUtil.text(app.keychain[app.myid].name);
       document.getElementById('myinfo').insertAdjacentHTML('beforeend', UiUtil.buildKeyInfo(app.keychain[app.myid]));
-      document.getElementById('myname').insertAdjacentHTML('beforeend', PrintUtil.text(app.keychain[app.myid].name));
+      
+      var my = document.getElementById('mykey');
+          e1 = my.getElementsByTagName('textarea').item(0),
+          e2 = my.getElementsByTagName('textarea').item(1),
+          b1 = my.getElementsByTagName('span').item(0),
+          b2 = my.getElementsByTagName('span').item(1);
+
+      e1.textContent = KeyTools.exportKey(app.keychain[app.myid].name, app.keychain[app.myid].sign, app.keychain[app.myid].encrypt, app.signkey.mpi, app.encryptkey.mpi);
+      e2.textContent = KeyTools.exportKey(app.keychain[app.myid].name, app.keychain[app.myid].sign, app.keychain[app.myid].encrypt);
+
+      b1.addEventListener('click', UiUtil.toggleExport(e1.parentNode, b1));
+      b2.addEventListener('click', UiUtil.toggleExport(e2.parentNode, b2));
+
+      UiUtil.toggleKeychain('close');
     }
   }
   </script>
 
   <script type="text/html" id="template-message">
-    <li id="message-{{id}}" class="message{{class}}">
-      <div class="time">{{time}}</div>
-      <p><b class="cln">{{sender}}</b>{{message}}</p>
-      {{info}}
-    </li>
+    <li id="message-{{id}}" class="message{{class}}"><div class="time">{{time}}</div><p><b class="cln">{{sender}}</b>{{message}}</p>{{info}}</li>
   </script>
 
   <script type="text/html" id="template-message-info">
-    <ul class="info hidden-height">
-      {{#info}}
-      <li><b class="cln">{{term}}</b>{{data}}</li>
-      {{/info}}
-    </ul>
+    <ul class="info hidden-height">{{#info}}<li><b class="cln">{{term}}</b>{{data}}</li>{{/info}}</ul>
   </script>
 
   <script type="text/html" id="template-key-alert">
-    <li id="alert-{{id}}" class="alert">
-      <div class="time">{{time}}</div>
-      <p class="join">{{name}}</p>
-      <div class="info">
-        {{info}}
-        <button>Accept</button><button>Reject</button>
-      </div>
-    </li>
+    <li id="alert-{{id}}" class="alert"><div class="time">{{time}}</div><p class="join">{{name}}</p><div class="info">{{info}}<button>Accept</button><button>Reject</button></div></li>
   </script>
 
   <script type="text/html" id="template-key-info">
-    <p><b>{{sid}}</b><br><small>{{ssize}} | {{sdate}} | SIGNING</small></p>
-    <p>{{eid}}<br><small>{{esize}} | {{edate}} | ENCRYPTION</small></p>
+    <p><b>{{sid}}</b><br><small>{{ssize}} | {{sdate}} | SIGNING</small></p><p>{{eid}}<br><small>{{esize}} | {{edate}} | ENCRYPTION</small></p>
   </script>
 
   <script type="text/html" id="template-key-chain">
-    <li id="key-{{id}}">
-      <div class="export hidden"><textarea>{{data}}</textarea></div>
-      <h3>{{name}}</h3>
-      <div class="controls"><span class="{{status}}">ACTIVE</span><span>PUBLIC KEY</span></div>
-      <div class="info">{{info}}</div>
-    </li>
+    <li id="key-{{id}}"><div class="export hidden"><textarea>{{data}}</textarea></div><h3>{{name}}</h3><div class="controls"><span class="{{status}}">ACTIVE</span><span>PUBLIC KEY</span></div><div class="info">{{info}}</div></li>
   </script>
 </head>
 <body>
@@ -483,7 +441,7 @@
       function() {
         UiUtil.addWelcome('distribute');
         UiUtil.toggleSettings()('close');
-        iSetRoom();
+        UiUtil.toggleRoom();
       }
     )
 
@@ -505,18 +463,15 @@
     )
     
     window.onload = function() {
-      app.server = app.getServer();
-      app.room = app.getRoom();
-      
-      iSetRoom();
+      UiUtil.toggleRoom();
 
       document.getElementById("keychainToggle").addEventListener('click', UiUtil.toggleKeychain());
       document.getElementById("settingsToggle").addEventListener('click', UiUtil.toggleSettings());
 
-      document.getElementById("symcsize").addEventListener('click', function (e) { if (e.target.tagName.toLowerCase() == "span") app.ciphersize = UiUtil.setSize(e.target) });
-      document.getElementById("asymsize").addEventListener('click', function (e) { if (e.target.tagName.toLowerCase() == "span") app.keysize = UiUtil.setSize(e.target) });
+      document.getElementById("symcsize").addEventListener('click', function (e) { if (e.target.tagName.toLowerCase() == "span") app.ciphersize = UiUtil.toggleSize(e.target) });
+      document.getElementById("asymsize").addEventListener('click', function (e) { if (e.target.tagName.toLowerCase() == "span") app.keysize = UiUtil.toggleSize(e.target) });
 
-      document.getElementById("serverurl").innerHTML = app.server;
+      document.getElementById("serverurl").textContent = app.getServer();
       document.getElementById("nickname").focus();
     }
 
@@ -525,7 +480,7 @@
       UiUtil.toggleSettings()('close');
     }
   } else {
-    alert('Unfortunately, your browser does not have the necessary features to run this application. Please try Firefox 21+ or Chrome 11+.');
+    alert('Your browser does not have the necessary features to run this application. Please try the latest Firefox or Chrome.');
   }
   </script>
 </body>

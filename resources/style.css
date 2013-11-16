@@ -311,6 +311,7 @@ div.controls>span {
   padding: 0.125em 0.5em;
   margin: 0;
   cursor: pointer;
+  user-select: none;
 }
 div.controls>span:first-child {
   border-top-left-radius: 0.3125em;

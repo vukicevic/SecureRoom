@@ -51,7 +51,7 @@ var app = {
       app.signkey.size    = key.sign.size;
       app.encryptkey.size = key.encrypt.size;
 
-      if (app.room == '') app.room = app.myid.substr(-8);
+      if (!app.getRoom()) app.setRoom(app.myid.substr(-8));
 
       app.generateKeySignature();
       app.cbKeygen();
@@ -77,20 +77,34 @@ var app = {
   },
 
   getServer: function() {
-    return (app.getParameter('server')) ? 'wss://'+app.getParameter('server')+':443/ws/' : 'wss://'+document.location.host+':443/ws/';
+    return (app.server = ( app.getParameter('server')) 
+                            ? 'wss://'+app.getParameter('server')+':443/ws/'
+                            : 'wss://'+document.location.host+':443/ws/' );
   },
   
   getRoom: function() {
-    var path = window.location.pathname.substr(window.location.pathname.lastIndexOf('/')+1);
-    if (path == 'index.html') {
-      path = (app.getParameter('room')) ?  app.getParameter('room') : '';
-    }    
-    return path;
+    if (app.room) return app.room;
+
+    app.room = window.location.pathname.substr(window.location.pathname.lastIndexOf('/')+1);
+    if (app.room == 'index.html')
+      app.room = app.getParameter('room');
+
+    return app.room;
+  },
+
+  setRoom: function(room) {
+    if (!room) return '';
+
+    var opts = (window.location.search) ? window.location.search+'&room=' : '?room=',
+        path = (window.location.pathname.indexOf('index.html') > -1) ? window.location.pathname+opts+room : window.location.pathname+room;
+    
+    window.history.replaceState({} , 'SecureRoom', path);
+    app.room = room;
   },
   
   getParameter: function(name) {
     var match = RegExp('[?&]' + name + '=([^&]*)').exec(window.location.search);
-    return match && decodeURIComponent(match[1].replace(/\+/g, ' '));
+    return (match) ? decodeURIComponent(match[1].replace(/\+/g, ' ')) : '';
   }
 }
 
@@ -338,4 +352,34 @@ function Message(message) {
         return Object.keys(this.encrypted.keys);
     }
   });
+}
+
+function MessageTools(message) {
+  return {
+    strength: function() {
+      var key, min = 8192;
+
+      for (key in message.encrypted.keys) {
+        if (typeof app.keychain[app.keymap[key]] == "undefined") {
+          min = 8192;
+          break;
+        }
+        min = Math.min(app.keychain[app.keymap[key]].encrypt.size, min);
+      }
+
+      return { term: 'Weakest Key', data: (min < 8192) ? min+' bits' : 'Unknown' };
+    },
+
+    recipients: function() {
+      var key, list = [];
+
+      for (key in message.encrypted.keys)
+        if (typeof app.keychain[app.keymap[key]] != "undefined")
+          list.push(PrintUtil.text(app.keychain[app.keymap[key]].name));
+        else
+          list.push((typeof app.rejected[app.keymap[key]] != "undefined") ? 'Rejected' : 'Unknown');
+
+      return { term: 'Recipients', data: list.join(', ') };
+    }
+  }
 }
