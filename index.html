@@ -424,7 +424,7 @@
       </svg>
     </div>
     <button id="send" onclick="var e = document.getElementById('message'); if (e.value) UiUtil.addMessage(comm.sendMessage(e.value)); e.value = '';">Send</button>
-    <span><input type="text" id="message" onkeyup="(event.keyCode === 13) && document.getElementById('send').click()"></span>
+    <span><input type="text" id="message" autocomplete="off" onkeyup="(event.keyCode === 13) && document.getElementById('send').click()"></span>
   </div>
 
   <ul id="keychain"><li id="mykey">
