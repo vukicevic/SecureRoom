@@ -93,7 +93,7 @@ var app = {
   },
 
   setRoom: function(room) {
-    if (!room) return '';
+    if (!room) return;
 
     var opts = (window.location.search) ? window.location.search+'&room=' : '?room=',
         path = (window.location.pathname.indexOf('index.html') > -1) ? window.location.pathname+opts+room : window.location.pathname+room;
