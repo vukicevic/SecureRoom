@@ -13,7 +13,7 @@
  * GNU General Public License for more details.
  **/
 
-symmetric = {
+var Symmetric = {
   algorighm: 7, //8,9
   name: 'AES',
   mode: 'CFB',
@@ -148,6 +148,6 @@ symmetric = {
   },
 
   subBytes: function(S) {
-    return S.map(function(v){return symmetric.B[v];});
+    return S.map(function(v){return Symmetric.B[v];});
   }
 };

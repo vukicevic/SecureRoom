@@ -11,472 +11,349 @@
   <script src="resources/hash.sha1.js"></script>
   <script src="resources/secureroom.js"></script>
 
-  <script src="resources/keytools.js"></script>
+  <script src="resources/utils.js"></script>
   <script>
-  
-  function iFormatId(id) {
-    return id.match(/.{2}/g).map(function(v){return v;}).join(':').toUpperCase();
+
+  function TemplateEngine(templ) {
+    if (typeof templ != "undefined")
+      templ = document.getElementById(templ).innerHTML.replace(/\n|\r/g, "").replace(/>\s+</g, "><").trim();
+
+    return function compile(data, template) {
+      var match, tpart, i, template = template || templ;
+
+      while (match = /\{\{#([a-zA-Z]+)\}\}(.+)\{\{\/\1\}\}/g.exec(template)) {
+        for (tpart = '', i = 0; i < data[match[1]].length; i++)
+          tpart += compile(data[match[1]][i], match[2]);
+
+        template = template.split(match[0]).join(tpart);
+        delete data[match[1]];
+      }
+
+      for (match in data)
+        template = template.split('{{'+match+'}}').join(data[match]);
+
+      return template;
+    }
   }
 
-  function iCreateMessage(message) {
-    if (message === null) return;
+  var UI = {
+    toggleKeychain: function() {
+      var ctrl = document.getElementById('keychainToggle'),
+          elem = document.getElementById('keychain');
 
-    var l = document.createElement('li'),
-        p = document.createElement('p'),
-        b = document.createElement('b'),
-        d = iPrintTime(new Date(message.metadata.recvtime*1000)),
-        c = app.messages++,
-        i = iCreateInfo(c, message);
+      return function(close) {
+        if (ctrl.classList.contains('open') || close == 'close') {
+          ctrl.classList.remove('open');
+          elem.style.bottom = '-'+elem.clientHeight+'px';
 
-    l.id = 'msg'+c;
-    l.className = 'msg';
+          var node;
+          while ( (node = elem.querySelector('.export:not(.hidden)')) ) node.classList.add('hidden');
+          while ( (node = elem.querySelector('.selected')) ) node.classList.remove('selected');
+        } else {
+          ctrl.classList.add('open');
+          elem.style.bottom = (ctrl.clientHeight-5)+'px';
+        }
+      };     
+    },
 
-    d.id = 'toggle'+c;
-    d.onclick = function() { iToggleInfo(i, 0, 4.5); };
+    toggleSettings: function() {
+      var ctrl = document.getElementById('settingsToggle'),
+          elem = document.getElementById('settings');
 
-    //if a large time difference exists
-    if (Math.abs(message.metadata.recvtime - message.metadata.sendtime) > 10) {
-      l.className = 'alert warning';
-    }
+      return function(close) {
+        if (ctrl.classList.contains('open') || close == 'close') {
+          ctrl.classList.remove('open');
+          elem.style.marginTop = '-'+(elem.clientHeight-ctrl.clientHeight)+'px';
+          window.scroll(0, document.body.offsetHeight);
+        } else {
+          ctrl.classList.add('open');
+          elem.style.marginTop = ctrl.clientHeight+'px';
+          window.scrollTo(0, 0);
+        }
+      };
+    },
 
-    //if recv message was sent to rejected or unknown key, attach warning
-    for (keyid in message.encrypted.sessionkeys) {
-      if (typeof app.keychain[app.keymap[keyid]] == "undefined") {
-        l.className = 'alert warning';
+    toggleKey: function(id, ctrl) {
+      return function() {
+        if (app.keychain[id].active) {
+          ctrl.classList.add('inactive');
+          ctrl.textContent = 'DISABLED';
+          app.keychain[id].active = false;
+        } else {
+          ctrl.classList.remove('inactive')
+          ctrl.textContent = 'ACTIVE';
+          app.keychain[id].active = true;
+        }
+      };
+    },
+
+    toggleExport: function(elem, ctrl) {
+      return function() {
+        if (elem.classList.contains('hidden')) {
+          elem.classList.remove('hidden');
+          ctrl.classList.add('selected');
+        } else {
+          elem.classList.add('hidden');
+          ctrl.classList.remove('selected');
+        }
+
+        elem.style.left = (elem.parentNode.getBoundingClientRect().left - 1)+'px';
+        elem.style.top  = '-'+(elem.offsetHeight - (elem.parentNode.getBoundingClientRect().top - elem.parentNode.parentNode.getBoundingClientRect().top))+'px';
+      };
+    },
+
+    toggleSize: function(elem) {
+      elem.parentNode.querySelector('.selected').classList.remove('selected');
+      elem.classList.add('selected');
+      return parseInt(elem.textContent);
+    },
+
+    toggleInput: function(close) {
+      document.getElementById('input').style.bottom = (close) ? '-2.25em' : '0em';
+    },
+
+    toggleRoom: function() { 
+      document.getElementById('room').textContent = 'Room: '+app.getRoom();
+    },
+
+    toggleHeight: function(elem) {
+      var height = elem.offsetHeight;
+
+      if (elem.classList.contains('hidden-height')) {
+        elem.style.height = '0px';
+        elem.classList.remove('hidden-height');
+      } else {
+        elem.style.height = height+'px';
+      }
+
+      return function() {
+        elem.style.height = (elem.style.height == '0px') ? height+'px' : '0px';
+      }
+    },
+
+    removeContent: function(elem) {
+      elem.style.height = elem.offsetHeight+'px';
+
+      return function() {
+        elem.style.height = '0px';
+        while (elem.firstChild) elem.removeChild(elem.firstChild);
+      }
+    },
+
+    disableSettings: function(setting) {
+      var parent = document.getElementById(setting), node;
+    
+      switch(setting) {
+      case 'asymsize':
+        while ((node = parent.querySelector('span:not(.selected)')) ) parent.removeChild(node);
+        break;
+      case 'serverurl':
+        parent.classList.add('selected');
+        parent.contentEditable = false;
         break;
       }
-    }
+    },
 
-    //if signature is wrong
-    if (!message.metadata.verified) {
-      l.className = 'alert warning';
-    }
+    addMessage: function(message) {
+      var container = document.getElementById('content'),
+          build = TemplateEngine('template-message'),
+          content = {};
 
-    b.appendChild(document.createTextNode(app.keychain[message.metadata.sender].name+': '));
-    p.appendChild(b);
-    p.appendChild(document.createTextNode(message.plaintext.string));
+      content.time    = PrintUtil.time(message.recvtime);
+      content.sender  = PrintUtil.text(app.keychain[message.sender].name);
+      content.message = PrintUtil.text(message.plaintext);
+      content.info    = UI.buildMsgInfo(message);
+      content.class   = (!message.verified) ? ' warning' : '';
 
-    l.appendChild(d);
-    l.appendChild(p);
-    l.appendChild(i);
+      container.insertAdjacentHTML('beforeend', build(content));
 
-    document.getElementById('content').appendChild(l);
-    window.scroll(0,document.body.offsetHeight);
-  }
-
-  function iKeyInfo(key) {
-    var wrap = document.createElement('div'),
-        key1 = document.createElement('p'),
-        key2 = document.createElement('p');
-
-    key1.className = 'keyinfo';
-    key2.className = 'keyinfo';
-
-    key1.appendChild(document.createElement("b"));
-    key1.lastChild.appendChild(document.createTextNode(iFormatId(key.sign.id)));
-    key1.appendChild(document.createElement("br"));
-    key1.appendChild(document.createElement("small"));
-    key1.lastChild.appendChild(document.createTextNode(key.sign.size + " BITS | " + iPrintDate(new Date(key.sign.created*1000)) + " | SIGNING"));
-
-    wrap.appendChild(key1);
-
-    key2.appendChild(document.createTextNode(iFormatId(key.encrypt.id)));
-    key2.appendChild(document.createElement("br"));
-    key2.appendChild(document.createElement("small"));
-    key2.lastChild.appendChild(document.createTextNode(key.encrypt.size + " BITS |  " + iPrintDate(new Date(key.encrypt.created*1000)) + " | ENCRYPTION"));
-
-    wrap.appendChild(key2);
-
-    return wrap;
-  }
-
-  function iCreateProgress() {
-    var li = document.getElementById('alertKeyGen'),
-        di = document.createElement('div');
-
-    while (li.firstChild) li.removeChild(li.firstChild);
-
-    di.className = 'loading';
-    li.appendChild(di);
-    li.style.height = '1em';
-  }
-
-  function iCreateDistribute() {
-    var li = document.getElementById('alertKeyGen'),
-        h4 = document.createElement('p'),
-        bu = document.createElement('span');
-
-    li.style.height = '9em';
-
-    while (li.firstChild) li.removeChild(li.firstChild);
-
-    h4.appendChild(document.createTextNode('Your keys have been generated.'));
-
-    bu.id = 'distribute';
-    bu.className = 'field button';
-    bu.appendChild(document.createTextNode('Connect & Distribute'));
-    bu.onclick = function() {
-      comm.connect();
-      iSetRoom();
-      iCreateProgress();
-    }
-
-    li.appendChild(h4);
-    li.appendChild(iKeyInfo(app.keychain[app.myid]));
-    li.appendChild(bu);
-
-    iToggleSettings(true);
-  }
-
-  function iSetRoom() {
-    if (app.room != '') {
-      if (app.getRoom() == '') {
-        var opts = (window.location.search) ? window.location.search+'&room=' : '?room=',
-            path = (window.location.pathname.substr(window.location.pathname.lastIndexOf('/')+1) == 'index.html') ? window.location.pathname+opts+app.room : window.location.pathname+app.room;
-        window.history.replaceState({} , 'SecureRoom', path);
-      }
-      document.getElementById('room').innerHTML = 'Room: '+app.room;
-    }
-  }
-
-  function iConnect() {
-    var li = document.getElementById('alertKeyGen'),
-        di = iPrintTime(new Date());
-
-    while (li.firstChild) li.removeChild(li.firstChild);
-
-    di.onclick = function() { iToggleInfo(li, 1, 6); }
-    
-    li.appendChild(document.createTextNode('Connected.'));
-    li.appendChild(di);
-    li.appendChild(iKeyInfo(app.keychain[app.myid]));
-    
-    li.style.height = '1em';
-  }
-  
-  function iDisconnect() {
-    var li = document.createElement('li'),
-        di = iPrintTime(new Date());
-
-    li.className = 'alert';
-    li.appendChild(document.createTextNode('Disconnected.'));
-    li.appendChild(di);
-    
-    document.getElementById('content').appendChild(li);
-  }
-
-  function iCreateReceive(key) {
-    if (document.getElementById('alert'+key.sign.id)) return;
-
-    var li = document.createElement('li'),
-        pa = document.createElement('p'),
-        ba = document.createElement('span'),
-        br = document.createElement('span'),
-        di = document.createElement('div');
-
-    li.className = 'alert clear';
-    li.id        = 'alert'+key.sign.id;
-    document.getElementById('content').appendChild(li);
-
-    di.className = 'time';
-    pa.appendChild(document.createTextNode(key.name+' wants to join. Do you accept?'));
-
-    ba.className = 'field button';
-    br.className = 'field button';
-
-    ba.appendChild(document.createTextNode('Accept'));
-    ba.onclick = function() {
-      key.active = true;
-      app.keychain[key.sign.id] = key;
-      app.keymap[key.encrypt.id] = key.sign.id;
-      iRefreshKeychain();
-      iCreateReceived(this, key);
-      comm.sendKey();
-    }
-
-    br.appendChild(document.createTextNode('Reject'));
-    br.onclick = function() {
-      key.active = false;
-      app.rejected[key.sign.id] = key;
-      app.keymap[key.encrypt.id] = key.sign.id;
-      iCreateReceived(this, key, true);
-    }
-
-    li.appendChild(pa);
-    li.appendChild(iKeyInfo(key));
-    li.appendChild(ba);
-    li.appendChild(br);
-
-    li.style.height = '9em';
-    window.scroll(0,document.body.offsetHeight);
-  }
-
-  function iCreateReceived(control, key, reject) {
-    var alert = control.parentNode,
-        info = iPrintTime(new Date());
-
-    while (alert.firstChild) alert.removeChild(alert.firstChild);
-    alert.style.height = '1em';
-    if (reject) {
-      alert.appendChild(document.createTextNode(key.name+'\'s key rejected.'));
-      alert.className = 'alert warning';
-    } else {
-      alert.appendChild(document.createTextNode(key.name+' joined.'));
-    }
-    info.className += ' down';
-    info.onclick = function() { iToggleInfo(alert, 1, 6); };
-    alert.appendChild(info);
-    alert.appendChild(iKeyInfo(key));
-  }
-  
-  function iCreateInfo(id, message) {
-    var div  = document.createElement('div'), m = 8192,
-        info = '';
-
-    div.className = 'msginfo';
-    div.id = 'info'+id;
-
-    info += ' <b>Sent By:</b> '+iFormatId(message.metadata.sender);
-    info += ' <b>At:</b> '+iPrintDate(new Date(message.metadata.sendtime*1000));
-    info += ' <b>Verified:</b> ';
-    info += (message.metadata.verified) ? 'True<br>' : '<u>False</u><br>';
-
-    info += ' <b>Sent To:</b> ';
-    for (keyid in message.encrypted.sessionkeys) {
-      info += iFormatId(keyid);
-      if (typeof app.keychain[app.keymap[keyid]] != "undefined") {
-        info += ' ['+app.keychain[app.keymap[keyid]].name.replace(/[`~!@#$%^&*()_|+\-=?;:'",.<>\{\}\[\]\\\/]/gi, '')+'] ';
-        m = Math.min(app.keychain[app.keymap[keyid]].encrypt.size, m);
-      } else if (typeof app.rejected[app.keymap[keyid]] != "undefined") {
-        info += ' [<b>REJECTED</b>] ';
-        m = 0;
-      } else {
-        info += ' [<b>UNKNOWN</b>] ';
-        m = 0;
-      }
-    }
-    info += (m==8192) ? '&#8212;<br>' : '<br>';
-
-    info += ' <b>Cipher:</b> '+symmetric.name+'-'+(message.plaintext.sessionkey.length*8)+' ['+symmetric.mode+']';
-    info += ' <b>Weakest key:</b> ';
-    info += (m>0&&m<8192) ? m+' bits' : 'Unknown';
-
-    div.innerHTML = info;
-    return div;
-  }
-
-  function iPrintDate(date) {
-    return date.getHours()+':'+('0'+date.getMinutes()).slice(-2)+':'+('0'+date.getSeconds()).slice(-2)+' '+date.getDate()+'/'+(date.getMonth()+1)+'/'+date.getFullYear();
-  }
-  
-  function iPrintTime(date) {
-    var d = document.createElement('div');
-    d.className = 'time';
-    d.innerHTML = ('0'+date.getHours()).slice(-2)+'<br>'+('0'+date.getMinutes()).slice(-2)+'<br>'+('0'+date.getSeconds()).slice(-2);
-    return d;
-  }
-
-  function iShowInput() {
-    var i = document.getElementById('input'),
-        m = document.getElementById('message'),
-        s = document.getElementById('send'),
-        k = document.getElementById('toggleKeychain');
-
-    m.style.width = (i.offsetWidth-(s.offsetWidth+k.offsetWidth+50))+'px';
-    i.style.bottom = '0';
-    m.focus();
-  }
-  
-  function iHideInput() {
-    document.getElementById('input').style.bottom = '-2.7em';
-  }
-
-  function iRefreshKeychain() {
-    var kc = document.getElementById('keychain'),
-        li, nm, b1, b2, pu, pr, tu, tr, ct;
-
-    while (kc.firstChild) kc.removeChild(kc.firstChild);
-
-    for (keyid in app.keychain) {
-      li = document.createElement('li');
-      pu = document.createElement('div');
-      tu = document.createElement('textarea');
-      nm = document.createElement('h3');
-      ct = document.createElement('div');
-      b1 = document.createElement('span');
-      b2 = document.createElement('span');
-
-      if (app.myid != keyid) {
-        if (app.keychain[keyid].active) {
-          b1.innerHTML = 'ACTIVE';
-        } else {
-          li.className = 'inactive';
-          b1.className = 'inactive';
-          b1.innerHTML = 'DISABLED';
-        }
-        
-        b1.onclick = function(elem, ctrl) { 
-                      return function() { iToggleKey(elem, ctrl); } 
-                     }(li, b1);
-
-        b1.id = 'switch'+keyid;
-      } else {
-        li.className = 'mykey';
-        
-        tr = document.createElement('textarea');
-        tr.innerHTML = keytools.exportKey(app.keychain[keyid].name, app.keychain[keyid].sign, app.keychain[keyid].encrypt, app.signkey.mpi, app.encryptkey.mpi);
-
-        pr = document.createElement('div');
-        pr.appendChild(tr);
-        pr.className     = 'export';
-        pr.style.display = 'none';
-
-        b1.innerHTML = 'PRIVATE KEY';
-        b1.onclick = function(elem, ctrl) { 
-          return function() { iToggleExport(elem, ctrl); }
-        }(pr, b1);
-
-        li.appendChild(pr);
-      }
-      
-      li.id = keyid;
-      ct.className = 'controls';
-
-      tu.innerHTML     = keytools.exportKey(app.keychain[keyid].name, app.keychain[keyid].sign, app.keychain[keyid].encrypt);
-      pu.appendChild(tu);
-      pu.className     = 'export';
-      pu.style.display = 'none';
-
-      b2.innerHTML = 'PUBLIC KEY';
-      b2.onclick = function(elem, ctrl) { 
-        return function() { iToggleExport(elem, ctrl); }
-      }(pu, b2);
-
-      ct.appendChild(b1);
-      ct.appendChild(b2);
-      nm.appendChild(document.createTextNode(app.keychain[keyid].name));
-
-      li.appendChild(pu);
-      li.appendChild(nm);
-      li.appendChild(ct);
-      li.appendChild(iKeyInfo(app.keychain[keyid]));
-
-      kc.appendChild(li);
-    }
-
-    iToggleKeychain(true);
-  }
-
-  function iSendMessage() {
-    var i = document.getElementById('message'),
-        b = document.getElementById('send');
-
-    if (i.textContent.length > 0) {
-      b.style.backgroundColor = '#f00';
-      iCreateMessage(comm.sendMessage(i.textContent));
-      i.innerHTML = '';
-      window.setTimeout(function() {b.style.backgroundColor = '#fff'}, '50');
-    }
-  }
-
-  function iSetSize(elem) {
-    while(elem.parentNode.getElementsByClassName('selected').length)
-      elem.parentNode.getElementsByClassName('selected')[0].className = '';
-    elem.className = 'selected';
-    return parseInt(elem.textContent);
-  }
-
-  function iDisableSettings() {
-    for (var i = 0, n = document.getElementById('asymsize').querySelectorAll('span'); i < n.length; i++) {
-      if (n[i].className == 'selected') {
-        n[i].onclick = null;
-        n[i].className = 'disabled';
-      } else {
-        n[i].parentNode.removeChild(n[i]);
-      }
-    }
-
-    var server = document.getElementById("serverurl");
-    server.className = 'disabled';
-    server.contentEditable = false;
-  }
-
-  function iGenerate() {
-    app.generateKeys(document.getElementById('nickname').textContent);
-    iCreateProgress();
-    iDisableSettings();
-  }
-
-  function iToggleSettings(close) {
-    var button = document.getElementById('toggleSettings'),
-        menu   = document.getElementById('settings');
-
-    if (button.className == 'open' || close) {
+      UI.addMessageListeners(container.lastChild);
       window.scroll(0, document.body.offsetHeight);
-      button.className = 'closed';
-      menu.style.marginTop = '-'+(menu.clientHeight-button.clientHeight)+'px';
-    } else {
-      window.scrollTo(0, 0);
-      button.className = 'open';
-      menu.style.marginTop = '3em';
-    }
-  }
+    },
 
-  function iToggleKeychain(close) {
-    var button = document.getElementById('toggleKeychain'),
-        menu = document.getElementById('keychain');
+    addMessageListeners: function(elem) {
+      elem.addEventListener('click', UI.toggleHeight(elem.querySelector('.info')));
+    },
 
-    if (button.className == 'open' || close) {
-      button.className = 'closed';
-      menu.style.bottom = '-'+menu.clientHeight+'px';
+    addKey: function(key) {
+      if (document.getElementById('alert-'+key.sign.id)) return;
+
+      var container = document.getElementById('content'),
+          build = TemplateEngine('template-key-alert'),
+          content = {};
+
+      content.id   = PrintUtil.text(key.sign.id);
+      content.time = PrintUtil.time(Math.round(+new Date()/1000));
+      content.name = PrintUtil.text(key.name);
+      content.info = UI.buildKeyInfo(key);
+
+      container.insertAdjacentHTML('beforeend', build(content));
+
+      UI.addKeyListeners(document.getElementById('alert-'+content.id), key);
+      window.scroll(0, document.body.offsetHeight);
+    },
+
+    addKeyListeners: function(elem, key) {
+      var a = elem.getElementsByTagName('button').item(0),
+          r = elem.getElementsByTagName('button').item(1),
+          p = elem.querySelector('.join'),
+          d = UI.removeContent(a.parentNode);
+
+      a.addEventListener('click', function() { 
+        key.active = true;
+        app.keychain[key.sign.id] = key;
+        app.keymap[key.encrypt.id] = key.sign.id;
+        comm.sendKey();
+      });
+
+      a.addEventListener('click', function() { 
+        p.classList.add('accept');
+        UI.buildKeychain();
+      });
+
+      a.addEventListener('click', d);
+
+      r.addEventListener('click', function() { 
+        key.active = false;
+        app.rejected[key.sign.id] = key;
+        app.keymap[key.encrypt.id] = key.sign.id;
+      });
+
+      r.addEventListener('click', function() { 
+        elem.classList.add('warning');
+        p.classList.add('reject');
+      });
       
-      for (var i = 0, e = menu.getElementsByClassName('export'); i < e.length; i++)
-        e[i].style.display = 'none';
+      r.addEventListener('click', d);
+    },
 
-      while (menu.getElementsByClassName('selected').length)
-        menu.getElementsByClassName('selected')[0].className = '';
+    buildMsgInfo: function(message) {
+      var tools = MessageTools(message),
+          build = TemplateEngine('template-message-info'),
+          content = {info: []};
 
-    } else {
-      button.className = 'open';
-      menu.style.bottom = (button.clientHeight-5)+'px';
+      content.info.push({term: 'Verified', data: PrintUtil.bool(message.verified)});
+      content.info.push({term: 'Author', data: PrintUtil.id(message.sender)});
+      content.info.push({term: 'Cipher', data: Symmetric.name+'-'+(message.sessionkey.length*8)+' ['+Symmetric.mode+']'});
+      content.info.push({term: 'Delay', data: (message.recvtime - message.sendtime)+' sec'});
+      content.info.push(tools.recipients());
+      content.info.push(tools.strength());
+
+      return build(content);
+    },
+
+    buildKeyInfo: function(key) {
+      var build = TemplateEngine('template-key-info'),
+          content = {};
+
+      content.sid   = PrintUtil.id(key.sign.id);
+      content.ssize = PrintUtil.number(key.sign.size);
+      content.sdate = PrintUtil.date(key.sign.created);
+
+      content.eid   = PrintUtil.id(key.encrypt.id);
+      content.esize = PrintUtil.number(key.encrypt.size);
+      content.edate = PrintUtil.date(key.encrypt.created);
+
+      return build(content);
+    },
+
+    buildKeychain: function() {
+      var container = document.getElementById('keychain'),
+          build = TemplateEngine('template-key-chain'),
+          content = {};
+
+      while (container.lastChild != container.firstChild) container.removeChild(container.lastChild);
+
+      for (var id in app.keychain) {
+        if (app.myid != id) {
+          content.id     = PrintUtil.text(id);
+          content.name   = PrintUtil.text(app.keychain[id].name);
+          content.status = (app.keychain[id].active) ? '' : 'inactive';
+          content.info   = UI.buildKeyInfo(app.keychain[id]);
+          content.data   = KeyUtil.exportKey(app.keychain[id].name, app.keychain[id].sign, app.keychain[id].encrypt);
+
+          container.insertAdjacentHTML('beforeend', build(content));
+
+          UI.addKeychainListeners(container.lastChild, id);
+        }
+      }
+
+      UI.toggleKeychain()('close');
+    },
+
+    addKeychainListeners: function(elem, id) {
+      var b1 = elem.getElementsByTagName('span').item(0),
+          b2 = elem.getElementsByTagName('span').item(1),
+          ex = elem.querySelector('.export');
+      
+      b1.addEventListener('click', UI.toggleKey(id, b1));
+      b2.addEventListener('click', UI.toggleExport(ex, b2));
+    },
+
+    addWelcome: function(type) {
+      var container = document.getElementById('welcome');
+      while (container.firstChild) container.removeChild(container.firstChild);
+
+      switch(type) {
+      case 'distribute':
+        container.insertAdjacentHTML('beforeend', '<p>Your keys have been generated.</p><div class="info">'+UI.buildKeyInfo(app.keychain[app.myid])+'</div><button>Connect &amp; Distribute</button>');
+        container.querySelector('button').addEventListener('click', function() { comm.connect(); UI.addWelcome('progress'); UI.disableSettings('serverurl') });
+        UI.addMyKey();
+        break;
+      case 'progress':
+        container.insertAdjacentHTML('beforeend', '<div class="loading"></div>');
+        break;
+      case 'connect':
+        container.insertAdjacentHTML('beforeend', '<div class="time">'+PrintUtil.time(Math.round(+new Date()/1000))+'</div><p>Connected.</p>');
+        break;
+      case 'disconnect':
+        container.insertAdjacentHTML('beforeend', '<div class="time">'+PrintUtil.time(Math.round(+new Date()/1000))+'</div><p>Disconnected.</p>');
+        break;   
+      }
+    },
+
+    addMyKey: function() {
+      document.getElementById('myname').textContent = PrintUtil.text(app.keychain[app.myid].name);
+      document.getElementById('myinfo').insertAdjacentHTML('beforeend', UI.buildKeyInfo(app.keychain[app.myid]));
+      
+      var my = document.getElementById('mykey'),
+          e1 = my.getElementsByTagName('textarea').item(0),
+          e2 = my.getElementsByTagName('textarea').item(1),
+          b1 = my.getElementsByTagName('span').item(0),
+          b2 = my.getElementsByTagName('span').item(1);
+
+      e1.textContent = KeyUtil.exportKey(app.keychain[app.myid].name, app.keychain[app.myid].sign, app.keychain[app.myid].encrypt, app.signkey.mpi, app.encryptkey.mpi);
+      e2.textContent = KeyUtil.exportKey(app.keychain[app.myid].name, app.keychain[app.myid].sign, app.keychain[app.myid].encrypt);
+
+      b1.addEventListener('click', UI.toggleExport(e1.parentNode, b1));
+      b2.addEventListener('click', UI.toggleExport(e2.parentNode, b2));
     }
   }
+  </script>
 
-  function iToggleKey(key, button) {
-    if (app.keychain[key.id].active) {
-      button.className = 'inactive';
-      button.innerHTML = 'DISABLED';
-      key.className = 'inactive';
-      app.keychain[key.id].active = false;
-    } else {
-      button.className = '';
-      button.innerHTML = 'ACTIVE';
-      key.className = '';
-      app.keychain[key.id].active = true;
-    }
-  }
+  <script type="text/html" id="template-message">
+    <li class="message{{class}}"><div class="time">{{time}}</div><p><b class="cln">{{sender}}</b>{{message}}</p>{{info}}</li>
+  </script>
 
-  function iToggleInfo(elem, min, max) {
-    elem.style.height = (elem.style.height == max+'em') ? min+'em' : max+'em';
-  }
+  <script type="text/html" id="template-message-info">
+    <ul class="info hidden-height">{{#info}}<li><b class="cln">{{term}}</b>{{data}}</li>{{/info}}</ul>
+  </script>
 
-  function iToggleExport(elem, button) {
-    if (elem.style.display == 'none') {
-      elem.style.display = 'block';
-      button.className = 'selected';
-    } else {
-      elem.style.display = 'none';
-      button.className = '';
-    }
-    
-    elem.style.left = (elem.parentNode.getBoundingClientRect().left - 1)+'px';
-    elem.style.top  = '-'+(elem.offsetHeight - (elem.parentNode.getBoundingClientRect().top - elem.parentNode.parentNode.getBoundingClientRect().top))+'px';
-  }
+  <script type="text/html" id="template-key-alert">
+    <li id="alert-{{id}}" class="alert"><div class="time">{{time}}</div><p class="join">{{name}}</p><div class="info">{{info}}<button>Accept</button><button>Reject</button></div></li>
+  </script>
+
+  <script type="text/html" id="template-key-info">
+    <p><b>{{sid}}</b><br><small>{{ssize}} | {{sdate}} | SIGNING</small></p><p>{{eid}}<br><small>{{esize}} | {{edate}} | ENCRYPTION</small></p>
+  </script>
+
+  <script type="text/html" id="template-key-chain">
+    <li id="key-{{id}}"><div class="export hidden"><textarea>{{data}}</textarea></div><h3>{{name}}</h3><div class="controls"><span class="{{status}}">ACTIVE</span><span>PUBLIC KEY</span></div><div class="info">{{info}}</div></li>
   </script>
 </head>
 <body>
   <div id="menu">
-    <span class="open" id="toggleSettings" onclick="iToggleSettings();">
+    <span class="closed open" id="settingsToggle">
     <svg height="19" width="16" xmlns="http://www.w3.org/2000/svg" version="1.1">
       <rect y="3" width="16" height="3" />
       <rect y="8" width="16" height="3" />
@@ -489,11 +366,11 @@
   <ul id="settings">
     <li>
       <h3>Symmetric Cipher (AES)</h3>
-      <div class="controls">Size (bits): <span class="selected" onclick="app.ciphersize=iSetSize(this)">128</span><span onclick="app.ciphersize=iSetSize(this)">192</span><span onclick="app.ciphersize=iSetSize(this)">256</span></div>
+      <div class="controls" id="symcsize">Size (bits): <span class="selected">128</span><span>192</span><span>256</span></div>
     </li>
     <li>
       <h3>Asymmetric Key (RSA)</h3>
-      <div class="controls" id="asymsize">Size (bits): <span class="selected" onclick="app.keysize=iSetSize(this)">1024</span><span onclick="app.keysize=iSetSize(this)">1536</span><span onclick="app.keysize=iSetSize(this)">2048</span></div>
+      <div class="controls" id="asymsize">Size (bits): <span class="selected">1024</span><span>1536</span><span>2048</span></div>
     </li>
     <li>
       <h3>WebSocket Connection</h3>
@@ -502,74 +379,78 @@
   </ul>
 
   <ul id="content">
-    <li class="alert clear" id="alertKeyGen">
-      <p>Enter a nickname.</p>
-      <span class="field" id="nickname" contenteditable="true" onkeyup="document.getElementById('generate').style.display=(this.textContent.length<3)?'none':'block';"
-      onkeypress="if(event.keyCode === 13) { event.preventDefault(); if(this.textContent.length>=3){iGenerate();}}"></span>
-      <span class="field button" id="generate" onclick="iGenerate();">Generate</span>
+    <li class="alert" id="welcome">
+      <input type="text" id="nickname" autocomplete="off" placeholder="Enter a nickname..." onkeyup="this.nextSibling.disabled = (this.value.length<3);" onkeypress="(event.keyCode===13) && this.nextSibling.onclick();"><button onclick="if (!this.disabled) { app.generateKeys(this.previousSibling.value); UI.addWelcome('progress'); UI.disableSettings('asymsize'); }" disabled>Generate</button>
     </li>
   </ul>
 
   <div id="input">
-    <span class="field" id="message" contenteditable="true" onkeydown="if(event.keyCode === 13){event.preventDefault(); iSendMessage();}"></span>
-    <span class="field button" id="send" onclick="iSendMessage();">Send</span>
-    <span class="closed" id="toggleKeychain" onclick="iToggleKeychain();">
-    <svg height="19" width="12" xmlns="http://www.w3.org/2000/svg" version="1.1">
-      <rect y="3" width="4" height="3" />
-      <rect y="8" width="4" height="3" />
-      <rect y="13" width="4" height="3" />
-    </svg>
-    </span>
+    <div class="closed" id="keychainToggle">
+      <svg height="19" width="12" xmlns="http://www.w3.org/2000/svg" version="1.1">
+        <rect y="5" width="4" height="3" />
+        <rect y="10" width="4" height="3" />
+        <rect y="15" width="4" height="3" />
+      </svg>
+    </div>
+    <button id="send" onclick="var e = document.getElementById('message'); if (e.value) UI.addMessage(comm.sendMessage(e.value)); e.value = '';">Send</button>
+    <span><input type="text" id="message" autocomplete="off" onkeyup="(event.keyCode === 13) && document.getElementById('send').click()"></span>
   </div>
 
-  <ul id="keychain">
-  </ul>
+  <ul id="keychain"><li id="mykey">
+      <div class="export hidden"><textarea></textarea></div>
+      <div class="export hidden"><textarea></textarea></div>
+      <h3 id="myname"></h3>
+      <div id="mycontrols" class="controls"><span>PRIVATE KEY</span><span>PUBLIC KEY</span></div>
+      <div id="myinfo" class="info"></div>
+  </li></ul>
 
   <script>
   if (typeof window.crypto.getRandomValues === 'function' && typeof window.WebSocket === 'function' && typeof window.Worker === 'function') {
     app.setCallbacks(
       function() {
-        iCreateDistribute();
-        iSetRoom();
+        UI.addWelcome('distribute');
+        UI.toggleSettings()('close');
+        UI.toggleKeychain()('close');
+        UI.toggleRoom();
       }
     )
 
     comm.setCallbacks(
       function() {
-        iConnect();
-        iShowInput();
-        iRefreshKeychain();
+        UI.addWelcome('connect');
+        UI.toggleInput();
       },
       function() {
-        iDisconnect();
-        iHideInput();
+        UI.addWelcome('disconnect');
+        UI.toggleInput(true);
       },
       function(msg) {
-        iCreateMessage(msg);
+        UI.addMessage(msg);
       },
       function(key) {
-        iCreateReceive(key);
+        UI.addKey(key);
       }
     )
     
     window.onload = function() {
-      app.server = app.getServer();
-      app.room = app.getRoom();
-      
-      iSetRoom();
-      document.getElementById("serverurl").innerHTML = app.server;
+      UI.toggleRoom();
+
+      document.getElementById("keychainToggle").addEventListener('click', UI.toggleKeychain());
+      document.getElementById("settingsToggle").addEventListener('click', UI.toggleSettings());
+
+      document.getElementById("symcsize").addEventListener('click', function (e) { if (e.target.tagName.toLowerCase() == "span") app.ciphersize = UI.toggleSize(e.target) });
+      document.getElementById("asymsize").addEventListener('click', function (e) { if (e.target.tagName.toLowerCase() == "span") app.keysize = UI.toggleSize(e.target) });
+
+      document.getElementById("serverurl").textContent = app.getServer();
       document.getElementById("nickname").focus();
     }
 
     window.onresize = function(event) {
-      if (comm.connected) {
-        iShowInput();
-        iToggleKeychain(true);
-      }
-      iToggleSettings(true);
+      UI.toggleKeychain()('close');
+      UI.toggleSettings()('close');
     }
   } else {
-    alert('Unfortunately, your browser does not have the necessary features to run this application. Please try Firefox 21+ or Chrome 11+.');
+    alert('Your browser does not have the necessary features to run this application. Please try the latest Firefox or Chrome.');
   }
   </script>
 </body>

@@ -51,7 +51,7 @@ var app = {
       app.signkey.size    = key.sign.size;
       app.encryptkey.size = key.encrypt.size;
 
-      if (app.room == '') app.room = app.myid.substr(-8);
+      if (!app.getRoom()) app.setRoom(app.myid.substr(-8));
 
       app.generateKeySignature();
       app.cbKeygen();
@@ -69,28 +69,42 @@ var app = {
   },
 
   generateKeySignature: function() {
-    var shsh = keytools.generateSignatureHash(app.keychain[app.myid].sign, app.nickname),
-        ehsh = keytools.generateSignatureHash(app.keychain[app.myid].sign, app.keychain[app.myid].encrypt);
+    var shsh = KeyUtil.generateSignatureHash(app.keychain[app.myid].sign, app.nickname),
+        ehsh = KeyUtil.generateSignatureHash(app.keychain[app.myid].sign, app.keychain[app.myid].encrypt);
 
-    app.keychain[app.myid].sign.signature    = asymmetric.sign(app.signkey, shsh, true);
-    app.keychain[app.myid].encrypt.signature = asymmetric.sign(app.signkey, ehsh, true);
+    app.keychain[app.myid].sign.signature    = Asymmetric.sign(app.signkey, shsh, true);
+    app.keychain[app.myid].encrypt.signature = Asymmetric.sign(app.signkey, ehsh, true);
   },
 
   getServer: function() {
-    return (app.getParameter('server')) ? 'wss://'+app.getParameter('server')+':443/ws/' : 'wss://'+document.location.host+':443/ws/';
+    return (app.server = ( app.getParameter('server')) 
+                            ? 'wss://'+app.getParameter('server')+':443/ws/'
+                            : 'wss://'+document.location.host+':443/ws/' );
   },
   
   getRoom: function() {
-    var path = window.location.pathname.substr(window.location.pathname.lastIndexOf('/')+1);
-    if (path == 'index.html') {
-      path = (app.getParameter('room')) ?  app.getParameter('room') : '';
-    }    
-    return path;
+    if (app.room) return app.room;
+
+    app.room = window.location.pathname.substr(window.location.pathname.lastIndexOf('/')+1);
+    if (app.room == 'index.html')
+      app.room = app.getParameter('room');
+
+    return app.room;
+  },
+
+  setRoom: function(room) {
+    if (!room) return;
+
+    var opts = (window.location.search) ? window.location.search+'&room=' : '?room=',
+        path = (window.location.pathname.indexOf('index.html') > -1) ? window.location.pathname+opts+room : window.location.pathname+room;
+    
+    window.history.replaceState({} , 'SecureRoom', path);
+    app.room = room;
   },
   
   getParameter: function(name) {
     var match = RegExp('[?&]' + name + '=([^&]*)').exec(window.location.search);
-    return match && decodeURIComponent(match[1].replace(/\+/g, ' '));
+    return (match) ? decodeURIComponent(match[1].replace(/\+/g, ' ')) : '';
   }
 }
 
@@ -146,143 +160,100 @@ var comm = {
     }
   },
 
-  encryptMessage: function(message) {
-    var padkey, 
-        keyid,
-        paddata,
-        count = 0;
+  encryptMessage: function(message, data) {
+    var keyid,
+        paddata;
 
     if (Object.keys(app.keychain).length < 2) return null;
 
     for (keyid in app.keychain) {
       if (app.myid != keyid && app.keychain[keyid].active) {
-        message.encrypted.sessionkeys[app.keychain[keyid].encrypt.id] = asymmetric.encrypt(app.keychain[keyid].encrypt, message.plaintext.sessionkey);
-        count++;
+        message.encrypted.keys[app.keychain[keyid].encrypt.id] = Asymmetric.encrypt(app.keychain[keyid].encrypt, message.sessionkey);
       }
     }
 
-    if (count == 0) return null;
+    if (Object.keys(message.encrypted.keys).length == 0) return null;
 
     //random x+2 octets & plaintext, where x is block size
     paddata = random.generate(app.ciphersize);
     paddata = paddata.concat(paddata.slice(-2))
-                     .concat(message.plaintext.data);
+                     .concat(data);
 
-    return symmetric.encrypt(message.plaintext.sessionkey, paddata);
+    return Symmetric.encrypt(message.sessionkey, paddata);
   },
 
   decryptMessage: function(message) {
-    var keyid, 
-        padkey;
+    var keyid;
 
-    for (keyid in message.encrypted.sessionkeys) {
+    for (keyid in message.encrypted.keys) {
       if (keyid == app.keychain[app.myid].encrypt.id) {
-         message.plaintext.sessionkey = asymmetric.decrypt(app.encryptkey, message.encrypted.sessionkeys[keyid]);
+         message.sessionkey = Asymmetric.decrypt(app.encryptkey, message.encrypted.keys[keyid]);
          break;
       }
     }
 
-    if (message.plaintext.sessionkey) {
+    if (message.sessionkey) {
       //discard x+2 random data, should check (x-1 == x+1 && x ==x+2)
-      return symmetric.decrypt(message.plaintext.sessionkey, message.encrypted.data)
-                      .slice(message.plaintext.sessionkey.length+2);
+      return Symmetric.decrypt(message.sessionkey, message.encrypted.data)
+                      .slice(message.sessionkey.length+2);
     } else {
       return null;
     }
   },
 
   sendMessage: function(text) {
-    var message = new Message();
+    var rawdata, message = new Message();
 
-    message.metadata.sendtime = Math.round(+new Date()/1000);
-    message.metadata.recvtime = message.metadata.sendtime;
-    message.metadata.sender   = app.myid;
+    message.sendtime = Math.round(+new Date()/1000);
+    message.recvtime = message.sendtime;
+    message.sender   = app.myid;
 
-    message.plaintext.string = text;
-    message.plaintext.data   = array.fromString(text)
-                                    .concat(0)
-                                    .concat(array.fromWord(message.metadata.sendtime))
-                                    .concat(array.fromHex(message.metadata.sender));
+    message.plaintext = text;
+    rawdata = ArrayUtil.fromString(text)
+                .concat(0)
+                .concat(ArrayUtil.fromWord(message.sendtime))
+                .concat(ArrayUtil.fromHex(message.sender));
 
-    message.metadata.signature = asymmetric.sign(app.signkey, message.plaintext.data);
-    message.metadata.verified  = true;
+    message.signature = Asymmetric.sign(app.signkey, rawdata);
+    message.verified  = true;
 
-    message.plaintext.data = message.plaintext.data.concat(message.metadata.signature);
-    message.encrypted.data = this.encryptMessage(message);
+    rawdata = rawdata.concat(message.signature);
+    message.encrypted.data = this.encryptMessage(message, rawdata);
 
-    //console.debug(message);
-
-    if (message.encrypted.data != null) {
-      var str = JSON.stringify({"type": "message",
-                                "data": message.encrypted});
-      console.log(str);
-      this.socket.send(str);
-    }
+    if (message.encrypted.data != null)
+      this.socket.send(JSON.stringify({"type": "message", "data": message.encrypted}));
 
     return message;
   },
 
   receiveMessage: function(data) {
     var message = new Message(data),
-        i;
+        rawdata = this.decryptMessage(message),
+        i = rawdata.indexOf(0);
 
-    message.metadata.recvtime = Math.round(+new Date()/1000);
-    message.plaintext.data = this.decryptMessage(message);
+    message.recvtime = Math.round(+new Date()/1000);
 
-    if (message.plaintext.data == null) return null;
-    i = message.plaintext.data.indexOf(0);
+    if (rawdata == null) return null;
 
-    message.plaintext.string   = array.toString(message.plaintext.data.slice(0, i));
-    message.metadata.sendtime  = array.toWord(message.plaintext.data.slice(i+1, i+5));
-    message.metadata.sender    = array.toHex(message.plaintext.data.slice(i+5, i+13));
-    message.metadata.signature = message.plaintext.data.slice(i+13);
+    message.plaintext = ArrayUtil.toString(rawdata.slice(0, i));
+    message.sendtime  = ArrayUtil.toWord(rawdata.slice(i+1, i+5));
+    message.sender    = ArrayUtil.toHex(rawdata.slice(i+5, i+13));
+    message.signature = rawdata.slice(i+13);
 
-    if (typeof app.keychain[message.metadata.sender] == 'undefined') return null; //messages from rejected and unknown senders will be ignored at this point
+    if (typeof app.keychain[message.sender] == 'undefined') return null; //messages from rejected and unknown senders will be ignored at this point
 
-    message.metadata.verified  = asymmetric.verify(app.keychain[message.metadata.sender].sign, message.plaintext.data.slice(0,i+13), message.metadata.signature);
+    message.verified  = Asymmetric.verify(app.keychain[message.sender].sign, rawdata.slice(0,i+13), message.signature);
 
     return message;
   },
 
   sendKey: function() {
-    var str = JSON.stringify({"type": "key",
-                              "data": app.keychain[app.myid]});
-
-    this.socket.send(str);
+    this.socket.send(JSON.stringify({"type": "key", "data": app.keychain[app.myid]}));
   },
 
   receiveKey: function(data) {
     return new PublicKey(data);
   }
-}
-
-var array = {
-  //to/from string not currently handling charcode < 16 - if needed use ('0'+s).slice(-2);
-  toString: function(input) {
-    return decodeURIComponent(input.map(function(v) {return '%'+v.toString(16);}).join(''));
-  },
-
-  //replace match not followed by %: %25(?!%) - not needed as % is double encoded to %2525 anyway
-  fromString: function(input) {
-    return encodeURIComponent(input.split('').map(function(v){return (v.charCodeAt(0) < 128) ? '%'+v.charCodeAt(0).toString(16) : v;}).join('')).replace(/%25/g,'%')
-            .slice(1).split('%').map(function(v){return parseInt(v, 16);});
-  },
-
-  toHex: function(input) {
-    return input.map(function(v){return ('0'+v.toString(16)).slice(-2);}).join('');
-  },
-
-  fromHex: function(h) {
-    return h.match(/.{2}/g).map(function(v){return parseInt(v, 16);});
-  },
-
-  toWord: function(a) {
-    return (a[0]*16777216 + a[1]*65536 + a[2]*256 + a[3]);
-  },
-
-  fromWord: function(t) {
-    return [t>>24, (t>>16)&0xff, (t>>8)&0xff, t&0xff];
-  },
 }
 
 function PublicKey(data) {
@@ -301,14 +272,14 @@ function PublicKey(data) {
   }
 
   this.calcFingerprint = function(data, type) {
-    data = [4].concat(array.fromWord(data.created))
+    data = [4].concat(ArrayUtil.fromWord(data.created))
               .concat([type])
               .concat(this.calcMpiLength(data.mpi.n))
               .concat(data.mpi.n)
               .concat(this.calcMpiLength(data.mpi.e))
               .concat(data.mpi.e);
 
-    return array.toHex(hash.digest([0x99, (data.length >> 8), (data.length & 0xff)].concat(data)));
+    return ArrayUtil.toHex(hash.digest([0x99, (data.length >> 8), (data.length & 0xff)].concat(data)));
   }
 
   this.calcKeyInfo = function(key, type) {
@@ -329,13 +300,57 @@ function PublicKey(data) {
 }
 
 function Message(message) {
-  this.encrypted = {sessionkeys: {}, data: []};
-  this.plaintext = {sessionkey: null, data: null, string: null};
-  this.metadata  = {sender: null, signature: null, sendtime: null, recvtime: null, verified: false};
+  this.encrypted  = {keys: {}, data: null};
+  
+  this.sessionkey = null;
+  this.plaintext  = null;
+
+  this.sender     = null;
+  this.sendtime   = null;
+  this.recvtime   = null;
+  
+  this.signature  = null;
+  this.verified   = false;
 
   if (typeof message == 'undefined') {
-    this.plaintext.sessionkey = random.generate(app.ciphersize);
+    this.sessionkey = random.generate(app.ciphersize);
   } else {
     this.encrypted = message;
+  }
+
+  Object.defineProperty(this, "recipients", {
+    get: function() {
+        return Object.keys(this.encrypted.keys);
+    }
+  });
+}
+
+function MessageTools(message) {
+  return {
+    strength: function() {
+      var key, min = 8192;
+
+      for (key in message.encrypted.keys) {
+        if (typeof app.keychain[app.keymap[key]] == "undefined") {
+          min = 8192;
+          break;
+        }
+        min = Math.min(app.keychain[app.keymap[key]].encrypt.size, min);
+      }
+
+      return { term: 'Weakest Key', data: (min < 8192) ? min+' bits' : 'Unknown' };
+    },
+
+    recipients: function() {
+      var key, list = [];
+
+      for (key in message.encrypted.keys)
+        if (typeof app.keychain[app.keymap[key]] != "undefined")
+          list.push(PrintUtil.text(app.keychain[app.keymap[key]].name));
+        else
+          list.push((typeof app.rejected[app.keymap[key]] != "undefined") ? 'Rejected' : 'Unknown');
+
+      return { term: 'Recipients', data: list.join(', ') };
+    }
   }
 }
