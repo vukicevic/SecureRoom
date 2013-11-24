@@ -723,3 +723,84 @@ var mpi = {
     }
   }
 }
+
+
+
+/**/
+
+function KeyGen(size, callback) {
+  var w = {}, timer;
+
+  function createWorker (worker, callback) {
+    w[worker] = new Worker('resources/primes.js');
+    w[worker].ready = false;
+    w[worker].onmessage = function (e) {
+      this.data = e.data;
+      this.ready = true;
+      callback();
+      this.terminate();
+    };
+
+    w[worker].postMessage(mpi.c8to28(random.generate(size/2)));
+  };
+
+  function process() {
+    if (w.p.ready && w.q.ready) {
+      var data = {};
+      timer = null;
+
+      data.n = mpi.cut(mpi.mul(w.p.data, w.q.data));
+      data.f = mpi.mul(mpi.dec(w.p.data), mpi.dec(w.q.data));
+
+      var t = [257,65537,17,41,19], i = 0;
+      do {
+        data.e = [t[Math.floor(Math.random()*t.length)]];
+        data.d = mpi.inv(data.e, data.f);
+      } while (data.d.length == 0 && i++ < t.length);
+
+      if (data.d.length == 0) {
+        w.p = null;
+        w.q = null;
+
+        createWorker('p', process);
+        createWorker('q', process);
+
+        return;
+      }
+
+      data.u  = mpi.c28to8(mpi.cut(mpi.inv(w.p.data, w.q.data)));
+      data.dp = mpi.c28to8(mpi.mod(data.d, mpi.dec(w.p.data)));
+      data.dq = mpi.c28to8(mpi.mod(data.d, mpi.dec(w.q.data)));
+
+      data.n = mpi.c28to8(data.n);
+      data.f = mpi.c28to8(data.f);
+      data.e = mpi.c28to8(data.e);
+      data.d = mpi.c28to8(data.d);
+      data.p = mpi.c28to8(w.p.data);
+      data.q = mpi.c28to8(w.q.data);
+
+      callback(data);
+    }
+  };
+
+  return function() { 
+    createWorker('p', process);
+    createWorker('q', process);
+
+    timer = window.setTimeout(function() {
+      if (!w.p.ready) {
+        w.p.terminate();
+        createWorker('p', process);
+      }
+
+      if (!w.q.ready) {
+        w.q.terminate();
+        createWorker('q', process);
+      }
+    }, size*10, w); //tune for longer keys, slower computers
+  };
+}
+
+function test(data) {
+  console.log(data);
+}
