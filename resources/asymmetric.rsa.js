@@ -729,25 +729,22 @@ var mpi = {
 /**/
 
 function KeyGen(size, callback) {
-  var w = {}, timer, type;
+  var w = {}, time, timer, type;
 
   function createWorker (worker, callback) {
     w[worker] = new Worker('resources/primes.js');
-    w[worker].ready = false;
     w[worker].onmessage = function (e) {
       this.data = e.data;
-      this.ready = true;
       callback();
-      this.terminate();
     };
 
     w[worker].postMessage(mpi.c8to28(random.generate(size/2)));
   };
 
   function process() {
-    if (w.p.ready && w.q.ready) {
-      var data = {};
+    if (w.p.data && w.q.data) {
       timer = null;
+      var data = {};
 
       data.n = mpi.cut(mpi.mul(w.p.data, w.q.data));
       data.f = mpi.mul(mpi.dec(w.p.data), mpi.dec(w.q.data));
@@ -759,9 +756,6 @@ function KeyGen(size, callback) {
       } while (data.d.length == 0 && i++ < t.length);
 
       if (data.d.length == 0) {
-        w.p = null;
-        w.q = null;
-
         createWorker('p', process);
         createWorker('q', process);
 
@@ -779,31 +773,33 @@ function KeyGen(size, callback) {
       data.p = mpi.c28to8(w.p.data);
       data.q = mpi.c28to8(w.q.data);
 
-      callback(type, data);
+      callback(type, data, new Date - time);
     }
   };
 
   return function(t) { 
     type = t;
+    time = +new Date;
 
     createWorker('p', process);
     createWorker('q', process);
 
     timer = window.setTimeout(function() {
-      if (!w.p.ready) {
+      if (!w.p.data) {
         w.p.terminate();
         createWorker('p', process);
       }
 
-      if (!w.q.ready) {
+      if (!w.q.data) {
         w.q.terminate();
         createWorker('q', process);
       }
-    }, size*10, w); //tune for longer keys, slower computers
+    }, size*10, w);
   };
 }
 
-function test(type, data) {
+function test(type, data, time) {
   console.log(type);
   console.log(data);
+  console.log(time);
 }
