@@ -729,7 +729,7 @@ var mpi = {
 /**/
 
 function KeyGen(size, callback) {
-  var w = {}, timer;
+  var w = {}, timer, type;
 
   function createWorker (worker, callback) {
     w[worker] = new Worker('resources/primes.js');
@@ -779,11 +779,13 @@ function KeyGen(size, callback) {
       data.p = mpi.c28to8(w.p.data);
       data.q = mpi.c28to8(w.q.data);
 
-      callback(data);
+      callback(type, data);
     }
   };
 
-  return function() { 
+  return function(t) { 
+    type = t;
+
     createWorker('p', process);
     createWorker('q', process);
 
@@ -801,6 +803,7 @@ function KeyGen(size, callback) {
   };
 }
 
-function test(data) {
+function test(type, data) {
+  console.log(type);
   console.log(data);
 }
