@@ -100,7 +100,21 @@ keychain: { _vault: {},
 
 
 
-chain = {'abcde123': {type: '', created: '', mpi: '', private: '', size: '', fingerprint: '', signature: '', name: '', sister: ''}}
+chain = {'abcde123': {//provided from app
+                      type: 2, 
+                      created: 2675676131,
+                      public: {},
+                      private: {},*
+
+                      //calc                      
+                      signature: '',*
+                      size: 1023,
+                      fingerprint: '',
+                      
+                      //apply in app
+                      name: '',
+                      sibling: 'abcde124',
+                      status: ''} }
 
 function SecureRoom(callback) {
   var chain = {},
@@ -113,18 +127,26 @@ function SecureRoom(callback) {
       prefs.key    = {size: 1024, type: 'RSA'};
 
    
-  function buildKey() {
-    //type
-    //created
-    //mpi
+  function buildKey(type, data, time) {
+    var key = {};
+    
+    key.type    = type;
+    key.created = time;
+    
+    key.public   = {};
+    key.public.e = data.e; delete data.e;
+    key.public.n = data.n; delete data.n;
 
-    //size
-    //fingerpring
-    //signature
+    key.private  = data;
+
+    key.size        = ArrayUtil.bitLength(key.public.n);
+    key.fingerprint = KeyTools.generateFingerprint(key.type, key.public, key.created);
+
+    return key;
   }
 
   function onGenerate(type, data) {
-    return;
+    buildKey(type, data, +new Date);
   }
 
   function setRoom(room) {

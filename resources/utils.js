@@ -14,7 +14,6 @@
  **/
  
 var KeyUtil = {
-
   createTag: function(tag, length) {
     tag = tag*4 + 128;
   
@@ -28,23 +27,11 @@ var KeyUtil = {
   },
   
   createLength: function(l) {
-    if (l < 256) {
-      return [l];
-    } else if (l < 65536) {
-      return [l>>8, l&0xff];
-    } else {
-      return ArrayUtil.fromWord(l);
-    }
+    return (l < 256) ? [l] : (l < 65536) ? ArrayUtil.fromHalf(l) : ArrayUtil.fromWord(l);
   },
 
   createMpi: function(mpi) {
-    for (var i = 0, m = 128; i < 8; i++, m /= 2)
-      if (mpi[0] >= m) 
-        break;
-
-    m = mpi.length*8 - i;
-
-    return [m >> 8, m & 0xff].concat(mpi);
+    return ArrayUtil.fromHalf(ArrayUtil.bitLength(mpi)).concat(mpi);
   },
 
   createKeyPacket: function(key, type, privateMpi) {
@@ -68,7 +55,7 @@ var KeyUtil = {
       for (var c = 0, i = 0; i < tmp.length; i++)
         c += tmp[i];
 
-      tmp = tmp.concat([(c%65536) >> 8, (c%65536) & 0xff]);
+      tmp = tmp.concat(ArrayUtil.fromHalf(c%65536));
     } else {
       len = 10 + key.mpi.n.length + key.mpi.e.length;
       tag = (type == 3) ? 6 : 14;
@@ -76,11 +63,7 @@ var KeyUtil = {
     }
 
     result = [this.createTag(tag, len)].concat(this.createLength(len))
-                                       .concat([4])
-                                       .concat(ArrayUtil.fromWord(key.created))
-                                       .concat([type])
-                                       .concat(this.createMpi(key.mpi.n))
-                                       .concat(this.createMpi(key.mpi.e));
+                                       .concat(this.generateKeyData(type, key.mpi, key.created));
 
     return result.concat(tmp);
   },
@@ -123,16 +106,23 @@ var KeyUtil = {
                               .concat([4,11,7,8,9,2,21,2,2,22,0]);
   },
 
+  generateKeyData: function(type, data, time) {
+    return [4].concat(ArrayUtil.fromWord(time))
+              .concat([type])
+              .concat(this.createMpi(data.n))
+              .concat(this.createMpi(data.e));
+  },
+
+  generateFingerprint: function(type, data, time) {
+    data = this.generateKeyData(type, data, time);
+    return ArrayUtil.toHex(hash.digest([0x99].concat(ArrayUtil.fromHalf(data.length)).concat(data)));
+  },
+
   generateSignatureHash: function(sign, data) {
     var sdat, edat, meta, suff;
 
-    sdat = [153,0,0,4].concat(ArrayUtil.fromWord(sign.created))
-                      .concat([3])
-                      .concat(this.createMpi(sign.mpi.n))
-                      .concat(this.createMpi(sign.mpi.e));
-
-    sdat[1] = (sdat.length-3) >> 8;
-    sdat[2] = (sdat.length-3) & 0xff;
+    sdat = this.generateKeyData(3, sign.mpi, sign.created);
+    sdat = [153].concat(ArrayUtil.fromHalf(sdat.length)).concat(sdat);
 
     if(typeof data == "string") {
       edat = [180].concat(ArrayUtil.fromWord(data.length))
@@ -140,13 +130,8 @@ var KeyUtil = {
 
       meta = this.signSignatureMeta(sign);
     } else {
-      edat = [153,0,0,4].concat(ArrayUtil.fromWord(data.created))
-                        .concat([2])
-                        .concat(this.createMpi(data.mpi.n))
-                        .concat(this.createMpi(data.mpi.e));
-
-      edat[1] = (edat.length-3) >> 8;
-      edat[2] = (edat.length-3) & 0xff;
+      edat = this.generateKeyData(2, data.mpi, data.created);
+      edat = [153].concat(ArrayUtil.fromHalf(edat.length)).concat(edat);
 
       meta = this.encryptSignatureMeta(data);
     }
@@ -340,28 +325,37 @@ var PrintUtil = {
 
 var ArrayUtil = {
   //to/from string not currently handling charcode < 16 - if needed use ('0'+s).slice(-2);
-  toString: function(input) {
-    return decodeURIComponent(input.map(function(v) {return '%'+v.toString(16);}).join(''));
+  toString: function(a) {
+    return decodeURIComponent(a.map(function(v) {return '%'+v.toString(16);}).join(''));
   },
 
-  fromString: function(input) {
-    return encodeURIComponent(input.split('').map(function(v){return (v.charCodeAt(0) < 128) ? '%'+v.charCodeAt(0).toString(16) : v;}).join('')).replace(/%25/g,'%')
+  fromString: function(s) {
+    return encodeURIComponent(s.split('').map(function(v){return (v.charCodeAt(0) < 128) ? '%'+v.charCodeAt(0).toString(16) : v;}).join('')).replace(/%25/g,'%')
             .slice(1).split('%').map(function(v){return parseInt(v, 16);});
   },
 
-  toHex: function(input) {
-    return input.map(function(v){return ('0'+v.toString(16)).slice(-2);}).join('');
+  toHex: function(a) {
+    return a.map(function(v){return ('0'+v.toString(16)).slice(-2);}).join('');
   },
 
-  fromHex: function(h) {
-    return h.match(/.{2}/g).map(function(v){return parseInt(v, 16);});
+  fromHex: function(s) {
+    return s.match(/.{2}/g).map(function(v){return parseInt(v, 16);});
   },
 
   toWord: function(a) {
     return (a[0]*16777216 + a[1]*65536 + a[2]*256 + a[3]);
   },
 
-  fromWord: function(t) {
-    return [t>>24, (t>>16)&0xff, (t>>8)&0xff, t&0xff];
+  fromWord: function(n) {
+    return [n>>24, (n>>16)&0xff, (n>>8)&0xff, n&0xff];
   },
+
+  fromHalf: function(n) {
+    return [n>>8, n&0xff];
+  },
+
+  bitLength: function(a) {
+    for (var i = 128, l = a.length*8; i >= 1; i /= 2) 
+      if (a[0] >= i) return l; else --l;
+  }
 }

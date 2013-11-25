@@ -20,7 +20,7 @@ self.onmessage = function(e) {
   if (!self.running) {
     self.running = true;
     self.postMessage(prime.generate(e.data));
-    self.running = false;
+    self.close();
   }
 }
 
