@@ -1,20 +1,14 @@
-/*            acceptKey: function(key) {
-              this._addKey(key, "enabled");
-            },
-
-            rejectKey: function(key) {
-              this._addKey(key, "rejected");
-            },
-
-            disableKey: function(id) {
-              if (!this.isRejected(id))
-                this._vault[id].status = "disabled";
-            },
-
-            enableKey: function(id) {
-              if (!this.isRejected(id))
-                this._vault[id].status = "enabled";
-            }*/
+function Key(n, d, t, x, s) {
+  return {
+    name: n,
+    type: t,
+    time: x,
+    data: d,
+    size: ArrayUtil.bitLength(d.n),
+    fingerprint: KeyTools.generateFingerprint(t, d, x),
+    sibling: s
+  }
+}
 
 function SecureRoom(callback) {
   var chain = {},
@@ -28,7 +22,7 @@ function SecureRoom(callback) {
       prefs.name   = null;
 
    
-  function buildKey(type, data, time, name) {
+  function buildKey(type, data, time, name, sibling) {
     var key = {};
     
     key.name = name;
@@ -43,24 +37,35 @@ function SecureRoom(callback) {
 
     key.size        = ArrayUtil.bitLength(key.public.n);
     key.fingerprint = KeyTools.generateFingerprint(key.type, key.public, key.time);
+    key.sibling     = sibling;
 
     return key;
+  }
+
+  function getKey(id) {
+    return chain[id];
+  }
+
+  function getKeys(type, status) {
+    status = status || Const.STATUS_ACTIVE;
+    return chain.filter(function(e) {
+      if (e.type == type && e.status == status) return e;
+    });
   }
 
   function onGenerate(data) {
     var key, id;
     
     if (prefs.myid) {
-      key = buildKey(2, data, +new Date, prefs.name);
-      key.sibling = prefs.myid;
+      key = buildKey(Const.TYPE_RSA_ENCRYPT, data, +new Date, prefs.name, prefs.myid);
       chain[prefs.myid].sibling = key.fingerprint.substr(-16);
     } else {
-      key = buildKey(3, data, +new Date, prefs.name);
+      key = buildKey(Const.TYPE_RSA_SIGN, data, +new Date, prefs.name);
       prefs.myid = key.fingerprint.substr(-16);
     }
 
-    key.status = 'active';
-    key[key.fingerprint.substr(-16)] = key;
+    key.status = Const.STATUS_ACTIVE;
+    chain[key.fingerprint.substr(-16)] = key;
 
     callback();
   }
@@ -97,4 +102,12 @@ function SecureRoom(callback) {
       KeyGen(prefs.key.size, onGenerate)();
     }
   },
+}
+
+var Const = {
+  TYPE_RSA_SIGN: 3,
+  TYPE_RSA_ENCRYPT: 2,
+  STATUS_ACTIVE: 1,
+  STATUS_PENDING: 0,
+  STATUS_REJECTED: -1,
 }
