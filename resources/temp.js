@@ -1,41 +1,4 @@
-keychain: { _vault: {},
-            _map: {},
-
-            hasKey: function(id) {
-              return (typeof this._vault[id] != "undefined" || typeof this._map[id] != "undefined");
-            },
-
-            isEnabled: function(id) {
-              return (this.hasKey(id) && this.getKey(id).status == "enabled");
-            },
-
-            isRejected: function(id) {
-              return (this.hasKey(id) && this.getKey(id).status == "rejected");
-            },
-
-            getKey: function(id) {
-              return this._vault[id] || this._vault[this._map[id]];
-            },
-
-            getKeyType: function(id) {
-              if (typeof this._vault[id] != "undefined") {
-                return "sign";
-              } else if (typeof this._map[id] != "undefined") {
-                return "encrypt";
-              }
-
-              return;
-            },
-
-            getKeyProperty: function(id, property) {
-              if (this.hasKey(id)) {
-                return this.getKey(id).meta[this.getKeyType(id)][property];
-              }
-
-              return;
-            },
-
-            acceptKey: function(key) {
+/*            acceptKey: function(key) {
               this._addKey(key, "enabled");
             },
 
@@ -51,87 +14,26 @@ keychain: { _vault: {},
             enableKey: function(id) {
               if (!this.isRejected(id))
                 this._vault[id].status = "enabled";
-            },
-
-            _addKey: function(key, status) {
-              var meta = this._generateMeta(key);
-              
-              this._vault[meta.sign.id].key    = key;
-              this._vault[meta.sign.id].name   = key.name;
-              this._vault[meta.sign.id].meta   = meta;
-              this._vault[meta.sign.id].status = status;
-              this._map[meta.encrypt.id]       = meta.sign.id;
-            },
-
-            _generateMeta: function(key) {
-              var meta = {sign: {}, encrypt: {}};
-              
-              meta.sign.fingerprint    = this._generateFingerprint(key.sign, 3);
-              meta.sign.size           = this._mpiLength(key.sign.mpi.n);
-              meta.sign.id             = meta.sign.fingerprint.substr(-16);
-
-              meta.encrypt.fingerprint = this._generateFingerprint(key.encrypt, 2);
-              meta.encrypt.size        = this._mpiLength(key.encrypt.mpi.n);
-              meta.encrypt.id          = meta.encrypt.fingerprint.substr(-16);
-
-              return meta;
-            },
-
-            _mpiLength: function(mpi) {
-              for (var i = 0, m = 128; i < 8; i++, m /= 2)
-                if (mpi[0] >= m) break;
-
-              return (mpi.length*8 - i);
-            },
-
-            _generateFingerprint: function(key, type) {
-              var nlen = this._mpiLength(key.mpi.n),
-                  elen = this._mpiLength(key.mpi.e),
-                  data = [4].concat(array.fromWord(key.created))
-                            .concat([type])
-                            .concat([nlen>>8, nlen&0xff])
-                            .concat(key.mpi.n)
-                            .concat([elen>>8, elen&0xff])
-                            .concat(key.mpi.e);
-
-              return array.toHex(hash.digest([0x99, (data.length >> 8), (data.length & 0xff)].concat(data)));
-            }
-          }
-
-
-
-chain = {'abcde123': {//provided from app
-                      type: 2, 
-                      created: 2675676131,
-                      public: {},
-                      private: {},*
-
-                      //calc                      
-                      signature: '',*
-                      size: 1023,
-                      fingerprint: '',
-                      
-                      //apply in app
-                      name: '',
-                      sibling: 'abcde124',
-                      status: ''} }
+            }*/
 
 function SecureRoom(callback) {
   var chain = {},
-      prefs = {},
-      mykey = '';
+      prefs = {};
 
       prefs.room   = getRoom();
       prefs.server = getServer();
       prefs.cipher = {size: 128, type: 'AES'};
       prefs.key    = {size: 1024, type: 'RSA'};
+      prefs.myid   = null;
+      prefs.name   = null;
 
    
-  function buildKey(type, data, time) {
+  function buildKey(type, data, time, name) {
     var key = {};
     
-    key.type    = type;
-    key.created = time;
+    key.name = name;
+    key.type = type;
+    key.time = time;
     
     key.public   = {};
     key.public.e = data.e; delete data.e;
@@ -140,13 +42,27 @@ function SecureRoom(callback) {
     key.private  = data;
 
     key.size        = ArrayUtil.bitLength(key.public.n);
-    key.fingerprint = KeyTools.generateFingerprint(key.type, key.public, key.created);
+    key.fingerprint = KeyTools.generateFingerprint(key.type, key.public, key.time);
 
     return key;
   }
 
-  function onGenerate(type, data) {
-    buildKey(type, data, +new Date);
+  function onGenerate(data) {
+    var key, id;
+    
+    if (prefs.myid) {
+      key = buildKey(2, data, +new Date, prefs.name);
+      key.sibling = prefs.myid;
+      chain[prefs.myid].sibling = key.fingerprint.substr(-16);
+    } else {
+      key = buildKey(3, data, +new Date, prefs.name);
+      prefs.myid = key.fingerprint.substr(-16);
+    }
+
+    key.status = 'active';
+    key[key.fingerprint.substr(-16)] = key;
+
+    callback();
   }
 
   function setRoom(room) {
@@ -176,16 +92,9 @@ function SecureRoom(callback) {
 
   return {
     generateKeys: function(name) {
-      var kg = KeyGen(prefs.key.size, onGenerate)
-      kg();
-      kg();
+      prefs.name = name;
+      KeyGen(prefs.key.size, onGenerate)();
+      KeyGen(prefs.key.size, onGenerate)();
     }
   },
-}
-
-var UrlUtil = {
-  getParameter: function(name) {
-    var match = RegExp('[?&]' + name + '=([^&]*)').exec(window.location.search);
-    return (match) ? decodeURIComponent(match[1].replace(/\+/g, ' ')) : '';
-  }
 }
