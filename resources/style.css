@@ -202,7 +202,7 @@ input {
   bottom: -2.25em;
   width: 100%;
   padding: 0 0.3125em;
-  background-color: #000;
+  background-color: black;
   color: white;
   list-style-type: none;
   z-index: 1000;
@@ -327,8 +327,8 @@ div.controls>span.selected {
   color: white;
 }
 div.controls>span.inactive {
-  color: gray;
-  border-color: gray;
+  color: black;
+  border-color: black;
 }
 div.controls>span.disabled {
   background-color: lightgray;
