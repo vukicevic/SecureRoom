@@ -366,3 +366,11 @@ var UrlUtil = {
     return (match) ? decodeURIComponent(match[1].replace(/\+/g, ' ')) : '';
   }
 }
+
+var C = {
+  TYPE_RSA_SIGN: 3,
+  TYPE_RSA_ENCRYPT: 2,
+  STATUS_ACTIVE: 1,
+  STATUS_PENDING: 0,
+  STATUS_REJECTED: -1,
+}
