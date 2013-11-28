@@ -31,17 +31,17 @@ function SecureRoom(callback) {
   function buildKey(n, t, d, c, m, s) {
     var key = { name: n, type: t, data: d, time: c, mode: m, sign: s,
                 size: ArrayUtil.bitLength(d.n),
-                iden: KeyTools.generateFingerprint(t, d, x) },
+                iden: KeyUtil.generateFingerprint(t, d, c) },
         id  = key.iden.substr(-16);
 
-    chain[id] = key;
+    if (typeof chain[id] == "undefined") chain[id] = key;
 
     return id;
   }
 
   function onGenerate(data) {
     if (prefs.myid) {
-      var id = buildKey(prefs.name, C.TYPE_RSA_ENCRYPT, data, +new Date, C.STATUS_ACTIVE);
+      var id = buildKey(prefs.name, C.TYPE_RSA_ENCRYPT, data, +new Date, C.STATUS_ENABLED);
       chain[prefs.myid].peer = id;
       chain[id].peer = prefs.myid;
 
@@ -49,7 +49,7 @@ function SecureRoom(callback) {
 
       callback();
     } else {
-      prefs.myid = buildKey(prefs.name, C.TYPE_RSA_SIGN, data, +new Date, C.STATUS_ACTIVE);
+      prefs.myid = buildKey(prefs.name, C.TYPE_RSA_SIGN, data, +new Date, C.STATUS_ENABLED);
 
       chain[prefs.myid].sign = Asymmetric.sign(chain[prefs.myid].data, KeyUtil.generateSignatureHash(chain[prefs.myid]), true);
     }
@@ -63,14 +63,37 @@ function SecureRoom(callback) {
     },
 
     getKeys: function(type, status) {
-      status = status || C.STATUS_ACTIVE;
-      return chain.filter(function(e) {
-        if (e.type == type && e.status == status) return e;
-      });
+      var result = [];
+      for (var id in Object.keys(chain))
+        if (id != prefs.myid 
+          && chain[id].type == type
+            && chain[id].status == status)
+              result.push(id);
+
+      return result;
     },
 
     getKey: function(id) {
       return chain[id];
+    },
+
+    getPeer: function(id) {
+      return chain[chain[id].peer];
+    },
+
+    hasKey: function(id) {
+      return (typeof chain[id] != "undefined")
+    },
+
+    myKey: function() {
+      var eid = myId(C.TYPE_RSA_ENCRYPT),
+          sid = myId(C.TYPE_RSA_SIGN);
+
+      return {
+        name: prefs.name,
+        key1: {type: C.TYPE_RSA_SIGN, time: chain[sid].time, data: {e: chain[sid].data.e, n: chain[sid].data.n}},
+        key2: {type: C.TYPE_RSA_ENCRYPT, time: chain[eid], data: {e: chain[eid].data.e, n: chain[eid].data.n}}
+      }
     },
 
     setKey: function(name, key1, key2) {
@@ -83,6 +106,27 @@ function SecureRoom(callback) {
       //verify key signature, reject outright if sig is wrong
 
       return (key1.type == C.TYPE_RSA_SIGN) ? id1 : id2;
+    },
+
+    toggleKey: function(id, mode) {
+      chain[id].mode = mode;
+      chain[chain[id].peer].mode = mode;
+    },
+
+    isEnabled: function(id) {
+      return (chain[id].mode == C.STATUS_ENABLED);
+    },
+
+    isRejected: function(id) {
+      return (chain[id].mode == C.STATUS_REJECTED);
+    },
+
+    myId: function(type) {
+      return (type == C.TYPE_RSA_SIGN) ? prefs.myid : chain[prefs.myid].peer;
+    },
+
+    myName: function() {
+      return prefs.name;
     },
 
     getRoom: function() {
@@ -126,7 +170,7 @@ function SecureRoom(callback) {
   }
 }
 
-var app = {
+/*var app = {
   keychain: {},
   keymap: {},
   rejected: {},
@@ -219,7 +263,7 @@ var app = {
     var match = RegExp('[?&]' + name + '=([^&]*)').exec(window.location.search);
     return (match) ? decodeURIComponent(match[1].replace(/\+/g, ' ')) : '';
   }
-}
+}*/
 
 var comm = {
   socket: null,
@@ -239,7 +283,7 @@ var comm = {
 
   connect: function() {
     try {
-      this.socket = new WebSocket(app.server+app.room);
+      this.socket = new WebSocket(App.getServer());
       this.socket.onopen = function() {
         comm.connected = true;
         comm.cbConnect();
@@ -251,15 +295,10 @@ var comm = {
         console.log(obj);
         switch (obj.type) {
         case 'key':
-          var key = comm.receiveKey(obj.data);
-          if (typeof app.keychain[key.sign.id] == "undefined" 
-                && typeof app.rejected[key.sign.id] == "undefined")
-                  comm.cbKey(key);
-
+          comm.cbKey(comm.receiveKey(obj.data));
           break;
         case 'message':
           comm.cbMessage(comm.receiveMessage(obj.data));
-
           break;
         }
       }
@@ -274,21 +313,12 @@ var comm = {
   },
 
   encryptMessage: function(message, data) {
-    var keyid,
-        paddata;
+    for (var id in App.getKeys(C.TYPE_RSA_ENCRYPT, C.STATUS_ENABLED))
+      message.encrypted.keys[id] = Asymmetric.encrypt(App.getKey(id), message.sessionkey);
 
-    if (Object.keys(app.keychain).length < 2) return null;
+    if (typeof id == "undefined") return null;
 
-    for (keyid in app.keychain) {
-      if (app.myid != keyid && app.keychain[keyid].active) {
-        message.encrypted.keys[app.keychain[keyid].encrypt.id] = Asymmetric.encrypt(app.keychain[keyid].encrypt, message.sessionkey);
-      }
-    }
-
-    if (Object.keys(message.encrypted.keys).length == 0) return null;
-
-    //random x+2 octets & plaintext, where x is block size
-    paddata = random.generate(app.ciphersize);
+    var paddata = random.generate(App.getSize("cipher"));
     paddata = paddata.concat(paddata.slice(-2))
                      .concat(data);
 
@@ -296,30 +326,22 @@ var comm = {
   },
 
   decryptMessage: function(message) {
-    var keyid;
+    var id = App.myId(C.TYPE_RSA_ENCRYPT);
 
-    for (keyid in message.encrypted.keys) {
-      if (keyid == app.keychain[app.myid].encrypt.id) {
-         message.sessionkey = Asymmetric.decrypt(app.encryptkey, message.encrypted.keys[keyid]);
-         break;
-      }
+    if (message.encrypted.keys[id]) {
+      message.sessionkey = Asymmetric.decrypt(App.getKey(id), message.encrypted.keys[id]);
+      return Symmetric.decrypt(message.sessionkey, message.encrypted.data).slice(message.sessionkey.length+2);
     }
 
-    if (message.sessionkey) {
-      //discard x+2 random data, should check (x-1 == x+1 && x ==x+2)
-      return Symmetric.decrypt(message.sessionkey, message.encrypted.data)
-                      .slice(message.sessionkey.length+2);
-    } else {
-      return null;
-    }
+    return null;
   },
 
   sendMessage: function(text) {
     var rawdata, message = new Message();
 
-    message.sendtime = Math.round(+new Date()/1000);
+    message.sendtime = Math.round(new Date/1000);
     message.recvtime = message.sendtime;
-    message.sender   = app.myid;
+    message.sender   = App.myId(C.TYPE_RSA_SIGN);
 
     message.plaintext = text;
     rawdata = ArrayUtil.fromString(text)
@@ -327,13 +349,13 @@ var comm = {
                 .concat(ArrayUtil.fromWord(message.sendtime))
                 .concat(ArrayUtil.fromHex(message.sender));
 
-    message.signature = Asymmetric.sign(app.signkey, rawdata);
+    message.signature = Asymmetric.sign(App.getKey(message.sender), rawdata);
     message.verified  = true;
 
     rawdata = rawdata.concat(message.signature);
     message.encrypted.data = this.encryptMessage(message, rawdata);
 
-    if (message.encrypted.data != null)
+    if (message.encrypted.data)
       this.socket.send(JSON.stringify({"type": "message", "data": message.encrypted}));
 
     return message;
@@ -353,23 +375,23 @@ var comm = {
     message.sender    = ArrayUtil.toHex(rawdata.slice(i+5, i+13));
     message.signature = rawdata.slice(i+13);
 
-    if (typeof app.keychain[message.sender] == 'undefined') return null; //messages from rejected and unknown senders will be ignored at this point
+    if (!App.hasKey(message.sender) || App.isRejected(message.sender)) return null; //messages from rejected and unknown senders will be ignored at this point
 
-    message.verified  = Asymmetric.verify(app.keychain[message.sender].sign, rawdata.slice(0,i+13), message.signature);
+    message.verified  = Asymmetric.verify(App.getKey(message.sender), rawdata.slice(0,i+13), message.signature);
 
     return message;
   },
 
   sendKey: function() {
-    this.socket.send(JSON.stringify({"type": "key", "data": app.keychain[app.myid]}));
+    this.socket.send(JSON.stringify({"type": "key", "data": App.myKey()}));
   },
 
   receiveKey: function(data) {
-    return new PublicKey(data);
+    return App.setKey(data.name, data.key1, data.key2);
   }
 }
 
-function PublicKey(data) {
+/*function PublicKey(data) {
   this.name    = '';
   this.encrypt = null;
   this.sign    = null;
@@ -410,7 +432,7 @@ function PublicKey(data) {
     this.sign = data.sign;
     this.calcKeyInfo(this.sign, 3);
   }
-}
+}*/
 
 function Message(message) {
   this.encrypted  = {keys: {}, data: null};
@@ -441,27 +463,27 @@ function Message(message) {
 function MessageTools(message) {
   return {
     strength: function() {
-      var key, min = 8192;
+      var id, min = 8192;
 
-      for (key in message.encrypted.keys) {
-        if (typeof app.keychain[app.keymap[key]] == "undefined") {
+      for (id in message.encrypted.keys) {
+        if (!App.hasKey(id)) {
           min = 8192;
           break;
         }
-        min = Math.min(app.keychain[app.keymap[key]].encrypt.size, min);
+        min = Math.min(App.getKey(id).size, min);
       }
 
       return { term: 'Weakest Key', data: (min < 8192) ? min+' bits' : 'Unknown' };
     },
 
     recipients: function() {
-      var key, list = [];
+      var id, list = [];
 
-      for (key in message.encrypted.keys)
-        if (typeof app.keychain[app.keymap[key]] != "undefined")
-          list.push(PrintUtil.text(app.keychain[app.keymap[key]].name));
+      for (id in message.encrypted.keys)
+        if (App.hasKey(id))
+          list.push((App.isRejected(id)) ? 'Rejected' : PrintUtil.text(App.getKey(id).name));
         else
-          list.push((typeof app.rejected[app.keymap[key]] != "undefined") ? 'Rejected' : 'Unknown');
+          list.push('Unknown');
 
       return { term: 'Recipients', data: list.join(', ') };
     }
