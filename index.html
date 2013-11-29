@@ -260,17 +260,15 @@
 
       while (container.lastChild != container.firstChild) container.removeChild(container.lastChild);
 
-      var keys = App.getKeys(C.TYPE_RSA_SIGN, C.STATUS_ENABLED).concat(App.getKeys(C.TYPE_RSA_SIGN, C.STATUS_DISABLED));
-
-      for (var id in keys) {
-        content.id     = PrintUtil.text(id);
-        content.name   = PrintUtil.text(App.getKey(id).name);
-        content.status = (App.isEnabled(id)) ? '' : 'inactive';
-        content.info   = UI.buildKeyInfo(id);
-        content.data   = KeyUtil.exportKey(App.getKey(id).name, App.getKey(id), App.getPeer(id));
+      for (var i = 0, d = App.getKeys(C.TYPE_RSA_SIGN, C.STATUS_ENABLED).concat(App.getKeys(C.TYPE_RSA_SIGN, C.STATUS_DISABLED)); i < d.length; i++) {
+        content.id     = PrintUtil.text(d[i]);
+        content.name   = PrintUtil.text(App.getKey(d[i]).name);
+        content.status = (App.isEnabled(d[i])) ? '' : 'inactive';
+        content.info   = UI.buildKeyInfo(d[i]);
+        content.data   = KeyUtil.exportKey(d[i]);
 
         container.insertAdjacentHTML('beforeend', build(content));
-        UI.addKeychainListeners(container.lastChild, id);
+        UI.addKeychainListeners(container.lastChild, d[i]);
       }
 
       UI.toggleKeychain()('close');
@@ -317,8 +315,8 @@
           b1 = my.getElementsByTagName('span').item(0),
           b2 = my.getElementsByTagName('span').item(1);
 
-      e1.textContent = KeyUtil.exportKey(App.myName(), App.getKey(App.myId(C.TYPE_RSA_SIGN)), App.getKey(App.myId(C.TYPE_RSA_ENCRYPT)));
-      e1.textContent = KeyUtil.exportKey(App.myName(), App.getKey(App.myId(C.TYPE_RSA_SIGN)), App.getKey(App.myId(C.TYPE_RSA_ENCRYPT)));
+      e1.textContent = KeyUtil.exportKey(App.myId(C.TYPE_RSA_SIGN), true);
+      e2.textContent = KeyUtil.exportKey(App.myId(C.TYPE_RSA_SIGN));
 
       b1.addEventListener('click', UI.toggleExport(e1.parentNode, b1));
       b2.addEventListener('click', UI.toggleExport(e2.parentNode, b2));

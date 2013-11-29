@@ -327,7 +327,7 @@ div.controls>span.selected {
   color: white;
 }
 div.controls>span.inactive {
-  color: black;
+  color: gray;
   border-color: black;
 }
 div.controls>span.disabled {

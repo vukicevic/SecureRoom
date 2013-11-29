@@ -19,22 +19,22 @@ var Asymmetric = {
 
   encrypt: function(key, data) {
     var pad = this.encryptPadding.encode(data, key.size);
-    return mpi.c28to8(mpi.exp(mpi.c8to28(pad), mpi.c8to28(key.mpi.e), mpi.c8to28(key.mpi.n)));
+    return mpi.c28to8(mpi.exp(mpi.c8to28(pad), mpi.c8to28(key.data.e), mpi.c8to28(key.data.n)));
   },
 
   decrypt: function(key, data) {
-    var pad = mpi.c28to8(mpi.gar(mpi.c8to28(data), mpi.c8to28(key.mpi.p), mpi.c8to28(key.mpi.q), mpi.c8to28(key.mpi.d), mpi.c8to28(key.mpi.u), mpi.c8to28(key.mpi.dp), mpi.c8to28(key.mpi.dq)));
+    var pad = mpi.c28to8(mpi.gar(mpi.c8to28(data), mpi.c8to28(key.data.p), mpi.c8to28(key.data.q), mpi.c8to28(key.data.d), mpi.c8to28(key.data.u), mpi.c8to28(key.data.dp), mpi.c8to28(key.data.dq)));
     return this.encryptPadding.decode(pad);
   },
 
   sign: function(key, data, prehashed) {
     var dat = this.signaturePadding.encode(key.size, data, prehashed);
-    return mpi.c28to8(mpi.gar(mpi.c8to28(dat), mpi.c8to28(key.mpi.p), mpi.c8to28(key.mpi.q), mpi.c8to28(key.mpi.d), mpi.c8to28(key.mpi.u), mpi.c8to28(key.mpi.dp), mpi.c8to28(key.mpi.dq)));
+    return mpi.c28to8(mpi.gar(mpi.c8to28(dat), mpi.c8to28(key.data.p), mpi.c8to28(key.data.q), mpi.c8to28(key.data.d), mpi.c8to28(key.data.u), mpi.c8to28(key.data.dp), mpi.c8to28(key.data.dq)));
   },
 
   verify: function(key, data, signature, prehashed) {
     var dat = mpi.c8to28(this.signaturePadding.encode(key.size, data, prehashed)),
-        sig = mpi.exp(mpi.c8to28(signature), mpi.c8to28(key.mpi.e), mpi.c8to28(key.mpi.n));
+        sig = mpi.exp(mpi.c8to28(signature), mpi.c8to28(key.data.e), mpi.c8to28(key.data.n));
 
     return (mpi.cmp(dat, sig) === 0);
   },
@@ -105,98 +105,6 @@ var Asymmetric = {
       return ms.concat(md);
     }
   }
-}
-
-function Keygen(bits) {
-  this.size  = bits;
-  this.mpi   = {n: [], e: [], p: [], q: [], f: [], d: [], u: [], dp: [], dq: []};
-  this.created = 0;
-  this.ready = false;
-  this.timer = null;
-
-  this.createPworker = function() {
-    this.wp = new Worker('resources/primes.js');
-    this.wp.parent = this;
-    this.wp.onmessage = function (e) {
-      this.parent.mpi.p = e.data;
-      this.parent.process();
-      this.terminate();
-    };
-
-    this.wp.postMessage(mpi.c8to28(random.generate(this.size/2)));
-    this.timeout();
-  };
-
-  this.createQworker = function() {
-    this.wq = new Worker('resources/primes.js');
-    this.wq.parent = this;
-    this.wq.onmessage = function (e) {
-      this.parent.mpi.q = e.data;
-      this.parent.process();
-      this.terminate();
-    };
-
-    this.wq.postMessage(mpi.c8to28(random.generate(this.size/2)));
-    this.timeout();
-  };
-
-  this.timeout = function() {
-    var self = this;
-    self.timer = window.setTimeout(function() {
-      if (self.mpi.p.length == 0) {
-        self.wp.terminate();
-        self.createPworker();
-      }
-
-      if (self.mpi.q.length == 0) {
-        self.wq.terminate();
-        self.createQworker();
-      }
-    }, this.size*10); //tune for longer keys, slower computers
-  }
-
-  this.process = function() {
-    if (this.mpi.p.length == 0 || this.mpi.q.length == 0) return;
-
-    this.timer = null;
-
-    this.mpi.n = mpi.cut(mpi.mul(this.mpi.p, this.mpi.q));
-    this.mpi.f = mpi.mul(mpi.dec(this.mpi.p), mpi.dec(this.mpi.q));
-
-    var t = [257,65537,17,41,19], i = 0;
-    do {
-      this.mpi.e = [t[Math.floor(Math.random()*t.length)]];
-      this.mpi.d = mpi.inv(this.mpi.e, this.mpi.f);
-    } while (this.mpi.d.length == 0 && i++ < t.length);
-
-    if (this.mpi.d.length != 0) {
-      this.ready = true;
-      this.created = Math.round(+new Date()/1000);
-    } else {
-      this.mpi.p = null;
-      this.mpi.q = null;
-
-      this.createPworker();
-      this.createQworker();
-
-      return;
-    }
-
-    //Upon completion convert to 8 bit arrays
-    this.mpi.u  = mpi.c28to8(mpi.cut(mpi.inv(this.mpi.p, this.mpi.q)));
-    this.mpi.dp = mpi.c28to8(mpi.mod(this.mpi.d, mpi.dec(this.mpi.p)));
-    this.mpi.dq = mpi.c28to8(mpi.mod(this.mpi.d, mpi.dec(this.mpi.q)));
-
-    this.mpi.n = mpi.c28to8(this.mpi.n);
-    this.mpi.f = mpi.c28to8(this.mpi.f);
-    this.mpi.e = mpi.c28to8(this.mpi.e);
-    this.mpi.d = mpi.c28to8(this.mpi.d);
-    this.mpi.p = mpi.c28to8(this.mpi.p);
-    this.mpi.q = mpi.c28to8(this.mpi.q);
-  };
-
-  this.createPworker();
-  this.createQworker();
 }
 
 var mpi = {
@@ -724,10 +632,6 @@ var mpi = {
   }
 }
 
-
-
-/**/
-
 function KeyGen(size, callback) {
   var w = {}, time, timer;
 
@@ -795,9 +699,4 @@ function KeyGen(size, callback) {
       }
     }, size*10, w);
   };
-}
-
-function test(data, time) {
-  console.log(data);
-  console.log(time);
 }
