@@ -34,36 +34,36 @@ var KeyUtil = {
     return ArrayUtil.fromHalf(ArrayUtil.bitLength(mpi)).concat(mpi);
   },
 
-  createKeyPacket: function(key, type, privateMpi) {
+  createKeyPacket: function(key, private) {
     var len, tag, result, tmp;
 
-    if (privateMpi) {
-      len = 21 + key.mpi.n.length + key.mpi.e.length + privateMpi.d.length + privateMpi.p.length + privateMpi.q.length + privateMpi.u.length;
-      tag = (type == 3) ? 5 : 7;
-      tmp = [0].concat(this.createMpi(privateMpi.d));
+    if (private) {
+      len = 21 + key.data.n.length + key.data.e.length + key.data.d.length + key.data.p.length + key.data.q.length + key.data.u.length;
+      tag = (key.type == C.TYPE_RSA_SIGN) ? 5 : 7;
+      tmp = [0].concat(this.createMpi(key.data.d));
       
-      if (mpi.cmp(privateMpi.p, privateMpi.q) == -1) {
-        tmp = tmp.concat(this.createMpi(privateMpi.p))
-                 .concat(this.createMpi(privateMpi.q));
+      if (mpi.cmp(key.data.p, key.data.q) == -1) {
+        tmp = tmp.concat(this.createMpi(key.data.p))
+                 .concat(this.createMpi(key.data.q));
       } else {
-        tmp = tmp.concat(this.createMpi(privateMpi.q))
-                 .concat(this.createMpi(privateMpi.p));
+        tmp = tmp.concat(this.createMpi(key.data.q))
+                 .concat(this.createMpi(key.data.p));
       }
       
-      tmp = tmp.concat(this.createMpi(privateMpi.u));
+      tmp = tmp.concat(this.createMpi(key.data.u));
       
       for (var c = 0, i = 0; i < tmp.length; i++)
         c += tmp[i];
 
       tmp = tmp.concat(ArrayUtil.fromHalf(c%65536));
     } else {
-      len = 10 + key.mpi.n.length + key.mpi.e.length;
-      tag = (type == 3) ? 6 : 14;
+      len = 10 + key.data.n.length + key.data.e.length;
+      tag = (key.type == C.TYPE_RSA_SIGN) ? 6 : 14;
       tmp = [];
     }
 
     result = [this.createTag(tag, len)].concat(this.createLength(len))
-                                       .concat(this.generateKeyData(type, key.mpi, key.created));
+                                       .concat(this.generateKeyData(key.type, key.data, key.time));
 
     return result.concat(tmp);
   },
@@ -73,20 +73,20 @@ var KeyUtil = {
     return [this.createTag(13, namePacket.length)].concat(this.createLength(namePacket.length)).concat(namePacket);
   },
 
-  createSignaturePacket: function(signer, data) {
+  createSignaturePacket: function(sid, eid) {
     var sigMeta, sigHash, sigPacket, sigSigned;
 
-    if (typeof data == "string") {
-      sigMeta   = this.signSignatureMeta(signer);
-      sigSigned = signer.signature;
+    if (eid) {
+      sigMeta   = this.encryptSignatureMeta(App.getKey(eid));
+      sigSigned = App.getKey(eid).sign;      
     } else {
-      sigMeta   = this.encryptSignatureMeta(data);
-      sigSigned = data.signature;
+      sigMeta   = this.signSignatureMeta(App.getKey(sid));
+      sigSigned = App.getKey(sid).sign;
     }
 
-    sigHash   = this.generateSignatureHash(signer, data);
+    sigHash   = this.generateSignatureHash(App.getKey(sid), App.getKey(eid));
     sigPacket = sigMeta.concat([0,10,9,16])
-                       .concat(ArrayUtil.fromHex(signer.id))
+                       .concat(ArrayUtil.fromHex(sid))
                        .concat(sigHash.slice(0,2))
                        .concat(this.createMpi(sigSigned));
 
@@ -94,13 +94,13 @@ var KeyUtil = {
   },
 
   encryptSignatureMeta: function(encrypt) {
-    return [4,24,2,2,0,15,5,2].concat(ArrayUtil.fromWord(encrypt.created+2))
+    return [4,24,2,2,0,15,5,2].concat(ArrayUtil.fromWord(encrypt.time+2))
                               .concat([2,27,4,5,9])
                               .concat(ArrayUtil.fromWord(86400));
   },
 
   signSignatureMeta: function(sign) {
-    return [4,19,3,2,0,26,5,2].concat(ArrayUtil.fromWord(sign.created+2))
+    return [4,19,3,2,0,26,5,2].concat(ArrayUtil.fromWord(sign.time+2))
                               .concat([2,27,3,5,9])
                               .concat(ArrayUtil.fromWord(86400))
                               .concat([4,11,7,8,9,2,21,2,2,22,0]);
@@ -118,22 +118,22 @@ var KeyUtil = {
     return ArrayUtil.toHex(hash.digest([0x99].concat(ArrayUtil.fromHalf(data.length)).concat(data)));
   },
 
-  generateSignatureHash: function(sign, data) {
+  generateSignatureHash: function(sign, encrypt) {
     var sdat, edat, meta, suff;
 
-    sdat = this.generateKeyData(3, sign.mpi, sign.created);
+    sdat = this.generateKeyData(sign.type, sign.data, sign.time);
     sdat = [153].concat(ArrayUtil.fromHalf(sdat.length)).concat(sdat);
 
-    if(typeof data == "string") {
-      edat = [180].concat(ArrayUtil.fromWord(data.length))
-                  .concat(ArrayUtil.fromString(data));
-
-      meta = this.signSignatureMeta(sign);
-    } else {
-      edat = this.generateKeyData(2, data.mpi, data.created);
+    if (encrypt) {
+      edat = this.generateKeyData(encrypt.type, encrypt.data, encrypt.time);
       edat = [153].concat(ArrayUtil.fromHalf(edat.length)).concat(edat);
 
-      meta = this.encryptSignatureMeta(data);
+      meta = this.encryptSignatureMeta(encrypt);
+    } else {
+      edat = [180].concat(ArrayUtil.fromWord(sign.name.length))
+                  .concat(ArrayUtil.fromString(sign.name));
+
+      meta = this.signSignatureMeta(sign);
     }
 
     suff = [4,255].concat(ArrayUtil.fromWord(meta.length));
@@ -143,14 +143,14 @@ var KeyUtil = {
     );
   },
 
-  exportKey: function(name, sign, encrypt, privateSignMpi, privateEncryptMpi) {
+  exportKey: function(id, private) {
     var headers       = {"Version": "SecureRoom 1.0"},
-        type          = (privateSignMpi) ? "PRIVATE KEY BLOCK" : "PUBLIC KEY BLOCK",
-        namePacket    = this.createNamePacket(name),
-        encryptPacket = this.createKeyPacket(encrypt, 2, privateEncryptMpi),
-        signPacket    = this.createKeyPacket(sign, 3, privateSignMpi),
-        signSigPacket = this.createSignaturePacket(sign, name), 
-        encSigPacket  = this.createSignaturePacket(sign, encrypt);
+        type          = (private) ? "PRIVATE KEY BLOCK" : "PUBLIC KEY BLOCK",
+        namePacket    = this.createNamePacket(App.getKey(id).name),
+        encryptPacket = this.createKeyPacket(App.getPeer(id), private),
+        signPacket    = this.createKeyPacket(App.getKey(id), private),
+        signSigPacket = this.createSignaturePacket(id), 
+        encSigPacket  = this.createSignaturePacket(id, App.getKey(id).peer);
     
     return ArmorUtil.dress({"type": type, "headers": headers, "packets": signPacket.concat(namePacket).concat(signSigPacket).concat(encryptPacket).concat(encSigPacket)});
   }
