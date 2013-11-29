@@ -46,6 +46,14 @@ function SecureRoom(callback) {
       chain[id].peer = prefs.myid;
       chain[id].sign = Asymmetric.sign(chain[prefs.myid], KeyUtil.generateSignatureHash(chain[prefs.myid], chain[id]), true);
 
+      if (!prefs.room) {
+        prefs.room = prefs.myid.substr(-5);
+        var opts = (window.location.search) ? window.location.search+'&room=' : '?room=',
+            path = (window.location.pathname.indexOf('index.html') > -1) ? window.location.pathname+opts+prefs.room : window.location.pathname+prefs.room;
+      
+        window.history.replaceState({} , 'SecureRoom', path);
+      }
+
       callback();
     } else {
       prefs.myid = buildKey(prefs.name, C.TYPE_RSA_SIGN, data, Math.round(new Date/1000), C.STATUS_ENABLED);
@@ -63,11 +71,10 @@ function SecureRoom(callback) {
     getKeys: function(type, mode) {
       var result = [];
       for (var id in chain)
-        if (id != prefs.myid
-          && chain[id].peer != prefs.myid
-            && chain[id].type == type
-              && chain[id].mode == mode)
-                result.push(id);
+        if (id != prefs.myid && chain[id].peer != prefs.myid
+          && chain[id].type == type
+            && chain[id].mode == mode)
+              result.push(id);
 
       return result;
     },
@@ -108,8 +115,7 @@ function SecureRoom(callback) {
     },
 
     toggleKey: function(id, mode) {
-      chain[id].mode = mode;
-      chain[chain[id].peer].mode = mode;
+      chain[id].mode = mode; chain[chain[id].peer].mode = mode;
     },
 
     isEnabled: function(id) {
@@ -132,16 +138,6 @@ function SecureRoom(callback) {
       return prefs.room;
     },
 
-    setRoom: function(room) {
-      if (!room || prefs.room == room) return;
-
-      var opts = (window.location.search) ? window.location.search+'&room=' : '?room=',
-          path = (window.location.pathname.indexOf('index.html') > -1) ? window.location.pathname+opts+room : window.location.pathname+room;
-      
-      window.history.replaceState({} , 'SecureRoom', path);
-      prefs.room = room;
-    },
-
     getServer: function() {
       return prefs.server+prefs.room;
     },
@@ -158,18 +154,17 @@ function SecureRoom(callback) {
       prefs.name = name;
     },
 
+    getSize: function(type) {
+      return prefs[type].size;
+    },
     //key/cipher
     setSize: function(type, size) {
       prefs[type].size = size;
-    },
-
-    getSize: function(type) {
-      return prefs[type].size;
     }
   }
 }
 
-var comm = {
+var Comm = {
   socket: null,
   connected: false,
 
@@ -189,9 +184,9 @@ var comm = {
     try {
       this.socket = new WebSocket(App.getServer());
       this.socket.onopen = function() {
-        comm.connected = true;
-        comm.cbConnect();
-        comm.sendKey();
+        Comm.connected = true;
+        Comm.cbConnect();
+        Comm.sendKey();
       }
 
       this.socket.onmessage = function(event){
@@ -199,17 +194,17 @@ var comm = {
         console.log(obj);
         switch (obj.type) {
         case 'key':
-          comm.cbKey(comm.receiveKey(obj.data));
+          Comm.cbKey(Comm.receiveKey(obj.data));
           break;
         case 'message':
-          comm.cbMessage(comm.receiveMessage(obj.data));
+          Comm.cbMessage(Comm.receiveMessage(obj.data));
           break;
         }
       }
 
       this.socket.onclose = function(){
-        comm.connected = false;
-        comm.cbDisconnect();
+        Comm.connected = false;
+        Comm.cbDisconnect();
       }
     } catch (e) {
       console.log(e);
@@ -222,7 +217,7 @@ var comm = {
 
     if (i == 0) return null;
 
-    var paddata = random.generate(App.getSize("cipher"));
+    var paddata = Random.generate(App.getSize("cipher"));
     paddata = paddata.concat(paddata.slice(-2))
                      .concat(data);
 
@@ -309,7 +304,7 @@ function Message(message) {
   this.verified   = false;
 
   if (typeof message == 'undefined') {
-    this.sessionkey = random.generate(App.getSize('cipher'));
+    this.sessionkey = Random.generate(App.getSize('cipher'));
   } else {
     this.encrypted = message;
   }

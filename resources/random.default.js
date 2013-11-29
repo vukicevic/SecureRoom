@@ -13,7 +13,7 @@
  * GNU General Public License for more details.
  **/
 
-var random = {
+var Random = {
   /*
   Generates an octet array with random values, with specified total size in bits
   s - Size to generate, in bits

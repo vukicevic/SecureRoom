@@ -201,7 +201,7 @@
 
       a.addEventListener('click', function() { 
         App.toggleKey(id, C.STATUS_ENABLED);
-        comm.sendKey();
+        Comm.sendKey();
       });
 
       a.addEventListener('click', function() { 
@@ -290,7 +290,7 @@
       switch(type) {
       case 'distribute':
         container.insertAdjacentHTML('beforeend', '<p>Your keys have been generated.</p><div class="info">'+UI.buildKeyInfo(App.myId(C.TYPE_RSA_SIGN))+'</div><button>Connect &amp; Distribute</button>');
-        container.querySelector('button').addEventListener('click', function() { comm.connect(); UI.addWelcome('progress'); UI.disableSettings('serverurl') });
+        container.querySelector('button').addEventListener('click', function() { Comm.connect(); UI.addWelcome('progress'); UI.disableSettings('serverurl') });
         UI.addMyKey();
         break;
       case 'progress':
@@ -385,7 +385,7 @@
         <rect y="15" width="4" height="3" />
       </svg>
     </div>
-    <button id="send" onclick="var e = document.getElementById('message'); if (e.value) UI.addMessage(comm.sendMessage(e.value)); e.value = '';">Send</button>
+    <button id="send" onclick="var e = document.getElementById('message'); if (e.value) UI.addMessage(Comm.sendMessage(e.value)); e.value = '';">Send</button>
     <span><input type="text" id="message" autocomplete="off" onkeyup="(event.keyCode === 13) && document.getElementById('send').click()"></span>
   </div>
 
@@ -406,7 +406,7 @@
                 UI.toggleRoom();
               });
 
-    comm.setCallbacks(
+    Comm.setCallbacks(
       function() {
         UI.addWelcome('connect');
         UI.toggleInput();

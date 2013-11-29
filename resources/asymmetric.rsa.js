@@ -96,7 +96,7 @@ var Asymmetric = {
       var ln = Math.floor((size-8)/8),
           ps = mpi.zero.slice(0, ln-data.length-41),
           db = [218, 57, 163, 238, 94, 107, 75, 13, 50, 85, 191, 239, 149, 96, 24, 144, 175, 216, 7, 9].concat(ps.concat([1].concat(data))),
-          sd = random.generate(160),
+          sd = Random.generate(160),
           dm = this.mgf(sd, ln-20),
           md = mpi.xor(db, dm),
           sm = this.mgf(md, 20),
@@ -642,7 +642,7 @@ function KeyGen(size, callback) {
       callback();
     };
 
-    w[worker].postMessage(mpi.c8to28(random.generate(size/2)));
+    w[worker].postMessage(mpi.c8to28(Random.generate(size/2)));
   };
 
   function process() {
