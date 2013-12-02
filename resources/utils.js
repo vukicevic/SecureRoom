@@ -14,7 +14,6 @@
  **/
  
 var KeyUtil = {
-
   createTag: function(tag, length) {
     tag = tag*4 + 128;
   
@@ -28,59 +27,43 @@ var KeyUtil = {
   },
   
   createLength: function(l) {
-    if (l < 256) {
-      return [l];
-    } else if (l < 65536) {
-      return [l>>8, l&0xff];
-    } else {
-      return ArrayUtil.fromWord(l);
-    }
+    return (l < 256) ? [l] : (l < 65536) ? ArrayUtil.fromHalf(l) : ArrayUtil.fromWord(l);
   },
 
   createMpi: function(mpi) {
-    for (var i = 0, m = 128; i < 8; i++, m /= 2)
-      if (mpi[0] >= m) 
-        break;
-
-    m = mpi.length*8 - i;
-
-    return [m >> 8, m & 0xff].concat(mpi);
+    return ArrayUtil.fromHalf(ArrayUtil.bitLength(mpi)).concat(mpi);
   },
 
-  createKeyPacket: function(key, type, privateMpi) {
+  createKeyPacket: function(key, private) {
     var len, tag, result, tmp;
 
-    if (privateMpi) {
-      len = 21 + key.mpi.n.length + key.mpi.e.length + privateMpi.d.length + privateMpi.p.length + privateMpi.q.length + privateMpi.u.length;
-      tag = (type == 3) ? 5 : 7;
-      tmp = [0].concat(this.createMpi(privateMpi.d));
+    if (private) {
+      len = 21 + key.data.n.length + key.data.e.length + key.data.d.length + key.data.p.length + key.data.q.length + key.data.u.length;
+      tag = (key.type == C.TYPE_RSA_SIGN) ? 5 : 7;
+      tmp = [0].concat(this.createMpi(key.data.d));
       
-      if (mpi.cmp(privateMpi.p, privateMpi.q) == -1) {
-        tmp = tmp.concat(this.createMpi(privateMpi.p))
-                 .concat(this.createMpi(privateMpi.q));
+      if (mpi.cmp(key.data.p, key.data.q) == -1) {
+        tmp = tmp.concat(this.createMpi(key.data.p))
+                 .concat(this.createMpi(key.data.q));
       } else {
-        tmp = tmp.concat(this.createMpi(privateMpi.q))
-                 .concat(this.createMpi(privateMpi.p));
+        tmp = tmp.concat(this.createMpi(key.data.q))
+                 .concat(this.createMpi(key.data.p));
       }
       
-      tmp = tmp.concat(this.createMpi(privateMpi.u));
+      tmp = tmp.concat(this.createMpi(key.data.u));
       
       for (var c = 0, i = 0; i < tmp.length; i++)
         c += tmp[i];
 
-      tmp = tmp.concat([(c%65536) >> 8, (c%65536) & 0xff]);
+      tmp = tmp.concat(ArrayUtil.fromHalf(c%65536));
     } else {
-      len = 10 + key.mpi.n.length + key.mpi.e.length;
-      tag = (type == 3) ? 6 : 14;
+      len = 10 + key.data.n.length + key.data.e.length;
+      tag = (key.type == C.TYPE_RSA_SIGN) ? 6 : 14;
       tmp = [];
     }
 
     result = [this.createTag(tag, len)].concat(this.createLength(len))
-                                       .concat([4])
-                                       .concat(ArrayUtil.fromWord(key.created))
-                                       .concat([type])
-                                       .concat(this.createMpi(key.mpi.n))
-                                       .concat(this.createMpi(key.mpi.e));
+                                       .concat(this.generateKeyData(key.type, key.data, key.time));
 
     return result.concat(tmp);
   },
@@ -90,20 +73,20 @@ var KeyUtil = {
     return [this.createTag(13, namePacket.length)].concat(this.createLength(namePacket.length)).concat(namePacket);
   },
 
-  createSignaturePacket: function(signer, data) {
+  createSignaturePacket: function(sid, eid) {
     var sigMeta, sigHash, sigPacket, sigSigned;
 
-    if (typeof data == "string") {
-      sigMeta   = this.signSignatureMeta(signer);
-      sigSigned = signer.signature;
+    if (eid) {
+      sigMeta   = this.encryptSignatureMeta(App.getKey(eid));
+      sigSigned = App.getKey(eid).sign;      
     } else {
-      sigMeta   = this.encryptSignatureMeta(data);
-      sigSigned = data.signature;
+      sigMeta   = this.signSignatureMeta(App.getKey(sid));
+      sigSigned = App.getKey(sid).sign;
     }
 
-    sigHash   = this.generateSignatureHash(signer, data);
+    sigHash   = this.generateSignatureHash(App.getKey(sid), App.getKey(eid));
     sigPacket = sigMeta.concat([0,10,9,16])
-                       .concat(ArrayUtil.fromHex(signer.id))
+                       .concat(ArrayUtil.fromHex(sid))
                        .concat(sigHash.slice(0,2))
                        .concat(this.createMpi(sigSigned));
 
@@ -111,44 +94,46 @@ var KeyUtil = {
   },
 
   encryptSignatureMeta: function(encrypt) {
-    return [4,24,2,2,0,15,5,2].concat(ArrayUtil.fromWord(encrypt.created+2))
+    return [4,24,2,2,0,15,5,2].concat(ArrayUtil.fromWord(encrypt.time+2))
                               .concat([2,27,4,5,9])
                               .concat(ArrayUtil.fromWord(86400));
   },
 
   signSignatureMeta: function(sign) {
-    return [4,19,3,2,0,26,5,2].concat(ArrayUtil.fromWord(sign.created+2))
+    return [4,19,3,2,0,26,5,2].concat(ArrayUtil.fromWord(sign.time+2))
                               .concat([2,27,3,5,9])
                               .concat(ArrayUtil.fromWord(86400))
                               .concat([4,11,7,8,9,2,21,2,2,22,0]);
   },
 
-  generateSignatureHash: function(sign, data) {
+  generateKeyData: function(type, data, time) {
+    return [4].concat(ArrayUtil.fromWord(time))
+              .concat([type])
+              .concat(this.createMpi(data.n))
+              .concat(this.createMpi(data.e));
+  },
+
+  generateFingerprint: function(type, data, time) {
+    data = this.generateKeyData(type, data, time);
+    return ArrayUtil.toHex(hash.digest([0x99].concat(ArrayUtil.fromHalf(data.length)).concat(data)));
+  },
+
+  generateSignatureHash: function(sign, encrypt) {
     var sdat, edat, meta, suff;
 
-    sdat = [153,0,0,4].concat(ArrayUtil.fromWord(sign.created))
-                      .concat([3])
-                      .concat(this.createMpi(sign.mpi.n))
-                      .concat(this.createMpi(sign.mpi.e));
+    sdat = this.generateKeyData(sign.type, sign.data, sign.time);
+    sdat = [153].concat(ArrayUtil.fromHalf(sdat.length)).concat(sdat);
 
-    sdat[1] = (sdat.length-3) >> 8;
-    sdat[2] = (sdat.length-3) & 0xff;
+    if (encrypt) {
+      edat = this.generateKeyData(encrypt.type, encrypt.data, encrypt.time);
+      edat = [153].concat(ArrayUtil.fromHalf(edat.length)).concat(edat);
 
-    if(typeof data == "string") {
-      edat = [180].concat(ArrayUtil.fromWord(data.length))
-                  .concat(ArrayUtil.fromString(data));
+      meta = this.encryptSignatureMeta(encrypt);
+    } else {
+      edat = [180].concat(ArrayUtil.fromWord(sign.name.length))
+                  .concat(ArrayUtil.fromString(sign.name));
 
       meta = this.signSignatureMeta(sign);
-    } else {
-      edat = [153,0,0,4].concat(ArrayUtil.fromWord(data.created))
-                        .concat([2])
-                        .concat(this.createMpi(data.mpi.n))
-                        .concat(this.createMpi(data.mpi.e));
-
-      edat[1] = (edat.length-3) >> 8;
-      edat[2] = (edat.length-3) & 0xff;
-
-      meta = this.encryptSignatureMeta(data);
     }
 
     suff = [4,255].concat(ArrayUtil.fromWord(meta.length));
@@ -158,14 +143,14 @@ var KeyUtil = {
     );
   },
 
-  exportKey: function(name, sign, encrypt, privateSignMpi, privateEncryptMpi) {
+  exportKey: function(id, private) {
     var headers       = {"Version": "SecureRoom 1.0"},
-        type          = (privateSignMpi) ? "PRIVATE KEY BLOCK" : "PUBLIC KEY BLOCK",
-        namePacket    = this.createNamePacket(name),
-        encryptPacket = this.createKeyPacket(encrypt, 2, privateEncryptMpi),
-        signPacket    = this.createKeyPacket(sign, 3, privateSignMpi),
-        signSigPacket = this.createSignaturePacket(sign, name), 
-        encSigPacket  = this.createSignaturePacket(sign, encrypt);
+        type          = (private) ? "PRIVATE KEY BLOCK" : "PUBLIC KEY BLOCK",
+        namePacket    = this.createNamePacket(App.getKey(id).name),
+        encryptPacket = this.createKeyPacket(App.getPeer(id), private),
+        signPacket    = this.createKeyPacket(App.getKey(id), private),
+        signSigPacket = this.createSignaturePacket(id), 
+        encSigPacket  = this.createSignaturePacket(id, App.getKey(id).peer);
     
     return ArmorUtil.dress({"type": type, "headers": headers, "packets": signPacket.concat(namePacket).concat(signSigPacket).concat(encryptPacket).concat(encSigPacket)});
   }
@@ -340,28 +325,53 @@ var PrintUtil = {
 
 var ArrayUtil = {
   //to/from string not currently handling charcode < 16 - if needed use ('0'+s).slice(-2);
-  toString: function(input) {
-    return decodeURIComponent(input.map(function(v) {return '%'+v.toString(16);}).join(''));
+  toString: function(a) {
+    return decodeURIComponent(a.map(function(v) {return '%'+v.toString(16);}).join(''));
   },
 
-  fromString: function(input) {
-    return encodeURIComponent(input.split('').map(function(v){return (v.charCodeAt(0) < 128) ? '%'+v.charCodeAt(0).toString(16) : v;}).join('')).replace(/%25/g,'%')
+  fromString: function(s) {
+    return encodeURIComponent(s.split('').map(function(v){return (v.charCodeAt(0) < 128) ? '%'+v.charCodeAt(0).toString(16) : v;}).join('')).replace(/%25/g,'%')
             .slice(1).split('%').map(function(v){return parseInt(v, 16);});
   },
 
-  toHex: function(input) {
-    return input.map(function(v){return ('0'+v.toString(16)).slice(-2);}).join('');
+  toHex: function(a) {
+    return a.map(function(v){return ('0'+v.toString(16)).slice(-2);}).join('');
   },
 
-  fromHex: function(h) {
-    return h.match(/.{2}/g).map(function(v){return parseInt(v, 16);});
+  fromHex: function(s) {
+    return s.match(/.{2}/g).map(function(v){return parseInt(v, 16);});
   },
 
   toWord: function(a) {
     return (a[0]*16777216 + a[1]*65536 + a[2]*256 + a[3]);
   },
 
-  fromWord: function(t) {
-    return [t>>24, (t>>16)&0xff, (t>>8)&0xff, t&0xff];
+  fromWord: function(n) {
+    return [n>>24, (n>>16)&0xff, (n>>8)&0xff, n&0xff];
   },
+
+  fromHalf: function(n) {
+    return [n>>8, n&0xff];
+  },
+
+  bitLength: function(a) {
+    for (var i = 128, l = a.length*8; i >= 1; i /= 2) 
+      if (a[0] >= i) return l; else --l;
+  }
+}
+
+var UrlUtil = {
+  getParameter: function(name) {
+    var match = RegExp('[?&]' + name + '=([^&]*)').exec(window.location.search);
+    return (match) ? decodeURIComponent(match[1].replace(/\+/g, ' ')) : '';
+  }
+}
+
+var C = {
+  TYPE_RSA_SIGN: 3,
+  TYPE_RSA_ENCRYPT: 2,
+  STATUS_DISABLED: 2,
+  STATUS_ENABLED: 1,
+  STATUS_PENDING: 0,
+  STATUS_REJECTED: -1,
 }
