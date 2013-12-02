@@ -188,6 +188,11 @@ button:active {
   background-color: red;
 }
 
+button::-moz-focus-inner {
+  border:0;
+  padding:0;
+}
+
 input {
   font-size: 1.3125em;
   padding: 0.25em 0.5em 0.125em;

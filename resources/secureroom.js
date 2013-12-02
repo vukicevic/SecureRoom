@@ -262,13 +262,12 @@ var Comm = {
 
   receiveMessage: function(data) {
     var message = new Message(data),
-        rawdata = this.decryptMessage(message),
-        i = rawdata.indexOf(0);
-
-    message.recvtime = Math.round(+new Date()/1000);
+        rawdata = this.decryptMessage(message), i;
 
     if (rawdata == null) return null;
 
+    i = rawdata.indexOf(0);
+    message.recvtime  = Math.round(new Date/1000);
     message.plaintext = ArrayUtil.toString(rawdata.slice(0, i));
     message.sendtime  = ArrayUtil.toWord(rawdata.slice(i+1, i+5));
     message.sender    = ArrayUtil.toHex(rawdata.slice(i+5, i+13));
