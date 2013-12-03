@@ -1,8 +1,8 @@
 <html>
 <head>
-  <title>SecureRoom</title>
+  <meta charset="utf-8"> 
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <title>SecureRoom</title>
   <link href="resources/style.css" media="all" rel="stylesheet" type="text/css">
 
   <script src="resources/random.default.js"></script>
@@ -10,10 +10,8 @@
   <script src="resources/asymmetric.rsa.js"></script>
   <script src="resources/hash.sha1.js"></script>
   <script src="resources/secureroom.js"></script>
-
   <script src="resources/utils.js"></script>
   <script>
-
   function TemplateEngine(templ) {
     if (typeof templ != "undefined")
       templ = document.getElementById(templ).innerHTML.replace(/\n|\r/g, "").replace(/>\s+</g, "><").trim();
@@ -266,7 +264,7 @@
         content.name   = PrintUtil.text(App.getKey(d[i]).name);
         content.status = (App.isEnabled(d[i])) ? '' : 'inactive';
         content.info   = UI.buildKeyInfo(d[i]);
-        content.data   = KeyUtil.exportKey(d[i]);
+        content.data   = KeyUtil.exportKey(App.getKey(d[i]), App.getKey(App.getKey(d[i]).peer));
 
         container.insertAdjacentHTML('beforeend', build(content));
         UI.addKeychainListeners(container.lastChild, d[i]);
@@ -316,8 +314,8 @@
           b1 = my.getElementsByTagName('span').item(0),
           b2 = my.getElementsByTagName('span').item(1);
 
-      e1.textContent = KeyUtil.exportKey(App.myId(C.TYPE_RSA_SIGN), true);
-      e2.textContent = KeyUtil.exportKey(App.myId(C.TYPE_RSA_SIGN));
+      e1.textContent = KeyUtil.exportKey(App.getKey(App.myId(C.TYPE_RSA_SIGN)), App.getKey(App.myId(C.TYPE_RSA_ENCRYPT)), true);
+      e2.textContent = KeyUtil.exportKey(App.getKey(App.myId(C.TYPE_RSA_SIGN)), App.getKey(App.myId(C.TYPE_RSA_ENCRYPT)));
 
       b1.addEventListener('click', UI.toggleExport(e1.parentNode, b1));
       b2.addEventListener('click', UI.toggleExport(e2.parentNode, b2));
@@ -328,19 +326,15 @@
   <script type="text/html" id="template-message">
     <li class="message{{class}}"><div class="time">{{time}}</div><p><b class="cln">{{sender}}</b>{{message}}</p>{{info}}</li>
   </script>
-
   <script type="text/html" id="template-message-info">
     <ul class="info hidden-height">{{#info}}<li><b class="cln">{{term}}</b>{{data}}</li>{{/info}}</ul>
   </script>
-
   <script type="text/html" id="template-key-alert">
     <li id="alert-{{id}}" class="alert"><div class="time">{{time}}</div><p class="join">{{name}}</p><div class="info">{{info}}<button>Accept</button><button>Reject</button></div></li>
   </script>
-
   <script type="text/html" id="template-key-info">
     <p><b>{{sid}}</b><br><small>{{ssize}} | {{sdate}} | SIGNING</small></p><p>{{eid}}<br><small>{{esize}} | {{edate}} | ENCRYPTION</small></p>
   </script>
-
   <script type="text/html" id="template-key-chain">
     <li id="key-{{id}}"><div class="export hidden"><textarea wrap="off">{{data}}</textarea></div><h3>{{name}}</h3><div class="controls"><span class="{{status}}">ACTIVE</span><span>PUBLIC KEY</span></div><div class="info">{{info}}</div></li>
   </script>
@@ -374,7 +368,7 @@
 
   <ul id="content">
     <li class="alert" id="welcome">
-      <input type="text" id="nickname" autocomplete="off" placeholder="Enter a nickname..." onkeyup="this.nextSibling.disabled = (this.value.length<3);" onkeypress="(event.keyCode===13) && this.nextSibling.onclick();"><button onclick="if (!this.disabled) { App.generateKeys(this.previousSibling.value); UI.addWelcome('progress'); UI.disableSettings('asymsize'); }" disabled>Generate</button>
+      <input type="text" id="nickname" autocomplete="off" placeholder="Enter a name..." onkeyup="this.nextSibling.disabled = (this.value.length<3);" onkeypress="(event.keyCode===13) && this.nextSibling.onclick();"><button onclick="if (!this.disabled) { App.generateKeys(this.previousSibling.value); UI.addWelcome('progress'); UI.disableSettings('asymsize'); }" disabled>Generate</button>
     </li>
   </ul>
 
