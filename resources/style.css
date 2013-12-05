@@ -31,7 +31,7 @@ body {
 
 #settings {
   list-style-type: none;
-  border-bottom: 0.0625em solid black;
+  border-bottom: 1px solid black;
   margin: 3em 0 0;
   padding: 1em 0;
   overflow: hidden;
@@ -173,10 +173,10 @@ body {
 }
 
 button {
-  font-size: 1.3125em;
+  font-size: 1.25em;
   font-weight: bold;
-  padding: 0.25em 0.5em 0.125em;
-  margin: 0.25em 0.3125em 0 0;
+  padding: 0.25em 0.5em 0.15em;
+  margin: 0.25em 0.3em 0 0;
   border-radius: 0.25em;
   background-color: white;
   border: none;
@@ -194,8 +194,8 @@ button::-moz-focus-inner {
 }
 
 input {
-  font-size: 1.3125em;
-  padding: 0.25em 0.5em 0.125em;
+  font-size: 1.25em;
+  padding: 0.25em 0.5em 0.15em;
   margin: 0.25em 0.25em 0.25em 0;
   border-radius: 0.25em;
   border: none;
@@ -254,7 +254,7 @@ input {
   position: fixed;
   background-color: white;
   bottom: -7em;
-  border-top: 0.0625em solid #000;
+  border-top: 1px solid #000;
   list-style-type: none;
   width: 100%;
   z-index: 500;
@@ -266,8 +266,8 @@ input {
   float: left;
   padding: 0.5em 1em;
   width: 15em;
-  border-right: 0.0625em dotted #222;
-  border-bottom: 0.0625em dotted #222;
+  border-right: 1px dotted #222;
+  border-bottom: 1px dotted #222;
 }
 
 #keychain p {
@@ -304,14 +304,14 @@ input {
 #keychain .controls {
   float: right;
   font-size: 0.6875em;
-  margin-top: -1.818em;
-  margin-right: -1.182em;
+  margin-top: -1.8em;
+  margin-right: -0.8em;
 }
 
 div.controls>span {
   background-color: white;
   color: black;
-  border: 0.0909em solid black;
+  border: 1px solid black;
   border-left: none;
   padding: 0.125em 0.5em;
   margin: 0;
@@ -319,13 +319,13 @@ div.controls>span {
   user-select: none;
 }
 div.controls>span:first-child {
-  border-top-left-radius: 0.3125em;
-  border-bottom-left-radius: 0.3125em;
-  border-left: 0.0909em solid black;
+  border-top-left-radius: 0.25em;
+  border-bottom-left-radius: 0.25em;
+  border-left: 1px solid black;
 }
 div.controls>span:last-child {
-  border-top-right-radius: 0.3125em;
-  border-bottom-right-radius: 0.3125em;
+  border-top-right-radius: 0.25em;
+  border-bottom-right-radius: 0.25em;
 }
 div.controls>span.selected {
   background-color: black;
