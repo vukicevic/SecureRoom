@@ -681,13 +681,8 @@ function KeyGen(size, callback) {
     }
   };
 
-  return function() { 
-    time = +new Date;
-
-    createWorker('p', process);
-    createWorker('q', process);
-
-    timer = window.setTimeout(function() {
+  function timeout() {
+    return window.setTimeout(function() {
       if (!w.p.data) {
         w.p.terminate();
         createWorker('p', process);
@@ -697,6 +692,17 @@ function KeyGen(size, callback) {
         w.q.terminate();
         createWorker('q', process);
       }
-    }, size*10, w);
+
+      if (!w.q.data || !w.p.data) timer = timeout();
+    }, Math.floor((size*size)/200), w);
+  };
+
+  return function() { 
+    time = +new Date;
+
+    createWorker('p', process);
+    createWorker('q', process);
+
+    timer = timeout();
   };
 }

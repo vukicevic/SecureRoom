@@ -1,0 +1,75 @@
+<html>
+<head>
+  <meta charset="utf-8"> 
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+  <title>SecureRoom - Key Generator</title>
+
+  <script src="resources/random.default.js"></script>
+  <script src="resources/asymmetric.rsa.js"></script>
+  <script src="resources/hash.sha1.js"></script>
+  <script src="resources/utils.js"></script>
+  <script>
+    var keys = {s: null, e: null};
+
+    function doGenerate() {
+      var size = document.getElementById('size').value;
+
+      
+      if (document.getElementById('export').checked) {
+        KeyGen(size, gpgGenerate)();
+        KeyGen(size, gpgGenerate)();
+      } else {
+        KeyGen(size, rawGenerate)();
+      }
+    }
+
+    function rawGenerate(data, time) {
+      var elem = document.getElementById('data'),
+          html = "<dt><b>Generation Time</b></dt><dd>"+time+"ms</dd>";
+
+      for (var m in data) {
+        html += "<dt><b>MPI: "+m+"</b></dt><dd>"+ArrayUtil.toHex(data[m])+"</dd>";
+      }
+
+      elem.innerHTML = html;
+    }
+
+    function gpgGenerate(d, t) {
+      var n = document.getElementById('name').value,
+          c = Math.floor(new Date/1000),
+          elem = document.getElementById('data'),
+          html = "<dt><b>Generation Time</b></dt><dd>"+t+"ms</dd>";
+
+      if (keys.s) {
+        keys.e = { name: n, type: C.TYPE_RSA_ENCRYPT, data: d, time: c, size: ArrayUtil.bitLength(d.n), iden: KeyUtil.generateFingerprint(C.TYPE_RSA_ENCRYPT, d, c) };
+        keys.e.sign = Asymmetric.sign(keys.s, KeyUtil.generateSignatureHash(keys.s, keys.e), true);
+
+        html += "<dt><b>Public &amp; Private Key</b></dt><dd><pre>" + KeyUtil.exportKey(keys.s, keys.e, true) + "</pre></dd>";
+        html += "<dt><b>Public Key</b></dt><dd><pre>" + KeyUtil.exportKey(keys.s, keys.e) + "</pre></dd>";        
+
+        elem.innerHTML = html;
+      } else {
+        keys.s = { name: n, type: C.TYPE_RSA_SIGN, data: d, time: c, size: ArrayUtil.bitLength(d.n), iden: KeyUtil.generateFingerprint(C.TYPE_RSA_SIGN, d, c) };
+        keys.s.sign = Asymmetric.sign(keys.s, KeyUtil.generateSignatureHash(keys.s), true);
+      }
+    }
+  </script>
+</head>
+<body>
+  <fieldset>
+    <label for="name">Name</label>
+    <input type="text" id="name" placeholder="Example Name <name@example.com>">
+    <label for="size">Key Size</label>
+    <select id="size">
+      <option value="1024">1024</option>
+      <option value="1536">1536</option>
+      <option value="2048">2048</option>
+      <option value="4096">4096</option>
+    </select>
+    <label for="export">OpenPGP Export</label>
+    <input type="checkbox" name="export" id="export">
+    <button onclick="doGenerate();">Generate</button>
+  </fieldset>
+  <dl id="data" style="width:100%; word-wrap: break-word; font-family: monospace"></dl>
+</body>
+</html>
