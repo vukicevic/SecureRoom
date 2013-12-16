@@ -1,0 +1,163 @@
+<html>
+<head>
+  <meta charset="utf-8"> 
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+  <title>SecureRoom Terminal</title>
+  <style>
+  	* {
+   		padding: 0;
+  		margin: 0;
+	  }
+    body {
+  		background-color: black;
+  		color: #17e717;
+  		font-family: monospace;
+      padding: 10px;
+  	}
+  	ul {
+		  width:100%;
+		  list-style-type: none;
+  	}
+    li {
+      white-space: pre;
+    }
+    #cursor {
+      height: 1em;
+      width: 1em;
+    }
+    #cursor.highlight {
+      background-color: #17e717;
+      color: black;
+    }
+  </style>
+</head>
+<body>
+<!--pre>
+#####################################################
+#                                                   #
+#  Welcome to TerminalJS. This is an introductory   #
+#  text. It has some information to get started     #
+#     ____                     ___                  #
+#    / __/__ ______ _________ / _ \___  ___  __ _   #
+#   _\ \/ -_) __/ // / __/ -_) , _/ _ \/ _ \/  ' \  #
+#  /___/\__/\__/\_,_/_/  \__/_/|_|\___/\___/_/_/_/  #
+#                                                   #
+#####################################################
+</pre-->
+
+<ul id="term"><li class="stdin"><span id="cursor"> </span></li></ul>
+
+<script>
+  var cursor = document.getElementById('cursor'),
+      term   = document.getElementById('term');
+
+  cursor.timer = window.setInterval(toggleCursor, 550);
+  cursor.line  = 0;
+
+  window.addEventListener('keydown', control, true);
+  window.addEventListener('keypress', write, true);
+
+  function toggleCursor(highlight) {
+    if (highlight || !cursor.classList.contains('highlight')) { 
+      cursor.classList.add('highlight');
+    } else {
+      cursor.classList.remove('highlight');
+    }
+
+    if (highlight) {
+      window.clearInterval(cursor.timer);
+      cursor.timer = window.setInterval(toggleCursor, 550);
+    }
+  }
+
+  function insertLine(data, position) {
+    term.lastChild.insertAdjacentHTML(position, "<li class='stdout'>"+data+"</li>");
+  }
+
+  function clearLine() {
+    var elem = cursor.parentNode;
+    
+    resetCursor();
+    document.body.appendChild(cursor);
+    
+    elem.textContent = "";
+    elem.appendChild(cursor);
+  }
+
+  function resetCursor() {
+    if (cursor.nextSibling) {
+      cursor.insertAdjacentHTML("beforebegin", cursor.textContent);
+      cursor.textContent = " ";
+    }
+
+    if (cursor.parentNode.lastChild.textContent == " ") cursor.parentNode.removeChild(cursor.parentNode.lastChild);
+  }
+
+  function control(event) {
+    //console.log(event.which);
+    toggleCursor(true);
+
+    switch (event.which) {
+      case 8:
+        if (cursor.previousSibling.nodeType == 3) 
+          cursor.previousSibling.remove();
+        break;
+      case 13:
+        execute();
+        event.preventDefault();
+        break;
+      case 37:
+        if (cursor.previousSibling.nodeType == 3) { 
+          cursor.insertAdjacentHTML("afterend", cursor.textContent); 
+          cursor.textContent = cursor.previousSibling.textContent; 
+          cursor.previousSibling.remove();
+        }
+        break;
+      case 39:
+        if (cursor.nextSibling.nodeType == 3) { 
+          cursor.insertAdjacentHTML("beforebegin", cursor.textContent);
+          cursor.textContent = cursor.nextSibling.textContent; 
+          cursor.nextSibling.remove();
+        }
+        break;
+      case 38:
+        if (cursor.line) { 
+          clearLine();
+          for (var e = term.querySelectorAll("li.stdin")[--cursor.line].childNodes, i = 0; i < e.length; i++)
+            cursor.insertAdjacentHTML("beforebegin", e[i].textContent); 
+        };
+        break;
+      case 40:
+        if (cursor.line < term.querySelectorAll("li.stdin").length-1) {
+          clearLine();
+          for (var i = 0, e = term.querySelectorAll("li.stdin")[++cursor.line].childNodes; i < e.length; i++)
+            if (!cursor.isEqualNode(e[i]))
+              cursor.insertAdjacentHTML("beforebegin", e[i].textContent);
+        }
+        break;
+      default:
+        break;
+    }
+  }
+
+  function write(event) {
+    cursor.insertAdjacentHTML("beforebegin", String.fromCharCode(event.which));
+  }
+
+  function execute() {
+    var next = document.createElement("li");
+
+    next.classList.add("stdin");
+
+    //insertLine(eval(cursor.parentNode.textContent), "afterend");
+
+    resetCursor();
+    term.appendChild(next);
+    next.appendChild(cursor);
+    
+    cursor.line = term.querySelectorAll("li.stdin").length-1;
+    
+  }
+</script>
+</body>
+</html>
