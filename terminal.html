@@ -94,45 +94,33 @@
   }
 
   function control(event) {
-    //console.log(event.which);
     toggleCursor(true);
+    if (event.which > 46) return;
 
     switch (event.which) {
       case 8:
-        if (cursor.previousSibling.nodeType == 3) 
-          cursor.previousSibling.remove();
+        moveLeft(true);
         break;
       case 13:
         execute();
         event.preventDefault();
         break;
       case 37:
-        if (cursor.previousSibling.nodeType == 3) { 
-          cursor.insertAdjacentHTML("afterend", cursor.textContent); 
-          cursor.textContent = cursor.previousSibling.textContent; 
-          cursor.previousSibling.remove();
-        }
+        moveLeft();
         break;
       case 39:
-        if (cursor.nextSibling.nodeType == 3) { 
-          cursor.insertAdjacentHTML("beforebegin", cursor.textContent);
-          cursor.textContent = cursor.nextSibling.textContent; 
-          cursor.nextSibling.remove();
-        }
+        moveRight();
         break;
       case 38:
         if (cursor.line) { 
           clearLine();
-          for (var e = term.querySelectorAll("li.stdin")[--cursor.line].childNodes, i = 0; i < e.length; i++)
-            cursor.insertAdjacentHTML("beforebegin", e[i].textContent); 
+          cursor.parentNode.insertBefore(document.createTextNode(term.querySelectorAll("li.stdin")[--cursor.line].firstChild.textContent.trim()), cursor);
         };
         break;
       case 40:
         if (cursor.line < term.querySelectorAll("li.stdin").length-1) {
           clearLine();
-          for (var i = 0, e = term.querySelectorAll("li.stdin")[++cursor.line].childNodes; i < e.length; i++)
-            if (!cursor.isEqualNode(e[i]))
-              cursor.insertAdjacentHTML("beforebegin", e[i].textContent);
+          cursor.parentNode.insertBefore(document.createTextNode(term.querySelectorAll("li.stdin")[++cursor.line].firstChild.textContent.trim()), cursor);
         }
         break;
       default:
@@ -141,8 +129,11 @@
   }
 
   function write(event) {
-    cursor.insertAdjacentHTML("beforebegin", String.fromCharCode(event.which));
+    if (event.which <= 46 && event.which != 32) return;
+    if (!cursor.previousSibling) cursor.parentNode.insertBefore(document.createTextNode(""), cursor);
+    cursor.previousSibling.textContent = cursor.previousSibling.textContent + String.fromCharCode(event.which);
   }
+
 
   function execute() {
     var next = document.createElement("li");
@@ -156,7 +147,26 @@
     next.appendChild(cursor);
     
     cursor.line = term.querySelectorAll("li.stdin").length-1;
-    
+  }
+
+  function moveLeft(remove) {
+    if (!cursor.previousSibling || cursor.previousSibling.textContent == "") return;
+    if (!remove) {
+      if (!cursor.nextSibling) cursor.parentNode.appendChild(document.createTextNode(""));
+      cursor.nextSibling.textContent = cursor.textContent + cursor.nextSibling.textContent;
+      cursor.textContent = cursor.previousSibling.textContent.substring(cursor.previousSibling.textContent.length - 1);
+    }
+    cursor.previousSibling.textContent = cursor.previousSibling.textContent.substring(0, cursor.previousSibling.textContent.length - 1);
+  }
+
+  function moveRight(remove) {
+    if (!cursor.nextSibling || cursor.nextSibling.textContent == "") return;
+    if (!remove) {
+      if (!cursor.previousSibling) cursor.parentNode.insertBefore(document.createTextNode(""), cursor);
+      cursor.previousSibling.textContent = cursor.previousSibling.textContent + cursor.textContent;
+      cursor.textContent = cursor.nextSibling.textContent.substring(0, 1); 
+    }
+    cursor.nextSibling.textContent = cursor.nextSibling.textContent.substring(1);
   }
 </script>
 </body>
