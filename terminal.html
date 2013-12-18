@@ -10,27 +10,40 @@
 	  }
     body {
   		background-color: black;
-  		color: #17e717;
+  		color: #bcefe6;
   		font-family: monospace;
       padding: 10px;
+      text-shadow: 0 0 3px #bcefe6;
   	}
   	ul {
 		  width:100%;
 		  list-style-type: none;
   	}
-    li {
+    dl {
       white-space: pre;
+    }
+    dt {
+      float: left;
+    }
+    dt:after {
+      content: " nenad # ";
+    }
+    dl {
+      float: left;
     }
     .cursor {
       height: 1em;
       width: 1em;
     }
     .highlight {
-      background-color: #17e717;
+      background-color: #bcefe6;
       color: black;
+      box-shadow: 0 0 3px #bcefe6;
     }
     .nofocus {
-      border: 1px solid #17e717;
+      background-color: transparent !important;
+      color: #bcefe6 !important;
+      box-shadow: 0 0 3px #bcefe6;
     }
   </style>
 </head>
@@ -47,34 +60,34 @@
 #                                                   #
 #####################################################
 </pre-->
-
+<b></b>
+<b></b>
 <script>
   (function (container) {
     var cursor = document.createElement("span"),
-        term   = document.createElement("ul"),
+        term   = document.createElement("dl"),
         timer  = window.setInterval(toggleCursor, 600),
-        line   = 0;
+        line   = 0,
+        pntr   = 0;
 
     cursor.classList.add("cursor");
     cursor.textContent = " ";
 
     window.addEventListener("keydown", control, true);
     window.addEventListener("keypress", write, true);
+    window.addEventListener("focus", function(){ cursor.classList.remove("nofocus"); }, true);
+    window.addEventListener("blur", function(){ cursor.classList.add("nofocus"); }, true);
+
+    window.setInterval(function(){ document.getElementById('time').textContent = document.getElementById('time').textContent.substring(0, 1) + " " + new Date().toString().substring(16,24);}, 1000);
 
     container.appendChild(term);
     execute();
 
     function toggleCursor(highlight) {
-      if (document.hasFocus()) {
-        if (highlight || !cursor.classList.contains("highlight"))
-          cursor.classList.add("highlight");
-        else
-          cursor.classList.remove("highlight");
-        cursor.classList.remove("nofocus");
-      } else {
-        cursor.classList.add("nofocus");
+      if (highlight || !cursor.classList.contains("highlight"))
+        cursor.classList.add("highlight");
+      else
         cursor.classList.remove("highlight");
-      }
 
       if (highlight) {
         window.clearInterval(timer);
@@ -113,15 +126,15 @@
           moveRight();
           break;
         case 38:
-          if (line > 0) { 
+          if (pntr > 0) { 
             clearLine();
-            cursor.parentNode.insertBefore(document.createTextNode(term.querySelectorAll("li.stdin")[--line].textContent.trim()), cursor);
+            cursor.parentNode.insertBefore(document.createTextNode(term.querySelectorAll(".stdin")[--pntr].textContent.trim()), cursor);
           }
           break;
         case 40:
-          if (line < term.querySelectorAll("li.stdin").length-1) {
+          if (pntr < term.querySelectorAll(".stdin").length-1) {
             clearLine();
-            cursor.parentNode.insertBefore(document.createTextNode(term.querySelectorAll("li.stdin")[++line].textContent.trim()), cursor);
+            cursor.parentNode.insertBefore(document.createTextNode(term.querySelectorAll(".stdin")[++pntr].textContent.trim()), cursor);
           }
           break;
         default:
@@ -135,22 +148,32 @@
       cursor.previousSibling.textContent = cursor.previousSibling.textContent + String.fromCharCode(event.which);
     }
 
-
     function execute() {
-      var next = document.createElement("li");
-      next.classList.add("stdin");
-
-      //insertLine(eval(cursor.parentNode.textContent), "afterend");
-
       resetCursor();
-      term.appendChild(next);
+      if (cursor.parentNode) {
+        cursor.parentNode.previousSibling.id = "";
+        if (cursor.parentNode.textContent == " ")
+          return;
+        else
+          insertLine(eval(cursor.parentNode.textContent), "afterend");
+      }
+
+      var ctrl = document.createElement("dt"),
+          next = document.createElement("dd");
+
+      ctrl.id = "time";
+      ctrl.textContent = line++ + " " + new Date().toString().substring(16,24);
+
+      next.classList.add("stdin");
       next.appendChild(cursor);
-      
-      line = term.querySelectorAll("li.stdin").length-1;
+      term.appendChild(ctrl);
+      term.appendChild(next);
+    
+      pntr = term.querySelectorAll(".stdin").length-1;
     }
 
     function insertLine(data, position) {
-      term.lastChild.insertAdjacentHTML(position, "<li class='stdout'>"+data+"</li>");
+      term.lastChild.insertAdjacentHTML(position, "<dt>" + line++ + " " + new Date().toString().substring(16,24) + "</dt><dd class='stdout'>" + data + "</dd>");
     }
 
     function clearLine() {
