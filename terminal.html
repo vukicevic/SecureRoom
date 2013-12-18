@@ -21,13 +21,16 @@
     li {
       white-space: pre;
     }
-    #cursor {
+    .cursor {
       height: 1em;
       width: 1em;
     }
-    #cursor.highlight {
+    .highlight {
       background-color: #17e717;
       color: black;
+    }
+    .nofocus {
+      border: 1px solid #17e717;
     }
   </style>
 </head>
@@ -45,129 +48,137 @@
 #####################################################
 </pre-->
 
-<ul id="term"><li class="stdin"><span id="cursor"> </span></li></ul>
-
 <script>
-  var cursor = document.getElementById('cursor'),
-      term   = document.getElementById('term');
+  (function (container) {
+    var cursor = document.createElement("span"),
+        term   = document.createElement("ul"),
+        timer  = window.setInterval(toggleCursor, 600),
+        line   = 0;
 
-  cursor.timer = window.setInterval(toggleCursor, 550);
-  cursor.line  = 0;
+    cursor.classList.add("cursor");
+    cursor.textContent = " ";
 
-  window.addEventListener('keydown', control, true);
-  window.addEventListener('keypress', write, true);
+    window.addEventListener("keydown", control, true);
+    window.addEventListener("keypress", write, true);
 
-  function toggleCursor(highlight) {
-    if (highlight || !cursor.classList.contains('highlight')) { 
-      cursor.classList.add('highlight');
-    } else {
-      cursor.classList.remove('highlight');
+    container.appendChild(term);
+    execute();
+
+    function toggleCursor(highlight) {
+      if (document.hasFocus()) {
+        if (highlight || !cursor.classList.contains("highlight"))
+          cursor.classList.add("highlight");
+        else
+          cursor.classList.remove("highlight");
+        cursor.classList.remove("nofocus");
+      } else {
+        cursor.classList.add("nofocus");
+        cursor.classList.remove("highlight");
+      }
+
+      if (highlight) {
+        window.clearInterval(timer);
+        timer = window.setInterval(toggleCursor, 600);
+      }
     }
 
-    if (highlight) {
-      window.clearInterval(cursor.timer);
-      cursor.timer = window.setInterval(toggleCursor, 550);
+    function resetCursor() {
+      if (cursor.nextSibling) {
+        if (!cursor.previousSibling) cursor.parentNode.insertBefore(document.createTextNode(""), cursor);
+
+        cursor.previousSibling.textContent = cursor.previousSibling.textContent + cursor.textContent + cursor.nextSibling.textContent;
+        cursor.nextSibling.remove();
+        cursor.textContent = " ";
+      }
     }
-  }
 
-  function insertLine(data, position) {
-    term.lastChild.insertAdjacentHTML(position, "<li class='stdout'>"+data+"</li>");
-  }
+    function control(event) {
+      toggleCursor(true);
 
-  function clearLine() {
-    var elem = cursor.parentNode;
-    
-    resetCursor();
-    document.body.appendChild(cursor);
-    
-    elem.textContent = "";
-    elem.appendChild(cursor);
-  }
+      switch (event.which) {
+        case 13:
+          execute();
+          event.preventDefault();
+          break;
+        case 8:
+          moveLeft(true);
+          break;
+        case 46:
+          moveRight(true);
+          break;
+        case 37:
+          moveLeft();
+          break;
+        case 39:
+          moveRight();
+          break;
+        case 38:
+          if (line > 0) { 
+            clearLine();
+            cursor.parentNode.insertBefore(document.createTextNode(term.querySelectorAll("li.stdin")[--line].textContent.trim()), cursor);
+          }
+          break;
+        case 40:
+          if (line < term.querySelectorAll("li.stdin").length-1) {
+            clearLine();
+            cursor.parentNode.insertBefore(document.createTextNode(term.querySelectorAll("li.stdin")[++line].textContent.trim()), cursor);
+          }
+          break;
+        default:
+          break;
+      }
+    }
 
-  function resetCursor() {
-    if (cursor.nextSibling) {
-      cursor.insertAdjacentHTML("beforebegin", cursor.textContent);
+    function write(event) {
+      if (event.which < 32) return;
+      if (!cursor.previousSibling) cursor.parentNode.insertBefore(document.createTextNode(""), cursor);
+      cursor.previousSibling.textContent = cursor.previousSibling.textContent + String.fromCharCode(event.which);
+    }
+
+
+    function execute() {
+      var next = document.createElement("li");
+      next.classList.add("stdin");
+
+      //insertLine(eval(cursor.parentNode.textContent), "afterend");
+
+      resetCursor();
+      term.appendChild(next);
+      next.appendChild(cursor);
+      
+      line = term.querySelectorAll("li.stdin").length-1;
+    }
+
+    function insertLine(data, position) {
+      term.lastChild.insertAdjacentHTML(position, "<li class='stdout'>"+data+"</li>");
+    }
+
+    function clearLine() {
+      if (cursor.previousSibling) cursor.previousSibling.remove();
+      if (cursor.nextSibling) cursor.nextSibling.remove();
       cursor.textContent = " ";
     }
 
-    if (cursor.parentNode.lastChild.textContent == " ") cursor.parentNode.removeChild(cursor.parentNode.lastChild);
-  }
-
-  function control(event) {
-    toggleCursor(true);
-    if (event.which > 46) return;
-
-    switch (event.which) {
-      case 8:
-        moveLeft(true);
-        break;
-      case 13:
-        execute();
-        event.preventDefault();
-        break;
-      case 37:
-        moveLeft();
-        break;
-      case 39:
-        moveRight();
-        break;
-      case 38:
-        if (cursor.line) { 
-          clearLine();
-          cursor.parentNode.insertBefore(document.createTextNode(term.querySelectorAll("li.stdin")[--cursor.line].firstChild.textContent.trim()), cursor);
-        };
-        break;
-      case 40:
-        if (cursor.line < term.querySelectorAll("li.stdin").length-1) {
-          clearLine();
-          cursor.parentNode.insertBefore(document.createTextNode(term.querySelectorAll("li.stdin")[++cursor.line].firstChild.textContent.trim()), cursor);
-        }
-        break;
-      default:
-        break;
+    function moveLeft(remove) {
+      if (!cursor.previousSibling || cursor.previousSibling.textContent == "") return;
+      if (!remove) {
+        if (!cursor.nextSibling) cursor.parentNode.appendChild(document.createTextNode(""));
+        cursor.nextSibling.textContent = cursor.textContent + cursor.nextSibling.textContent;
+        cursor.textContent = cursor.previousSibling.textContent.substring(cursor.previousSibling.textContent.length - 1);
+      }
+      cursor.previousSibling.textContent = cursor.previousSibling.textContent.substring(0, cursor.previousSibling.textContent.length - 1);
     }
-  }
 
-  function write(event) {
-    if (event.which <= 46 && event.which != 32) return;
-    if (!cursor.previousSibling) cursor.parentNode.insertBefore(document.createTextNode(""), cursor);
-    cursor.previousSibling.textContent = cursor.previousSibling.textContent + String.fromCharCode(event.which);
-  }
-
-
-  function execute() {
-    var next = document.createElement("li");
-
-    next.classList.add("stdin");
-
-    //insertLine(eval(cursor.parentNode.textContent), "afterend");
-
-    resetCursor();
-    term.appendChild(next);
-    next.appendChild(cursor);
-    
-    cursor.line = term.querySelectorAll("li.stdin").length-1;
-  }
-
-  function moveLeft(remove) {
-    if (!cursor.previousSibling || cursor.previousSibling.textContent == "") return;
-    if (!remove) {
-      if (!cursor.nextSibling) cursor.parentNode.appendChild(document.createTextNode(""));
-      cursor.nextSibling.textContent = cursor.textContent + cursor.nextSibling.textContent;
-      cursor.textContent = cursor.previousSibling.textContent.substring(cursor.previousSibling.textContent.length - 1);
+    function moveRight(remove) {
+      if (!cursor.nextSibling || cursor.nextSibling.textContent == "") return;
+      if (!remove) {
+        if (!cursor.previousSibling) cursor.parentNode.insertBefore(document.createTextNode(""), cursor);
+        cursor.previousSibling.textContent = cursor.previousSibling.textContent + cursor.textContent;
+      }
+      cursor.textContent = cursor.nextSibling.textContent.substring(0, 1);
+      cursor.nextSibling.textContent = cursor.nextSibling.textContent.substring(1);
     }
-    cursor.previousSibling.textContent = cursor.previousSibling.textContent.substring(0, cursor.previousSibling.textContent.length - 1);
-  }
-
-  function moveRight(remove) {
-    if (!cursor.nextSibling || cursor.nextSibling.textContent == "") return;
-    if (!remove) {
-      if (!cursor.previousSibling) cursor.parentNode.insertBefore(document.createTextNode(""), cursor);
-      cursor.previousSibling.textContent = cursor.previousSibling.textContent + cursor.textContent;
-      cursor.textContent = cursor.nextSibling.textContent.substring(0, 1); 
-    }
-    cursor.nextSibling.textContent = cursor.nextSibling.textContent.substring(1);
-  }
+  })(document.body);
 </script>
 </body>
 </html>
