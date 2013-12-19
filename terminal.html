@@ -12,7 +12,7 @@
   		background-color: black;
   		color: #bcefe6;
   		font-family: monospace;
-      padding: 10px;
+      padding: 10px 0;
       text-shadow: 0 0 3px #bcefe6;
   	}
   	ul {
@@ -21,6 +21,8 @@
   	}
     dl {
       white-space: pre;
+      margin-left: -3em;
+      transition: margin 400ms ease;
     }
     dt {
       float: left;
@@ -34,9 +36,10 @@
     }
     span.line {
       display: inline-block;
-      width: 2em;
+      width: 3em;
       text-align: right;
       color: orange;
+      
     }
     #cursor {
       height: 1em;
@@ -71,6 +74,8 @@
 <b></b>
 <script>
   function callback(text) {
+    /*if (text.indexOf("!") == 0) text = T.get(text.substring(1));
+    T.set("result", eval(text));*/
     console.log(text);
   }
 
@@ -107,16 +112,6 @@
       }
     }
 
-    function resetCursor() {
-      if (cursor.nextSibling) {
-        if (!cursor.previousSibling) cursor.parentNode.insertBefore(document.createTextNode(""), cursor);
-
-        cursor.previousSibling.textContent = cursor.previousSibling.textContent + cursor.textContent + cursor.nextSibling.textContent;
-        cursor.nextSibling.remove();
-        cursor.textContent = " ";
-      }
-    }
-
     function control(event) {
       toggleCursor(true);
 
@@ -132,7 +127,7 @@
           moveRight(true);
           break;
         case 37:
-          moveLeft();
+          if (!moveLeft()) term.style.marginLeft = (term.style.marginLeft == "0px") ? "-3em" : "0px";
           break;
         case 39:
           moveRight();
@@ -151,6 +146,12 @@
           }
           event.preventDefault();
           break;
+        case 35:
+          while(moveRight());
+          break;
+        case 36:
+          while(moveLeft());
+          break;
         default:
           break;
       }
@@ -163,20 +164,20 @@
     }
 
     function execute() {
-      resetCursor();
+      while(moveRight());
       if (!cursor.parentNode || cursor.parentNode.textContent == " ") return;
 
       var text = cursor.parentNode.textContent;
       insertLine(line++, clock.textContent, "nenad", text, "in");
       clearLine();
-      //insertLine(line++, clock.textContent, "eval", eval(text), "out");
-      callback(text);
+      callback(text.trim());
     
       pntr = term.querySelectorAll("dd.stdin").length-1;
     }
 
     function insertLine(line, time, name, data, type) {
-      document.getElementById("input").insertAdjacentHTML("beforebegin", "<dt><span class='line'>"+line+"</span> <span>"+time+"</span> <span>"+name+"</span></dt><dd class='std"+type+"'>"+data+"</dd>");
+      document.getElementById("input").insertAdjacentHTML("beforebegin", "<dt><span class='line'>"+line+"</span> <span>"+time+"</span> <span>"+name+"</span></dt><dd class='std"+type+"' id='"+line+"'>"+data+"</dd>");
+      return line;
     }
 
     function clearLine() {
@@ -186,27 +187,36 @@
     }
 
     function moveLeft(remove) {
-      if (!cursor.previousSibling || cursor.previousSibling.textContent == "") return;
+      if (!cursor.previousSibling || cursor.previousSibling.textContent == "") return false;
       if (!remove) {
         if (!cursor.nextSibling) cursor.parentNode.appendChild(document.createTextNode(""));
         cursor.nextSibling.textContent = cursor.textContent + cursor.nextSibling.textContent;
         cursor.textContent = cursor.previousSibling.textContent.substring(cursor.previousSibling.textContent.length - 1);
       }
       cursor.previousSibling.textContent = cursor.previousSibling.textContent.substring(0, cursor.previousSibling.textContent.length - 1);
+
+      return true;
     }
 
     function moveRight(remove) {
-      if (!cursor.nextSibling || cursor.nextSibling.textContent == "") return;
+      if (!cursor.nextSibling || cursor.nextSibling.textContent == "") return false;
       if (!remove) {
         if (!cursor.previousSibling) cursor.parentNode.insertBefore(document.createTextNode(""), cursor);
         cursor.previousSibling.textContent = cursor.previousSibling.textContent + cursor.textContent;
       }
       cursor.textContent = cursor.nextSibling.textContent.substring(0, 1);
       cursor.nextSibling.textContent = cursor.nextSibling.textContent.substring(1);
+
+      return true;
     }
 
-    return function(name, data) {
-      insertLine(line++, clock.textContent, name, data, "out");
+    return {
+      set: function(name, data) {
+        return insertLine(line++, clock.textContent, name, data, "out");
+      },
+      get: function(line) {
+        return document.getElementById(line) && document.getElementById(line).textContent.trim();
+      }
     };
   })(document.body, callback);
 </script>
