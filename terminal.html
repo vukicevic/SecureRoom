@@ -24,23 +24,30 @@
     }
     dt {
       float: left;
+      clear: left;
     }
     dt:after {
-      content: " nenad # ";
+      content: " # ";
     }
     dl {
       float: left;
     }
-    .cursor {
+    span.line {
+      display: inline-block;
+      width: 2em;
+      text-align: right;
+      color: orange;
+    }
+    #cursor {
       height: 1em;
       width: 1em;
     }
-    .highlight {
+    #cursor.highlight {
       background-color: #bcefe6;
       color: black;
       box-shadow: 0 0 3px #bcefe6;
     }
-    .nofocus {
+    #cursor.nofocus {
       background-color: transparent !important;
       color: #bcefe6 !important;
       box-shadow: 0 0 3px #bcefe6;
@@ -63,25 +70,30 @@
 <b></b>
 <b></b>
 <script>
-  (function (container) {
-    var cursor = document.createElement("span"),
-        term   = document.createElement("dl"),
-        timer  = window.setInterval(toggleCursor, 600),
+  function callback(text) {
+    console.log(text);
+  }
+
+  var T = (function (container, callback) {
+    var term   = document.createElement("dl"),
         line   = 0,
         pntr   = 0;
-
-    cursor.classList.add("cursor");
-    cursor.textContent = " ";
 
     window.addEventListener("keydown", control, true);
     window.addEventListener("keypress", write, true);
     window.addEventListener("focus", function(){ cursor.classList.remove("nofocus"); }, true);
     window.addEventListener("blur", function(){ cursor.classList.add("nofocus"); }, true);
 
-    window.setInterval(function(){ document.getElementById('time').textContent = document.getElementById('time').textContent.substring(0, 1) + " " + new Date().toString().substring(16,24);}, 1000);
-
+    term.insertAdjacentHTML("afterbegin", "<dt id='input'><span class='line'></span> <span id='time'></span> </dt><dd class='stdin'><span id='cursor'> </span></dd>");
     container.appendChild(term);
-    execute();
+
+    var cursor = document.getElementById("cursor"),
+        clock = document.getElementById('time'),
+        timer = window.setInterval(toggleCursor, 600);
+
+    clock.date = new Date();
+    clock.textContent = clock.date.toString().substring(16,24);
+    window.setInterval(function(){ clock.date.setTime(Date.now()); clock.textContent = clock.date.toString().substring(16,24); }, 1000);
 
     function toggleCursor(highlight) {
       if (highlight || !cursor.classList.contains("highlight"))
@@ -128,14 +140,16 @@
         case 38:
           if (pntr > 0) { 
             clearLine();
-            cursor.parentNode.insertBefore(document.createTextNode(term.querySelectorAll(".stdin")[--pntr].textContent.trim()), cursor);
+            cursor.parentNode.insertBefore(document.createTextNode(term.querySelectorAll("dd.stdin")[--pntr].textContent.trim()), cursor);
           }
+          event.preventDefault();
           break;
         case 40:
-          if (pntr < term.querySelectorAll(".stdin").length-1) {
+          if (pntr < term.querySelectorAll("dd.stdin").length-1) {
             clearLine();
-            cursor.parentNode.insertBefore(document.createTextNode(term.querySelectorAll(".stdin")[++pntr].textContent.trim()), cursor);
+            cursor.parentNode.insertBefore(document.createTextNode(term.querySelectorAll("dd.stdin")[++pntr].textContent.trim()), cursor);
           }
+          event.preventDefault();
           break;
         default:
           break;
@@ -150,30 +164,19 @@
 
     function execute() {
       resetCursor();
-      if (cursor.parentNode) {
-        cursor.parentNode.previousSibling.id = "";
-        if (cursor.parentNode.textContent == " ")
-          return;
-        else
-          insertLine(eval(cursor.parentNode.textContent), "afterend");
-      }
+      if (!cursor.parentNode || cursor.parentNode.textContent == " ") return;
 
-      var ctrl = document.createElement("dt"),
-          next = document.createElement("dd");
-
-      ctrl.id = "time";
-      ctrl.textContent = line++ + " " + new Date().toString().substring(16,24);
-
-      next.classList.add("stdin");
-      next.appendChild(cursor);
-      term.appendChild(ctrl);
-      term.appendChild(next);
+      var text = cursor.parentNode.textContent;
+      insertLine(line++, clock.textContent, "nenad", text, "in");
+      clearLine();
+      //insertLine(line++, clock.textContent, "eval", eval(text), "out");
+      callback(text);
     
-      pntr = term.querySelectorAll(".stdin").length-1;
+      pntr = term.querySelectorAll("dd.stdin").length-1;
     }
 
-    function insertLine(data, position) {
-      term.lastChild.insertAdjacentHTML(position, "<dt>" + line++ + " " + new Date().toString().substring(16,24) + "</dt><dd class='stdout'>" + data + "</dd>");
+    function insertLine(line, time, name, data, type) {
+      document.getElementById("input").insertAdjacentHTML("beforebegin", "<dt><span class='line'>"+line+"</span> <span>"+time+"</span> <span>"+name+"</span></dt><dd class='std"+type+"'>"+data+"</dd>");
     }
 
     function clearLine() {
@@ -201,7 +204,11 @@
       cursor.textContent = cursor.nextSibling.textContent.substring(0, 1);
       cursor.nextSibling.textContent = cursor.nextSibling.textContent.substring(1);
     }
-  })(document.body);
+
+    return function(name, data) {
+      insertLine(line++, clock.textContent, name, data, "out");
+    };
+  })(document.body, callback);
 </script>
 </body>
 </html>
