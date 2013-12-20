@@ -14,12 +14,14 @@
   		font-family: monospace;
       padding: 10px 0;
       text-shadow: 0 0 3px #bcefe6;
+      transition: text-shadow 100ms ease;
   	}
   	ul {
 		  width:100%;
 		  list-style-type: none;
   	}
     dl {
+      float: left;
       white-space: pre;
       margin-left: -3em;
       transition: margin 400ms ease;
@@ -29,27 +31,28 @@
       clear: left;
     }
     dt:after {
-      content: " # ";
+      content: "# ";
     }
-    dl {
-      float: left;
+    dt>span:after {
+      content: " ";
+    }
+    dd.stdout {
+      margin-left: 3.6em;
     }
     span.line {
       display: inline-block;
-      width: 3em;
+      width: 3.6em;
       text-align: right;
-      color: orange;
     }
-    #cursor {
-      height: 1em;
-      width: 1em;
+    span.clock {
+      margin-left: 3.6em;
     }
-    #cursor.highlight {
+    .highlight {
       background-color: #bcefe6;
       color: black;
       box-shadow: 0 0 3px #bcefe6;
     }
-    #cursor.nofocus {
+    .nofocus {
       background-color: transparent !important;
       color: #bcefe6 !important;
       box-shadow: 0 0 3px #bcefe6;
@@ -59,9 +62,6 @@
 <body>
 <!--pre>
 #####################################################
-#                                                   #
-#  Welcome to TerminalJS. This is an introductory   #
-#  text. It has some information to get started     #
 #     ____                     ___                  #
 #    / __/__ ______ _________ / _ \___  ___  __ _   #
 #   _\ \/ -_) __/ // / __/ -_) , _/ _ \/ _ \/  ' \  #
@@ -80,35 +80,42 @@
   }
 
   var T = (function (container, callback) {
-    var term   = document.createElement("dl"),
-        line   = 0,
-        pntr   = 0;
-
-    window.addEventListener("keydown", control, true);
-    window.addEventListener("keypress", write, true);
-    window.addEventListener("focus", function(){ cursor.classList.remove("nofocus"); }, true);
-    window.addEventListener("blur", function(){ cursor.classList.add("nofocus"); }, true);
-
-    term.insertAdjacentHTML("afterbegin", "<dt id='input'><span class='line'></span> <span id='time'></span></dt><dd class='stdin'><span id='cursor'> </span></dd>");
-    container.appendChild(term);
-
-    var cursor = document.getElementById("cursor"),
-        clock = document.getElementById('time'),
-        timer = window.setInterval(toggleCursor, 600);
+    var term = container.appendChild(document.createElement("dl")),
+        line = 0,
+        pntr = 0,
+        input = term.appendChild(document.createElement("dt")),
+        field = term.appendChild(document.createElement("dd")),
+        caret = field.appendChild(document.createElement("span")),
+        clock = input.appendChild(document.createElement('span')),
+        named = input.appendChild(document.createElement('span')),
+        timer = window.setInterval(toggleCaret, 600);
 
     clock.date = new Date();
     clock.textContent = clock.date.toString().substring(16,24);
-    window.setInterval(function(){ clock.date.setTime(Date.now()); clock.textContent = clock.date.toString().substring(16,24); }, 1000);
+    clock.classList.add("clock");
 
-    function toggleCursor(highlight) {
-      if (highlight || !cursor.classList.contains("highlight"))
-        cursor.classList.add("highlight");
+    window.setInterval(function() { 
+      clock.date.setTime(Date.now());
+      clock.textContent = clock.date.toString().substring(16, 24); 
+    }, 1000);
+
+    caret.textContent = " ";
+    named.textContent = "[input]"
+
+    window.addEventListener("keydown", control, true);
+    window.addEventListener("keypress", write, true);
+    window.addEventListener("focus", function() { caret.classList.remove("nofocus"); }, true);
+    window.addEventListener("blur", function() { caret.classList.add("nofocus"); }, true);
+
+    function toggleCaret(highlight) {
+      if (highlight || !caret.classList.contains("highlight"))
+        caret.classList.add("highlight");
       else
-        cursor.classList.remove("highlight");
+        caret.classList.remove("highlight");
 
       if (highlight) {
         window.clearInterval(timer);
-        timer = window.setInterval(toggleCursor, 600);
+        timer = window.setInterval(toggleCaret, 600);
       }
     }
 
@@ -117,7 +124,7 @@
     }
 
     function control(event) {
-      toggleCursor(true);
+      toggleCaret(true);
 
       switch (event.which) {
         case 13:
@@ -139,14 +146,14 @@
         case 38:
           if (pntr > 0) { 
             clearLine();
-            cursor.parentNode.insertBefore(document.createTextNode(term.querySelectorAll("dd.stdin")[--pntr].textContent.trim()), cursor);
+            caret.parentNode.insertBefore(document.createTextNode(term.querySelectorAll("dd.stdin")[--pntr].textContent.trim()), caret);
           }
           event.preventDefault();
           break;
         case 40:
-          if (pntr < term.querySelectorAll("dd.stdin").length-1) {
+          if (pntr < term.querySelectorAll("dd.stdin").length) {
             clearLine();
-            cursor.parentNode.insertBefore(document.createTextNode(term.querySelectorAll("dd.stdin")[++pntr].textContent.trim()), cursor);
+            caret.parentNode.insertBefore(document.createTextNode(term.querySelectorAll("dd.stdin")[++pntr].textContent.trim()), caret);
           }
           event.preventDefault();
           break;
@@ -163,70 +170,98 @@
 
     function write(event) {
       if (event.which < 32) return;
-      if (!cursor.previousSibling) cursor.parentNode.insertBefore(document.createTextNode(""), cursor);
-      cursor.previousSibling.textContent = cursor.previousSibling.textContent + String.fromCharCode(event.which);
+      if (!caret.previousSibling) caret.parentNode.insertBefore(document.createTextNode(""), caret);
+      caret.previousSibling.textContent = caret.previousSibling.textContent + String.fromCharCode(event.which);
     }
 
     function execute() {
       while(moveRight());
-      if (!cursor.parentNode || cursor.parentNode.textContent == " ") return;
+      if (!caret.parentNode || caret.parentNode.textContent == " ") return;
 
-      var text = cursor.parentNode.textContent;
-      insertLine(line++, clock.textContent, "nenad", text, "in");
+      callback(insertLine(line++, clock.textContent, named.textContent, caret.previousSibling.textContent, "stdin").trim());
       clearLine();
-      callback(text.trim());
     
-      pntr = term.querySelectorAll("dd.stdin").length-1;
+      pntr = term.querySelectorAll("dd.stdin").length;
     }
 
     function insertLine(line, time, name, data, type) {
-      document.getElementById("input").insertAdjacentHTML("beforebegin", "<dt><span class='line'>"+line+"</span> <span>"+time+"</span> <span>"+name+"</span></dt><dd class='std"+type+"' id='"+line+"'>"+data+"</dd>");
-      return line;
+      var f = term.insertBefore(document.createElement("dt"), input),
+          l = f.appendChild(document.createElement("span")),
+          t = f.appendChild(document.createElement("span")),
+          n = f.appendChild(document.createElement("span"));
+      
+      l.classList.add("line");
+      l.appendChild(document.createTextNode(line));
+      t.appendChild(document.createTextNode(time));
+      n.appendChild(document.createTextNode(name));
+
+      return insertText(data, type, line);
+    }
+
+    function insertText(data, type, id) {
+      var f = term.insertBefore(document.createElement("dd"), input);
+      
+      f.setAttribute("id", id);
+      f.classList.add(type);
+      f.appendChild(document.createTextNode(data));
+
+      return data;
     }
 
     function clearLine() {
-      if (cursor.previousSibling) cursor.previousSibling.remove();
-      if (cursor.nextSibling) cursor.nextSibling.remove();
-      cursor.textContent = " ";
+      if (caret.previousSibling) caret.previousSibling.remove();
+      if (caret.nextSibling) caret.nextSibling.remove();
+      caret.textContent = " ";
     }
 
     function moveLeft(remove) {
-      if (!cursor.previousSibling || cursor.previousSibling.textContent == "") return false;
+      if (!caret.previousSibling || caret.previousSibling.textContent == "") return false;
       if (!remove) {
-        if (!cursor.nextSibling) cursor.parentNode.appendChild(document.createTextNode(""));
-        cursor.nextSibling.textContent = cursor.textContent + cursor.nextSibling.textContent;
-        cursor.textContent = cursor.previousSibling.textContent.substring(cursor.previousSibling.textContent.length - 1);
+        if (!caret.nextSibling) caret.parentNode.appendChild(document.createTextNode(""));
+        caret.nextSibling.textContent = caret.textContent + caret.nextSibling.textContent;
+        caret.textContent = caret.previousSibling.textContent.substring(caret.previousSibling.textContent.length - 1);
       }
-      cursor.previousSibling.textContent = cursor.previousSibling.textContent.substring(0, cursor.previousSibling.textContent.length - 1);
+      caret.previousSibling.textContent = caret.previousSibling.textContent.substring(0, caret.previousSibling.textContent.length - 1);
 
       return true;
     }
 
     function moveRight(remove) {
-      if (!cursor.nextSibling || cursor.nextSibling.textContent == "") return false;
+      if (!caret.nextSibling || caret.nextSibling.textContent == "") return false;
       if (!remove) {
-        if (!cursor.previousSibling) cursor.parentNode.insertBefore(document.createTextNode(""), cursor);
-        cursor.previousSibling.textContent = cursor.previousSibling.textContent + cursor.textContent;
+        if (!caret.previousSibling) caret.parentNode.insertBefore(document.createTextNode(""), caret);
+        caret.previousSibling.textContent = caret.previousSibling.textContent + caret.textContent;
       }
-      cursor.textContent = cursor.nextSibling.textContent.substring(0, 1);
-      cursor.nextSibling.textContent = cursor.nextSibling.textContent.substring(1);
+      caret.textContent = caret.nextSibling.textContent.substring(0, 1);
+      caret.nextSibling.textContent = caret.nextSibling.textContent.substring(1);
 
       return true;
     }
 
     return {
       setLine: function(name, data) {
-        return insertLine(line++, clock.textContent, name, data, "out"); //in, out, err
-        //return insertLine(null, null, null, data, "info");
+        return insertLine(line++, clock.textContent, name, data, "");
       },
       getLine: function(line) {
         return document.getElementById(line) && document.getElementById(line).textContent.trim();
       },
       readLine: function(request, callback) {
         return;
+      },
+      println: function(data, name) {
+        return (name) ? insertLine(line++, clock.textContent, name, data, "")
+                      : insertText(data, "stdout");
       }
     };
   })(document.body, callback);
+
+console.log(T.println("#####################################################"));
+console.log(T.println("#                                                   #"));
+console.log(T.println("#  Welcome to TerminalJS. This is an introductory   #"));
+console.log(T.println("#  text. It has some information to get started     #"));
+console.log(T.println("#                                                   #"));
+console.log(T.println("#####################################################"));
+T.println(" ");
 </script>
 </body>
 </html>
