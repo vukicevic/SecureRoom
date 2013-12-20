@@ -39,7 +39,6 @@
       width: 3em;
       text-align: right;
       color: orange;
-      
     }
     #cursor {
       height: 1em;
@@ -73,6 +72,7 @@
 <b></b>
 <b></b>
 <script>
+  //^\?([a-z]+) ?([\S]+)?
   function callback(text) {
     /*if (text.indexOf("!") == 0) text = T.get(text.substring(1));
     T.set("result", eval(text));*/
@@ -89,7 +89,7 @@
     window.addEventListener("focus", function(){ cursor.classList.remove("nofocus"); }, true);
     window.addEventListener("blur", function(){ cursor.classList.add("nofocus"); }, true);
 
-    term.insertAdjacentHTML("afterbegin", "<dt id='input'><span class='line'></span> <span id='time'></span> </dt><dd class='stdin'><span id='cursor'> </span></dd>");
+    term.insertAdjacentHTML("afterbegin", "<dt id='input'><span class='line'></span> <span id='time'></span></dt><dd class='stdin'><span id='cursor'> </span></dd>");
     container.appendChild(term);
 
     var cursor = document.getElementById("cursor"),
@@ -112,6 +112,10 @@
       }
     }
 
+    function toggleLineNumbers() {
+      term.style.marginLeft = (term.style.marginLeft == "0px") ? "-3em" : "0px";
+    }
+
     function control(event) {
       toggleCursor(true);
 
@@ -127,7 +131,7 @@
           moveRight(true);
           break;
         case 37:
-          if (!moveLeft()) term.style.marginLeft = (term.style.marginLeft == "0px") ? "-3em" : "0px";
+          if (!moveLeft()) toggleLineNumbers();
           break;
         case 39:
           moveRight();
@@ -211,11 +215,15 @@
     }
 
     return {
-      set: function(name, data) {
-        return insertLine(line++, clock.textContent, name, data, "out");
+      setLine: function(name, data) {
+        return insertLine(line++, clock.textContent, name, data, "out"); //in, out, err
+        //return insertLine(null, null, null, data, "info");
       },
-      get: function(line) {
+      getLine: function(line) {
         return document.getElementById(line) && document.getElementById(line).textContent.trim();
+      },
+      readLine: function(request, callback) {
+        return;
       }
     };
   })(document.body, callback);
