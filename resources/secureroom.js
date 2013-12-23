@@ -41,7 +41,7 @@ function SecureRoom(callback) {
 
   function onGenerate(data) {
     if (prefs.myid) {
-      var id = buildKey(prefs.name, C.TYPE_RSA_ENCRYPT, data, Math.round(new Date/1000), C.STATUS_ENABLED);
+      var id = buildKey(prefs.name, C.TYPE_RSA_ENCRYPT, data, Math.round(Date.now()/1000), C.STATUS_ENABLED);
       chain[prefs.myid].peer = id;
       chain[id].peer = prefs.myid;
       chain[id].sign = Asymmetric.sign(chain[prefs.myid], KeyUtil.generateSignatureHash(chain[prefs.myid], chain[id]), true);
@@ -56,7 +56,7 @@ function SecureRoom(callback) {
 
       callback();
     } else {
-      prefs.myid = buildKey(prefs.name, C.TYPE_RSA_SIGN, data, Math.round(new Date/1000), C.STATUS_ENABLED);
+      prefs.myid = buildKey(prefs.name, C.TYPE_RSA_SIGN, data, Math.round(Date.now()/1000), C.STATUS_ENABLED);
       chain[prefs.myid].sign = Asymmetric.sign(chain[prefs.myid], KeyUtil.generateSignatureHash(chain[prefs.myid]), true);
     }
   }
@@ -238,7 +238,7 @@ var Comm = {
   sendMessage: function(text) {
     var rawdata, message = new Message();
 
-    message.sendtime = Math.round(new Date/1000);
+    message.sendtime = Math.round(Date.now()/1000);
     message.recvtime = message.sendtime;
     message.sender   = App.myId(C.TYPE_RSA_SIGN);
 
@@ -267,7 +267,7 @@ var Comm = {
     if (rawdata == null) return null;
 
     i = rawdata.indexOf(0);
-    message.recvtime  = Math.round(new Date/1000);
+    message.recvtime  = Math.round(Date.now()/1000);
     message.plaintext = ArrayUtil.toString(rawdata.slice(0, i));
     message.sendtime  = ArrayUtil.toWord(rawdata.slice(i+1, i+5));
     message.sender    = ArrayUtil.toHex(rawdata.slice(i+5, i+13));

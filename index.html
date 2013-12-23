@@ -182,7 +182,7 @@
           content = {};
 
       content.id   = PrintUtil.text(id);
-      content.time = PrintUtil.time(Math.round(new Date/1000));
+      content.time = PrintUtil.time(Math.round(Date.now()/1000));
       content.name = PrintUtil.text(App.getKey(id).name);
       content.info = UI.buildKeyInfo(id);
 
@@ -296,10 +296,10 @@
         container.insertAdjacentHTML('beforeend', '<div class="loading"></div>');
         break;
       case 'connect':
-        container.insertAdjacentHTML('beforeend', '<div class="time">'+PrintUtil.time(Math.round(+new Date()/1000))+'</div><p>Connected.</p>');
+        container.insertAdjacentHTML('beforeend', '<div class="time">'+PrintUtil.time(Math.round(Date.now()/1000))+'</div><p>Connected.</p>');
         break;
       case 'disconnect':
-        container.insertAdjacentHTML('beforeend', '<div class="time">'+PrintUtil.time(Math.round(+new Date()/1000))+'</div><p>Disconnected.</p>');
+        container.insertAdjacentHTML('beforeend', '<div class="time">'+PrintUtil.time(Math.round(Date.now()/1000))+'</div><p>Disconnected.</p>');
         break;   
       }
     },

@@ -4,22 +4,22 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
   <title>SecureRoom Terminal</title>
   <style>
-  	* {
-   		padding: 0;
-  		margin: 0;
-	  }
+    * {
+      padding: 0;
+      margin: 0;
+    }
     body {
-  		background-color: black;
-  		color: #bcefe6;
-  		font-family: monospace;
+      background-color: black;
+      color: #bcefe6;
+      font-family: monospace;
       padding: 10px 0;
       text-shadow: 0 0 3px #bcefe6;
       transition: text-shadow 100ms ease;
-  	}
-  	ul {
-		  width:100%;
-		  list-style-type: none;
-  	}
+    }
+    #term {
+      overflow-y: scroll;
+      height: 100%;
+    }
     dl {
       float: left;
       white-space: pre;
@@ -36,7 +36,7 @@
     dt>span:after {
       content: " ";
     }
-    dd.stdout {
+    dd.stdout, dd.stderr {
       margin-left: 3.6em;
     }
     span.line {
@@ -69,27 +69,82 @@
 #                                                   #
 #####################################################
 </pre-->
-<b></b>
-<b></b>
+<div id="term"></div>
+
 <script>
   //^\?([a-z]+) ?([\S]+)?
-  function callback(text) {
-    /*if (text.indexOf("!") == 0) text = T.get(text.substring(1));
-    T.set("result", eval(text));*/
-    console.log(text);
+  /*function setName(stdout, stderr) {
+    function arrive() {
+      stdout("Please enter a name:");
+    }
+
+    arrive();
+
+    return function process(stdin) {
+      if(stdin.length > 2) {
+        stdout("Name set: " + stdin);
+        return setStrength(stdout, stderr);
+      }
+      stderr("Name not long enough, min. length: 3.");
+      arrive();
+
+      return process;
+    };
   }
 
-  var T = (function (container, callback) {
+  function setStrength(stdout, stderr) {
+    function arrive() {
+      stdout("Please choose a key size:");
+      stdout("1) 1024 bits");
+      stdout("2) 1536 bits");
+      stdout("3) 2048 bits");  
+    }
+
+    arrive();
+
+    return function process(stdin) {
+      if (parseInt(stdin) > 0 && parseInt(stdin) < 4) {
+        stdout("Thank you, size set: " + stdin);
+        return null;
+      }
+      stderr("Invalid choice. Please try again.");
+      arrive();
+
+      return process;
+    };
+  }*/
+
+  function EchoApp(stdout, stderr, caller) {
+    stdout("Welcome to the echo application");
+
+    return function process(stdin) {
+      if (stdin == "quit" && caller != null) return caller(stdout, stderr, null);
+
+      stdout(stdin);
+
+      return process;
+    }
+  }
+
+  function EvalApp(stdout, stderr) {
+    stdout("Welcome to the eval application");
+
+    return function process(stdin) {
+      stdout(eval(stdin));
+
+      return process;
+    }
+  }
+
+  var T = (function (container, state) {
     var term = container.appendChild(document.createElement("dl")),
-        line = 0,
-        pntr = 0,
         input = term.appendChild(document.createElement("dt")),
         field = term.appendChild(document.createElement("dd")),
         caret = field.appendChild(document.createElement("span")),
         clock = input.appendChild(document.createElement('span')),
-        named = input.appendChild(document.createElement('span')),
-        timer = window.setInterval(toggleCaret, 600);
+        label = input.appendChild(document.createElement('span'));
 
+    clock.timer = window.setInterval(toggleCaret, 600);
     clock.date = new Date();
     clock.textContent = clock.date.toString().substring(16,24);
     clock.classList.add("clock");
@@ -100,12 +155,18 @@
     }, 1000);
 
     caret.textContent = " ";
-    named.textContent = "[input]"
+    caret.line = 0;
+    caret.pntr = 0;
+
+    label.textContent = "[input]";
 
     window.addEventListener("keydown", control, true);
     window.addEventListener("keypress", write, true);
     window.addEventListener("focus", function() { caret.classList.remove("nofocus"); }, true);
     window.addEventListener("blur", function() { caret.classList.add("nofocus"); }, true);
+
+    state = state(function(data) { return insertText(data, "stdout"); }, 
+                  function(data) { return insertText(data, "stderr"); });
 
     function toggleCaret(highlight) {
       if (highlight || !caret.classList.contains("highlight"))
@@ -114,8 +175,8 @@
         caret.classList.remove("highlight");
 
       if (highlight) {
-        window.clearInterval(timer);
-        timer = window.setInterval(toggleCaret, 600);
+        window.clearInterval(clock.timer);
+        clock.timer = window.setInterval(toggleCaret, 600);
       }
     }
 
@@ -128,60 +189,73 @@
 
       switch (event.which) {
         case 13:
-          execute();
           event.preventDefault();
-          break;
+          execute();
+        break;
+
         case 8:
           moveLeft(true);
-          break;
+        break;
+
         case 46:
           moveRight(true);
-          break;
+        break;
+
         case 37:
           if (!moveLeft()) toggleLineNumbers();
-          break;
+        break;
+
         case 39:
           moveRight();
-          break;
+        break;
+
         case 38:
-          if (pntr > 0) { 
-            clearLine();
-            caret.parentNode.insertBefore(document.createTextNode(term.querySelectorAll("dd.stdin")[--pntr].textContent.trim()), caret);
-          }
           event.preventDefault();
-          break;
+          if (caret.pntr > 0) { 
+            clearLine();
+            caret.parentNode.insertBefore(document.createTextNode(term.querySelectorAll("dd.stdin")[--caret.pntr].textContent.trim()), caret);
+          }
+        break;
+
         case 40:
-          if (pntr < term.querySelectorAll("dd.stdin").length) {
-            clearLine();
-            caret.parentNode.insertBefore(document.createTextNode(term.querySelectorAll("dd.stdin")[++pntr].textContent.trim()), caret);
-          }
           event.preventDefault();
-          break;
+          var lines = term.querySelectorAll("dd.stdin");
+          if (caret.pntr < lines.length) {
+            clearLine();
+            if (++caret.pntr < lines.length)
+              caret.parentNode.insertBefore(document.createTextNode(lines[caret.pntr].textContent.trim()), caret);
+          }
+        break;
+
         case 35:
           while(moveRight());
-          break;
+        break;
+
         case 36:
           while(moveLeft());
-          break;
-        default:
-          break;
+        break;
       }
     }
 
     function write(event) {
       if (event.which < 32) return;
-      if (!caret.previousSibling) caret.parentNode.insertBefore(document.createTextNode(""), caret);
-      caret.previousSibling.textContent = caret.previousSibling.textContent + String.fromCharCode(event.which);
+
+      if (!caret.previousSibling) {
+        caret.parentNode.insertBefore(document.createTextNode(String.fromCharCode(event.which)), caret);
+      } else {
+        caret.previousSibling.textContent = caret.previousSibling.textContent + String.fromCharCode(event.which);
+      }
     }
 
     function execute() {
       while(moveRight());
-      if (!caret.parentNode || caret.parentNode.textContent == " ") return;
+      if (caret.parentNode.textContent == " ") return;
 
-      callback(insertLine(line++, clock.textContent, named.textContent, caret.previousSibling.textContent, "stdin").trim());
+      state(insertLine(caret.line++, clock.textContent, label.textContent, caret.previousSibling.textContent, "stdin").trim());
       clearLine();
+      input.scrollIntoView();
     
-      pntr = term.querySelectorAll("dd.stdin").length;
+      caret.pntr = term.querySelectorAll("dd.stdin").length;
     }
 
     function insertLine(line, time, name, data, type) {
@@ -239,29 +313,19 @@
     }
 
     return {
-      setLine: function(name, data) {
-        return insertLine(line++, clock.textContent, name, data, "");
+      input: function(name) {
+        label.removeChild(label.firstChild);
+        label.appendChild(document.createTextNode(name));
       },
-      getLine: function(line) {
+      read: function(line) {
         return document.getElementById(line) && document.getElementById(line).textContent.trim();
       },
-      readLine: function(request, callback) {
-        return;
-      },
-      println: function(data, name) {
-        return (name) ? insertLine(line++, clock.textContent, name, data, "")
+      print: function(data, name) {
+        return (name) ? insertLine(caret.line++, clock.textContent, name, data, "")
                       : insertText(data, "stdout");
       }
     };
-  })(document.body, callback);
-
-console.log(T.println("#####################################################"));
-console.log(T.println("#                                                   #"));
-console.log(T.println("#  Welcome to TerminalJS. This is an introductory   #"));
-console.log(T.println("#  text. It has some information to get started     #"));
-console.log(T.println("#                                                   #"));
-console.log(T.println("#####################################################"));
-T.println(" ");
+  })(document.getElementById("term"), EchoApp);
 </script>
 </body>
 </html>
