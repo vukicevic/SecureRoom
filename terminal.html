@@ -313,15 +313,15 @@
     }
 
     return {
-      input: function(name) {
+      setLabel: function(label) {
         label.removeChild(label.firstChild);
-        label.appendChild(document.createTextNode(name));
+        label.appendChild(document.createTextNode(label));
       },
       read: function(line) {
         return document.getElementById(line) && document.getElementById(line).textContent.trim();
       },
-      print: function(data, name) {
-        return (name) ? insertLine(caret.line++, clock.textContent, name, data, "")
+      print: function(data, label) {
+        return (label) ? insertLine(caret.line++, clock.textContent, label, data, "")
                       : insertText(data, "stdout");
       }
     };
