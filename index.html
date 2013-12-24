@@ -393,7 +393,7 @@
   </li></ul>
 
   <script>
-  if (typeof window.crypto.getRandomValues === 'function' && typeof window.WebSocket === 'function' && typeof window.Worker === 'function') {
+  if (typeof window.WebSocket === 'function' && typeof window.Worker === 'function') {
     var App = SecureRoom(function() {
                 UI.addWelcome('distribute');
                 UI.toggleSettings()('close');
