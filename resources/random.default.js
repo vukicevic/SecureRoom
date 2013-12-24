@@ -19,14 +19,9 @@ var Random = {
   s - Size to generate, in bits
   */
   generate: function(size) {
-    var a = [],
-        l = Math.ceil(size/8),
-        t, i;
-      
-    t = new Uint8Array(l);
+    var t = new Uint8Array(Math.ceil(size/8));
     window.crypto.getRandomValues(t);
-    for (i = 0; i < l; i++) a[i] = t[i];
 
-    return a;
+    return Array.prototype.slice.call(t);
   }
 }
