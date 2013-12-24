@@ -677,7 +677,7 @@ function KeyGen(size, callback) {
       data.p = mpi.c28to8(w.p.data);
       data.q = mpi.c28to8(w.q.data);
 
-      callback(data, new Date - time);
+      callback(data, Date.now() - time);
     }
   };
 
@@ -698,7 +698,7 @@ function KeyGen(size, callback) {
   };
 
   return function() { 
-    time = +new Date;
+    time = Date.now();
 
     createWorker('p', process);
     createWorker('q', process);
