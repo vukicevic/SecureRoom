@@ -21,7 +21,8 @@ function SecureRoom(callback) {
       if (prefs.room == 'index.html') prefs.room = UrlUtil.getParameter('room');
 
       prefs.server = (UrlUtil.getParameter('server')) ? 'wss://'+UrlUtil.getParameter('server')+':443/ws/'
-                                                      : 'wss://'+document.location.host+':443/ws/';
+                                                      : 'wss://princip.secureroom.net:443/ws/';
+                                                      //: 'wss://'+document.location.host+':443/ws/';
 
       prefs.cipher = {size: 128, type: 'AES'};
       prefs.key    = {size: 1024, type: 'RSA'};
@@ -49,7 +50,8 @@ function SecureRoom(callback) {
       if (!prefs.room) {
         prefs.room = prefs.myid.substr(-5);
         var opts = (window.location.search) ? window.location.search+'&room=' : '?room=',
-            path = (window.location.pathname.indexOf('index.html') > -1) ? window.location.pathname+opts+prefs.room : window.location.pathname+prefs.room;
+            path = window.location.pathname+opts+prefs.room;
+            //path = (window.location.pathname.indexOf('index.html') > -1) ? window.location.pathname+opts+prefs.room : window.location.pathname+prefs.room;
       
         window.history.replaceState({} , 'SecureRoom', path);
       }
