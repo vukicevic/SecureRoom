@@ -17,8 +17,9 @@ function SecureRoom(callback) {
   var chain = {},
       prefs = {};
 
-      prefs.room   = window.location.pathname.substr(window.location.pathname.lastIndexOf('/')+1);
-      if (prefs.room == 'index.html') prefs.room = UrlUtil.getParameter('room');
+      //prefs.room   = window.location.pathname.substr(window.location.pathname.lastIndexOf('/')+1);
+      //if (prefs.room == 'index.html') prefs.room = UrlUtil.getParameter('room');
+      prefs.room = UrlUtil.getParameter('room');
 
       prefs.server = (UrlUtil.getParameter('server')) ? 'wss://'+UrlUtil.getParameter('server')+':443/ws/'
                                                       : 'wss://princip.secureroom.net:443/ws/';
