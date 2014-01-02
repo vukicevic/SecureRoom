@@ -539,16 +539,16 @@ var mpi = {
   },
 
   //14.71 Modified Garner's algo
-  gar: function gar2(x, p, q, d, u, dp1, dq1) {
+  gar: function gar(x, p, q, d, u, dp1, dq1) {
     var vp, vq, t;
 
-    if (undefined == dp1) {
+    if (typeof dp1 == "undefined") {
       dp1 = this.mod(d, this.dec(p));
       dq1 = this.mod(d, this.dec(q));
     }
 
     vp = this.exp(this.mod(x,p), dp1, p); //replace mod(x,p) with bmr(x,p) for keysizes with "saturated" modulus
-    vq = this.exp(this.mod(x,q), dq1, q); //replace mod(x,q)
+    vq = this.exp(this.mod(x,q), dq1, q);
 
     if (this.cmp(vq,vp) < 0) {
       t = this.cut(this.sub(vp,vq));
