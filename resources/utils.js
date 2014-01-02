@@ -22,6 +22,17 @@ var KeyUtil = {
     return (l < 256) ? [l] : (l < 65536) ? ArrayUtil.fromHalf(l) : ArrayUtil.fromWord(l);
   },
 
+  createBerLength: function(l) {
+    if (l < 128) return [l];
+
+    var ll = Math.floor(Math.log(l)/Math.log(256))+1,
+        pr = [128 + ll];
+
+    while (ll-- > 0) pr.push( (l >> (ll*8)) & 255 );
+
+    return pr;
+  },
+
   createMpi: function(mpi) {
     return ArrayUtil.fromHalf(ArrayUtil.bitLength(mpi)).concat(mpi);
   },
@@ -145,6 +156,40 @@ var KeyUtil = {
         encSigPacket  = this.createSignaturePacket(sKey, eKey);
     
     return ArmorUtil.dress({"type": type, "headers": headers, "packets": signPacket.concat(namePacket).concat(signSigPacket).concat(encryptPacket).concat(encSigPacket)});
+  },
+
+  exportSSH: function(key) {
+    var prefix = [00, 00, 00, 07, 115, 115, 104, 45, 114, 115, 97];
+
+    prefix = prefix.concat(ArrayUtil.fromWord(key.data.e.length))
+                   .concat(key.data.e)
+                   .concat(ArrayUtil.fromWord(key.data.n.length))
+                   .concat(key.data.n);
+
+    return "ssh-rsa " + Base64Util.encode(prefix) + " " + key.name;
+  },
+
+  exportPK1: function(key, private) {
+    var pref = [48], type, data;
+
+    if (private) {
+      type = " PRIVATE KEY-----\n";
+      data = [2,1,0,2].concat(this.createBerLength(key.data.n.length)).concat(key.data.n)
+                      .concat([2]).concat(this.createBerLength(key.data.e.length)).concat(key.data.e)
+                      .concat([2]).concat(this.createBerLength(key.data.d.length)).concat(key.data.d)
+                      .concat([2]).concat(this.createBerLength(key.data.p.length)).concat(key.data.p)
+                      .concat([2]).concat(this.createBerLength(key.data.q.length)).concat(key.data.q)
+                      .concat([2]).concat(this.createBerLength(key.data.dp.length)).concat(key.data.dp)
+                      .concat([2]).concat(this.createBerLength(key.data.dq.length)).concat(key.data.dq)
+                      .concat([2]).concat(this.createBerLength(key.data.u.length)).concat(key.data.u);
+
+    } else {
+      type = " PUBLIC KEY-----\n";
+      data = [2].concat(this.createBerLength(key.data.n.length)).concat(key.data.n)
+                .concat([2]).concat(this.createBerLength(key.data.e.length)).concat(key.data.e);
+    }
+
+    return "-----BEGIN RSA" + type + Base64Util.encode(pref.concat(this.createBerLength(data.length)).concat(data), true) + "\n-----END RSA" + type;
   }
 }
 

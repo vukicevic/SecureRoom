@@ -694,7 +694,7 @@ function KeyGen(size, callback) {
       }
 
       if (!w.q.data || !w.p.data) timer = timeout();
-    }, Math.floor((size*size)/200), w);
+    }, Math.floor((size*size)/100), w);
   };
 
   return function() { 
