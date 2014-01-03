@@ -1,11 +1,11 @@
 var mpi = {
-  bits: 28,
+  /*bits: 28,
   bmax: 268435456,
   bdmx: 72057594037927936,
   bmsk: 268435455,
   bhlf: 14,
   bhmx: 16384,
-  bhmk: 16383,
+  bhmk: 16383,*/
   zero: [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
   sneg: false,
 
@@ -94,9 +94,9 @@ var mpi = {
     for (var c = 0, i = l-1; i >= 0; i--) {
       w[i] = x[i] + y[i] + c;
 
-      if (w[i] > this.bmsk) {
+      if (w[i] > 268435455) {
         c = 1;
-        w[i] -= this.bmax;
+        w[i] -= 268435456;
       } else {
         c = 0;
       }
@@ -120,7 +120,7 @@ var mpi = {
 
       if ( w[l] < 0 ) {
         c = 1;
-        w[l] += this.bmax;
+        w[l] += 268435456;
       } else {
         c = 0;
       }
@@ -144,16 +144,16 @@ var mpi = {
 
     for (var l1, l2, h1, h2, t1, t2, c, j, i = t; i >= 0; i--) {
       c = 0;
-      l1 = y[i] & this.bhmk;
-      h1 = y[i] >> this.bhlf;
+      l1 = y[i] & 16383;
+      h1 = y[i] >> 14;
       for (j = n; j >= 0; j--) {
-        l2 = x[j] & this.bhmk;
-        h2 = x[j] >> this.bhlf;
+        l2 = x[j] & 16383;
+        h2 = x[j] >> 14;
 
         t1 = h1*l2 + h2*l1;
-        t2 = l1*l2 + ((t1 & this.bhmk) << this.bhlf) + w[j+i+1] + c;
-        w[j+i+1] = t2 & this.bmsk;
-        c = h1*h2 + (t1 >> this.bhlf) + (t2 >> this.bits);
+        t2 = l1*l2 + ((t1 & 16383) << 14) + w[j+i+1] + c;
+        w[j+i+1] = t2 & 268435455;
+        c = h1*h2 + (t1 >> 14) + (t2 >> 28);
       }
       w[i] = c;
     }
@@ -167,20 +167,20 @@ var mpi = {
         w = this.zero.slice(0, 2*t);
 
     for ( var l1, l2, h1, h2, t1, t2, uv, c = 0, j, i = t-1; i >= 0; i-- ) {
-      l1 = x[i] & this.bhmk;
-      h1 = x[i] >> this.bhlf;
+      l1 = x[i] & 16383;
+      h1 = x[i] >> 14;
       t1 = 2*h1*l1;
-      t2 = l1*l1 + ((t1 & this.bhmk) << this.bhlf) + w[2*i+1];
-      w[2*i+1] = t2 & this.bmsk;
-      c = h1*h1 + (t1 >> this.bhlf) + (t2 >> this.bits);
+      t2 = l1*l1 + ((t1 & 16383) << 14) + w[2*i+1];
+      w[2*i+1] = t2 & 268435455;
+      c = h1*h1 + (t1 >> 14) + (t2 >> 28);
       for ( j = i-1; j >= 0; j-- ) {
-        l2 = (2 * x[j]) & this.bhmk;
-        h2 = x[j] >> (this.bhlf - 1);
+        l2 = (2 * x[j]) & 16383;
+        h2 = x[j] >> (14 - 1);
 
         t1 = h2*l1 + h1*l2;
-        t2 = l2*l1 + ((t1 & this.bhmk) << this.bhlf) + w[j+i+1] + c;
-        w[j+i+1] = t2 & this.bmsk;
-        c = h2*h1 + (t1 >> this.bhlf) + (t2 >> this.bits);
+        t2 = l2*l1 + ((t1 & 16383) << 14) + w[j+i+1] + c;
+        w[j+i+1] = t2 & 268435455;
+        c = h2*h1 + (t1 >> 14) + (t2 >> 28);
       }
       w[i] = c;
     }
@@ -189,13 +189,13 @@ var mpi = {
 
   //Right shift array
   rsh: function rsh(z, s) {
-    var ss = s % this.bits,
-        ls = Math.floor(s/this.bits),
+    var ss = s % 28,
+        ls = Math.floor(s/28),
         l = z.length - ls,
         x = z.slice(0,l);
 
     if (ss) {
-      while (--l) x[l] = ((x[l] >> ss) | (x[l-1] << (this.bits-ss))) & this.bmsk;
+      while (--l) x[l] = ((x[l] >> ss) | (x[l-1] << (28-ss))) & 268435455;
       x[l] = (x[l] >> ss);
       return this.cut(x);
     }
@@ -204,8 +204,8 @@ var mpi = {
 
   //Left shift array
   lsh: function lsh(x, s) {
-    var ss = s % this.bits,
-        ls = Math.floor(s/this.bits),
+    var ss = s % 28,
+        ls = Math.floor(s/28),
         l = x.length,
         r = [];
         t = 0;
@@ -213,8 +213,8 @@ var mpi = {
     if (ss) {
       while (l--) {
         r[l] = (x[l] << ss) + t;
-        t = x[l] >>> (this.bits-ss);
-        r[l] &= this.bmsk;
+        t = x[l] >>> (28-ss);
+        r[l] &= 268435455;
       }
       if (t != 0) r.unshift(t);
     }
@@ -232,7 +232,7 @@ var mpi = {
     var d = x.length - y.length,
         q = [0],
         k = y.concat(this.zero.slice(0, d)),
-        yt = y[0]*this.bmax + y[1];
+        yt = y[0]*268435456 + y[1];
 
     //only mmcp as last resort. if x0>k0 then do, if x0<k0 then dont, check only if x0=k0
     while ( x[0] > k[0] || (x[0] === k[0] && this.cmp(x, k) > -1) ) {
@@ -241,8 +241,8 @@ var mpi = {
     }
 
     for ( var p, xt, i1 = 1, i = 0; i < d; i++, i1++ ) {
-      q[i1] = (x[i] === y[0]) ? this.bmsk : Math.floor((x[i]*this.bmax + x[i1])/y[0]);
-      xt = x[i]*this.bdmx + x[i1]*this.bmax + x[i+2];
+      q[i1] = (x[i] === y[0]) ? 268435455 : Math.floor((x[i]*268435456 + x[i1])/y[0]);
+      xt = x[i]*72057594037927936 + x[i1]*268435456 + x[i+2];
 
       while ( q[i1]*yt > xt ) q[i1]--;//condition check fails due to precision problem with bits = 28
 
@@ -397,13 +397,15 @@ var mpi = {
   //14.42 Barret modular reduction
   bmr: function bmr(x, m, mu) {
     if (this.cmp(x,m) < 0) return x; //if equal, return 0;
-    var k, q1, q2, q3, r1, r2, r, s;
-    k = m.length;
-    if (undefined == mu) mu = this.div([1].concat(this.zero.slice(0,2*k)), m);
 
-    q1 = x.slice(0,x.length-(k-1));
+    var q1, q2, q3, r1, r2, r, s,
+        k = m.length;
+
+    mu = mu || this.div([1].concat(this.zero.slice(0, 2*k)), m);
+
+    q1 = x.slice(0, x.length-(k-1));
     q2 = this.mul(q1, mu);
-    q3 = q2.slice(0,q2.length-(k+1));
+    q3 = q2.slice(0, q2.length-(k+1));
 
     s = x.length-(k+1);
     r1 = (s > 0) ? x.slice(s) : x.slice(0);
@@ -426,15 +428,15 @@ var mpi = {
   //Modular exponentiation with Barret reduction
   exp: function exp(x, e, n) {
     var i, j,
-      r = [0x1],
-      l = e.length * this.bits,
+      r = [1],
+      l = e.length * 28,
       c = this.msb(e[0]),
       mu = this.div([1].concat(this.zero.slice(0,2*n.length)), n);
 
     while (--l > c) {
-      j = Math.floor(l/this.bits);
-      i = this.bits - (l%this.bits) - 1;
-      if (e[j] & (0x1 << i)) r = this.bmr(this.mul(r,x), n, mu);
+      j = Math.floor(l/28);
+      i = 28 - (l%28) - 1;
+      if (e[j] & (1 << i)) r = this.bmr(this.mul(r,x), n, mu);
       x = this.bmr(this.sqr(x), n, mu);
     }
 
@@ -468,8 +470,8 @@ var mpi = {
   //mod where n < 2^bhmx
   mds: function mds(x, n) {
     for(var i = 0, c = 0, l = x.length; i < l; i++) {
-      c = ((x[i] >> this.bhlf) + (c << this.bhlf)) % n;
-      c = ((x[i] & this.bhmk) + (c << this.bhlf)) % n;
+      c = ((x[i] >> 14) + (c << 14)) % n;
+      c = ((x[i] & 16383) + (c << 14)) % n;
     }
     return c;
   },

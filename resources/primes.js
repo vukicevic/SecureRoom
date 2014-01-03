@@ -72,7 +72,7 @@ var prime = {
     p[l] |= 1;
 
     while (!this.test(p))
-      p[l] = (p[l]+2) % mpi.bmax;
+      p[l] = (p[l]+2) % 268435456;
 
     return p;
   }
