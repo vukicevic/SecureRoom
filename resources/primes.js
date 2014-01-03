@@ -13,7 +13,7 @@
  * GNU General Public License for more details.
  **/
 
-if (typeof self.importScripts != 'undefined') self.importScripts('asymmetric.rsa.js');
+if (typeof self.importScripts != 'undefined') self.importScripts('mpi.js');
 
 self.running = false;
 self.onmessage = function(e) {
