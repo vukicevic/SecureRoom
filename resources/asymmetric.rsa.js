@@ -111,7 +111,7 @@ function KeyGen(size, callback) {
   var w = {}, time, timer;
 
   function createWorker (worker, callback) {
-    w[worker] = new Worker('resources/primes.js');
+    w[worker] = new Worker('resources/mpi.js');
     w[worker].onmessage = function (e) {
       this.data = e.data;
       callback();
