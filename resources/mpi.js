@@ -165,7 +165,7 @@ var mpi = {
 
       yl = y[i] & 16383;
       yh = y[i] >> 14;
-      
+
       for (j = n-1; j>=0; j--) {
         xl = x[j] & 16383;
         xh = x[j] >> 14;
@@ -181,7 +181,7 @@ var mpi = {
     }
 
     if (w[0] === 0)
-      w.shift();  
+      w.shift();
 
     return w;
   },
