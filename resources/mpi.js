@@ -95,7 +95,8 @@ var mpi = {
   add: function add(x, y) {
     var n = x.length,
         t = y.length,
-        l = Math.max(n, t),
+        i = Math.max(n, t) - 1,
+        c = 0,
         w = [];
 
     if (n < t) {
@@ -104,7 +105,7 @@ var mpi = {
       y = this.zero.slice(0, n-t).concat(y);
     }
 
-    for (var c = 0, i = l-1; i >= 0; i--) {
+    for (; i >= 0; i--) {
       w[i] = x[i] + y[i] + c;
 
       if (w[i] > 268435455) {
@@ -114,7 +115,10 @@ var mpi = {
         c = 0;
       }
     }
-    if ( c === 1 ) w.unshift(c);
+
+    if (c === 1)
+      w.unshift(c);
+
     return w;
   },
 
@@ -122,7 +126,7 @@ var mpi = {
   sub: function sub(x, y) {
     var n = x.length,
         t = y.length,
-        l = Math.max(n,t),
+        l = Math.max(n, t),
         w = this.zero.slice(0, l);
 
     for (var m, s, c = 0; l > 0; ) {
