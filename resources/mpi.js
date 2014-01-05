@@ -151,53 +151,72 @@ var mpi = {
 
   //14.12 Multiplication
   mul: function mul(x, y) {
-    var n = x.length - 1,
-        t = y.length - 1,
-        w = this.zero.slice(0, n+t+2);
+    var yl, yh, xl, xh, t1, t2, c, j,
+        n = x.length,
+        i = y.length,
+        w = this.zero.slice(0, n+i);
 
-    for (var l1, l2, h1, h2, t1, t2, c, j, i = t; i >= 0; i--) {
+    while (i--) {
       c = 0;
-      l1 = y[i] & 16383;
-      h1 = y[i] >> 14;
-      for (j = n; j >= 0; j--) {
-        l2 = x[j] & 16383;
-        h2 = x[j] >> 14;
+      j = n;
 
-        t1 = h1*l2 + h2*l1;
-        t2 = l1*l2 + ((t1 & 16383) << 14) + w[j+i+1] + c;
+      yl = y[i] & 16383;
+      yh = y[i] >> 14;
+      
+      while (j--) {
+        xl = x[j] & 16383;
+        xh = x[j] >> 14;
+
+        t1 = yh*xl + xh*yl;
+        t2 = yl*xl + ((t1 & 16383) << 14) + w[j+i+1] + c;
+
         w[j+i+1] = t2 & 268435455;
-        c = h1*h2 + (t1 >> 14) + (t2 >> 28);
+        c = yh*xh + (t1 >> 14) + (t2 >> 28);
       }
+
       w[i] = c;
     }
-    if (w[0] === 0) w.shift();
+
+    if (w[0] === 0)
+      w.shift();
+
     return w;
   },
 
   //14.16 Squaring
   sqr: function sqr(x) {
-    var t = x.length,
-        w = this.zero.slice(0, 2*t);
+    var l1, l2, h1, h2, t1, t2, j, c,
+        i = x.length,
+        w = this.zero.slice(0, 2*i);
 
-    for (var l1, l2, h1, h2, t1, t2, uv, c = 0, j, i = t-1; i >= 0; i--) {
+    while (i--) {
       l1 = x[i] & 16383;
       h1 = x[i] >> 14;
+
       t1 = 2*h1*l1;
       t2 = l1*l1 + ((t1 & 16383) << 14) + w[2*i+1];
+
       w[2*i+1] = t2 & 268435455;
       c = h1*h1 + (t1 >> 14) + (t2 >> 28);
-      for (j = i-1; j >= 0; j--) {
+      j = i;
+
+      while(j--) {
         l2 = (2 * x[j]) & 16383;
-        h2 = x[j] >> (14 - 1);
+        h2 = x[j] >> 13;
 
         t1 = h2*l1 + h1*l2;
         t2 = l2*l1 + ((t1 & 16383) << 14) + w[j+i+1] + c;
         w[j+i+1] = t2 & 268435455;
         c = h2*h1 + (t1 >> 14) + (t2 >> 28);
       }
+
       w[i] = c;
     }
-    return (w[0] === 0) ? this.cut(w) : w;
+
+    if (w[0] === 0)
+      w.shift();
+    
+    return w;
   },
 
   //Right shift array
