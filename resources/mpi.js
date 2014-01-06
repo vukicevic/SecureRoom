@@ -9,14 +9,16 @@ if (typeof WorkerGlobalScope !== "undefined" && self instanceof WorkerGlobalScop
   }
 }
 
-/*
-bits: 28,
-bmax: 268435456,
-bdmx: 72057594037927936,
-bmsk: 268435455,
-bhlf: 14,
-bhmx: 16384,
-bhmk: 16383,
+/* 
+Multi-Precision Integer Arithmetic
+
+bits: 28
+bmax: 268435456
+bdmx: 72057594037927936
+bmsk: 268435455
+bhlf: 14
+bhmx: 16384
+bhmk: 16383
 */
 var mpi = {
   zero: [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
@@ -45,7 +47,8 @@ var mpi = {
     var xl = x.length,
         yl = y.length; //zero front pad problem
 
-    //negative number problem
+    //check negative flag here
+
     if (xl < yl) {
       return -1;
     } else if (xl > yl) {
@@ -255,7 +258,9 @@ var mpi = {
 
   //14.20 Division, not guaranteed to work with >=28-bit
   div: function div(u, v, remainder) {
-    var s = this.msb(v[0]) - 1;
+    var s = this.msb(v[0]) - 1,
+        x, y, xt, yt, d, q, k, i;
+
     if (s > 0) {
       x = this.lsh(u, s);
       y = this.lsh(v, s);
@@ -264,30 +269,30 @@ var mpi = {
       y = v.slice();
     }
 
-    var d = x.length - y.length,
-        q = [0],
-        k = y.concat(this.zero.slice(0, d)),
-        yt = y[0]*268435456 + y[1];
+    d = x.length - y.length;
+    q = [0];
+    k = y.concat(this.zero.slice(0, d));
+    yt = y[0]*268435456 + y[1];
 
     //only mmcp as last resort. if x0>k0 then do, if x0<k0 then dont, check only if x0=k0
-    while ( x[0] > k[0] || (x[0] === k[0] && this.cmp(x, k) > -1) ) {
-      q[0] += 1;
+    while (x[0] > k[0] || (x[0] === k[0] && this.cmp(x, k) > -1)) {
+      q[0]++;
       x = this.sub(x, k);
     }
 
-    for (var p, xt, i1 = 1, i = 0; i < d; i++, i1++) {
-      q[i1] = (x[i] === y[0]) ? 268435455 : Math.floor((x[i]*268435456 + x[i1])/y[0]);
-      xt = x[i]*72057594037927936 + x[i1]*268435456 + x[i+2];
+    for (i = 1; i <= d; i++) {
+      q[i] = (x[i-1] === y[0]) ? 268435455 : Math.floor((x[i-1]*268435456 + x[i])/y[0]);
+      xt = x[i-1]*72057594037927936 + x[i]*268435456 + x[i+1];
 
-      while ( q[i1]*yt > xt ) q[i1]--; //condition check fails due to precision problem with bits = 28
+      while (q[i]*yt > xt) q[i]--; //condition check fails due to precision problem with bits = 28
 
-      k = this.mul(y, [q[i1]]).concat(this.zero.slice(0, d-i1));//concat after multiply
+      k = this.mul(y, [q[i]]).concat(this.zero.slice(0, d-i)); //concat after multiply
       x = this.sub(x, k);
 
       if (x.negative) {
         x[this.nlz(x)] *= -1;
-        x = this.sub(y.concat(this.zero.slice(0, d-i1)), x);
-        q[i1]--;
+        x = this.sub(y.concat(this.zero.slice(0, d-i)), x);
+        q[i]--;
       }
     }
 
