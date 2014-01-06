@@ -24,7 +24,7 @@ var mpi = {
   //Check number of leading zeroes
   nlz: function nlz(x) {
     for (var l = x.length, i = 0; i < l; i++)
-      if (x[i] != 0) 
+      if (x[i] !== 0) 
         break;
 
     return i;
@@ -33,9 +33,9 @@ var mpi = {
   //Cut leading zeros
   cut: function cut(x) {
     for (var l = x.length, i = 0; i < l; i++)
-      if (x[i] != 0)
+      if (x[i] !== 0)
         return x.slice(i);
-
+    
     return [0];
   },
 
@@ -221,38 +221,47 @@ var mpi = {
         x = z.slice(0,l);
 
     if (ss) {
-      while (--l) x[l] = ((x[l] >> ss) | (x[l-1] << (28-ss))) & 268435455;
+      while (--l) 
+        x[l] = ((x[l] >> ss) | (x[l-1] << (28-ss))) & 268435455;
       x[l] = (x[l] >> ss);
-      return this.cut(x);
+
+      if (x[0] === 0)
+        x.shift();
     }
+
     return x;
   },
 
   //Left shift array
-  lsh: function lsh(x, s) {
+  lsh: function lsh(z, s) {
     var ss = s % 28,
         ls = Math.floor(s/28),
-        l = x.length,
-        r = [];
+        l = z.length,
+        x = [];
         t = 0;
 
     if (ss) {
       while (l--) {
-        r[l] = (x[l] << ss) + t;
-        t = x[l] >>> (28-ss);
-        r[l] &= 268435455;
+        x[l] = ((z[l] << ss) + t) & 268435455;
+        t    = z[l] >>> (28-ss);
       }
-      if (t != 0) r.unshift(t);
+
+      if (t !== 0)
+        x.unshift(t);
     }
-    return r.concat(this.zero.slice(0, ls));
+
+    return (ls) ? x.concat(this.zero.slice(0, ls)) : x;
   },
 
   //14.20 Division, not guaranteed to work with >=28-bit
-  div: function div(x, y, remainder) {
-    var s = this.msb(y[0]) - 1;
+  div: function div(u, v, remainder) {
+    var s = this.msb(v[0]) - 1;
     if (s > 0) {
-      x = this.lsh(x, s);
-      y = this.lsh(y, s);
+      x = this.lsh(u, s);
+      y = this.lsh(v, s);
+    } else {
+      x = u.slice();
+      y = v.slice();
     }
 
     var d = x.length - y.length,
@@ -263,14 +272,14 @@ var mpi = {
     //only mmcp as last resort. if x0>k0 then do, if x0<k0 then dont, check only if x0=k0
     while ( x[0] > k[0] || (x[0] === k[0] && this.cmp(x, k) > -1) ) {
       q[0] += 1;
-      x = this.sub(x,k);
+      x = this.sub(x, k);
     }
 
-    for ( var p, xt, i1 = 1, i = 0; i < d; i++, i1++ ) {
+    for (var p, xt, i1 = 1, i = 0; i < d; i++, i1++) {
       q[i1] = (x[i] === y[0]) ? 268435455 : Math.floor((x[i]*268435456 + x[i1])/y[0]);
       xt = x[i]*72057594037927936 + x[i1]*268435456 + x[i+2];
 
-      while ( q[i1]*yt > xt ) q[i1]--;//condition check fails due to precision problem with bits = 28
+      while ( q[i1]*yt > xt ) q[i1]--; //condition check fails due to precision problem with bits = 28
 
       k = this.mul(y, [q[i1]]).concat(this.zero.slice(0, d-i1));//concat after multiply
       x = this.sub(x, k);
@@ -282,7 +291,7 @@ var mpi = {
       }
     }
 
-    return (remainder) ? (s > 0) ? this.rsh(x, s) : this.cut(x) : this.cut(q);
+    return (remainder) ? (s > 0) ? this.rsh(this.cut(x), s) : this.cut(x) : this.cut(q);
   },
 
   //Modulus
