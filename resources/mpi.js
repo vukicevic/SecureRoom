@@ -62,41 +62,31 @@ var mpi = {
 
   //Most significant bit set
   msb: function msb(x) {
-    var r = 27,
-        b = 16;
-    
-    while (b) {
-      if ((t = x >>> b) != 0) { 
-        x = t;
-        r -= b;
-      }
+    if (x === 0) return;
 
-      b >>= 1;
-    }
+    for (var i = 134217728, l = 0; i > x; l++)
+      i /= 2;
 
-    return r;
+    return l;
   },
 
   //Least significant bit set
   lsb: function lsb(x) {
-    if (x === 0) return 0;
+    if (x === 0) return;
 
-    var r = 0; //change to for loop
-    while (!(x&1)) {
-      x >>>= 1;
-      r++;
-    }
+    for (var l = 0; !(x & 1); l++)
+      x /= 2;
 
-    return r;
+    return l;
   },
 
   //14.7 Addition
   add: function add(x, y) {
     var n = x.length,
         t = y.length,
-        i = Math.max(n, t) - 1,
+        i = Math.max(n, t),
         c = 0,
-        w = [];
+        w = this.zero.slice(0, i);
 
     if (n < t) {
       x = this.zero.slice(0, t-n).concat(x);
@@ -104,7 +94,7 @@ var mpi = {
       y = this.zero.slice(0, n-t).concat(y);
     }
 
-    for (; i >= 0; i--) {
+    for (i -= 1; i >= 0; i--) {
       w[i] = x[i] + y[i] + c;
 
       if (w[i] > 268435455) {
@@ -122,12 +112,12 @@ var mpi = {
   },
 
   //14.9 Subtraction
-  sub: function sub(x, y, negative) {
+  sub: function sub(x, y, internal) {
     var n = x.length,
         t = y.length,
-        i = Math.max(n, t) - 1,
+        i = Math.max(n, t),
         c = 0,
-        w = [];
+        w = this.zero.slice(0, i);
 
     if (n < t) {
       x = this.zero.slice(0, t-n).concat(x);
@@ -135,7 +125,7 @@ var mpi = {
       y = this.zero.slice(0, n-t).concat(y);
     }
 
-    for (; i >= 0; i--) {
+    for (i -= 1; i >= 0; i--) {
       w[i] = x[i] - y[i] - c;
 
       if ( w[i] < 0 ) {
@@ -146,7 +136,7 @@ var mpi = {
       }
     }
 
-    if (c === 1 && typeof negative == "undefined") {
+    if (c === 1 && typeof internal == "undefined") {
       w = this.sub([], w, true);
       w[this.nlz(w)] *= -1;
       w.negative = true;
