@@ -301,7 +301,7 @@ var mpi = {
 
   //Modulus
   mod: function mod(x, y) {
-    switch(this.cmp(x,y)) {
+    switch(this.cmp(x, y)) {
     case -1:
       return x;
     case 0:
@@ -312,27 +312,27 @@ var mpi = {
   },
 
   //Signed addition
-  sad: function sad(x,y) {
+  sad: function sad(x, y) {
     var a, b;
     if (x[0] >= 0) {
       if (y[0] >= 0) {
-        return this.add(x,y);
+        return this.add(x, y);
       } else {
-        b = y.slice(0);
+        b = y.slice();
         b[0] *= -1;
-        return this.cut(this.sub(x,b));
+        return this.cut(this.sub(x, b));
       }
     } else {
       if (y[0] >= 0) {
-        a = x.slice(0);
+        a = x.slice();
         a[0] *= -1;
-        return this.cut(this.sub(y,a));
+        return this.cut(this.sub(y, a));
       } else {
-        a = x.slice(0);
-        b = y.slice(0);
+        a = x.slice();
+        b = y.slice();
         a[0] *= -1;
         b[0] *= -1;
-        a = this.add(a,b);
+        a = this.add(a, b);
         a[0] *= -1;
         return a;
       }
@@ -344,30 +344,30 @@ var mpi = {
     var a, b;
     if (x[0] >= 0) {
       if (y[0] >= 0) {
-        return this.cut(this.sub(x,y));
+        return this.cut(this.sub(x, y));
       } else {
-        b = y.slice(0);
+        b = y.slice();
         b[0] *= -1;
-        return this.add(x,b);
+        return this.add(x, b);
       }
     } else {
       if (y[0] >= 0) {
-        a = x.slice(0);
+        a = x.slice();
         a[0] *= -1;
-        b = this.add(a,y);
+        b = this.add(a, y);
         b[0] *= -1;
         return b;
       } else {
-        a = x.slice(0);
-        b = y.slice(0);
+        a = x.slice();
+        b = y.slice();
         a[0] *= -1;
         b[0] *= -1;
-        return this.cut(this.sub(b,a));
+        return this.cut(this.sub(b, a));
       }
     }
   },
 
-    //Signed right shift
+  //Signed right shift
   srs: function srs(x,s) {
     if (x[0] < 0) {
       x[0] *= -1;
@@ -375,53 +375,55 @@ var mpi = {
       x[0] *= -1;
       return x;
     }
+
     return this.rsh(x,s);
   },
 
   //14.61 Binary extended gcd algorithm to return mod inverse
   gcd: function gcd(x, y) {
-    var s, g, a, b, c, d, u, v;
-    g = Math.min(this.lsb(x[x.length-1]), this.lsb(y[y.length-1]));
-    x = this.rsh(x, g); y = this.rsh(y, g);
-    a = [1]; b = [0]; c = [0]; d = [1];
-    u = x.slice(0);  v = y.slice(0);
+    var s,
+        g = Math.min(this.lsb(x[x.length-1]), this.lsb(y[y.length-1])),
+        u = this.rsh(x, g),
+        v = this.rsh(y, g),
+        a = [1], b = [0], c = [0], d = [1];
 
-    while (this.cmp(u,[0x0]) != 0) {
+    while (u.length !== 1 || u[0] !== 0) {
       s = this.lsb(u[u.length-1]);
-      u = this.rsh(u,s);
+      u = this.rsh(u, s);
       while (s--) {
-        if ( (a[a.length-1]&1) === 0 && (b[b.length-1]&1) === 0 ) {
-          a = this.srs(a,1);
-          b = this.srs(b,1);
+        if ((a[a.length-1]&1) === 0 && (b[b.length-1]&1) === 0) {
+          a = this.srs(a, 1);
+          b = this.srs(b, 1);
         } else {
-          a = this.srs(this.sad(a,y),1);
-          b = this.srs(this.ssb(b,x),1);
+          a = this.srs(this.sad(a, y), 1);
+          b = this.srs(this.ssb(b, x), 1);
         }
       }
 
       s = this.lsb(v[v.length-1]);
-      v = this.rsh(v,s);
+      v = this.rsh(v, s);
       while (s--) {
-        if ( (c[c.length-1]&1) === 0 && (d[d.length-1]&1) === 0 ) {
-          c = this.srs(c,1);
-          d = this.srs(d,1);
+        if ((c[c.length-1]&1) === 0 && (d[d.length-1]&1) === 0) {
+          c = this.srs(c, 1);
+          d = this.srs(d, 1);
         } else {
-          c = this.srs(this.sad(c,y),1);
-          d = this.srs(this.ssb(d,x),1);
+          c = this.srs(this.sad(c, y), 1);
+          d = this.srs(this.ssb(d, x), 1);
         }
       }
 
-      if ( this.cmp(u,v) >= 0 ) {
-        u = this.sub(u,v);
-        a = this.ssb(a,c);
-        b = this.ssb(b,d);
+      if ( this.cmp(u, v) >= 0 ) {
+        u = this.sub(u, v);
+        a = this.ssb(a, c);
+        b = this.ssb(b, d);
       } else {
-        v = this.sub(v,u);
-        c = this.ssb(c,a);
-        d = this.ssb(d,b);
+        v = this.sub(v, u);
+        c = this.ssb(c, a);
+        d = this.ssb(d, b);
       }
     }
-    return (this.cmp(v,[0x1]) != 0) ? [] : d;
+
+    return (v.length === 1 && v[0] === 1) ? d : [];
   },
 
   //Mod inverse, 1/x mod y
@@ -436,7 +438,7 @@ var mpi = {
 
   //14.42 Barret modular reduction
   bmr: function bmr(x, m, mu) {
-    if (this.cmp(x,m) < 0) return x; //if equal, return 0;
+    if (this.cmp(x, m) < 0) return x; //if equal, return 0;
 
     var q1, q2, q3, r1, r2, r, s,
         k = m.length;
@@ -447,40 +449,43 @@ var mpi = {
     q2 = this.mul(q1, mu);
     q3 = q2.slice(0, q2.length-(k+1));
 
-    s = x.length-(k+1);
-    r1 = (s > 0) ? x.slice(s) : x.slice(0);
+    s  = x.length-(k+1);
+    r1 = (s > 0) ? x.slice(s) : x.slice();
 
-    r2 = this.mul(q3,m);
-    s = r2.length-(k+1);
+    r2 = this.mul(q3, m);
+    s  = r2.length-(k+1);
     if (s > 0) r2 = r2.slice(s);
 
-    r = this.cut(this.sub(r1,r2));
+    r = this.cut(this.sub(r1, r2));
     if (r[0] < 0) {
       r[0] *= -1;
-      r = this.cut(this.sub([1].concat(this.zero.slice(0,k+1)), r));
+      r = this.cut(this.sub([1].concat(this.zero.slice(0, k+1)), r));
     }
-    while (this.cmp(r,m) >= 0) {
-      r = this.cut(this.sub(r,m));
-    }
+    
+    while (this.cmp(r, m) >= 0)
+      r = this.cut(this.sub(r, m));
+
     return r;
   },
 
   //Modular exponentiation with Barret reduction
   exp: function exp(x, e, n) {
-    var i, j,
-      r = [1],
-      l = e.length * 28,
-      c = this.msb(e[0]),
-      mu = this.div([1].concat(this.zero.slice(0,2*n.length)), n);
+    var c, i, j,
+        r = [1],
+        u = this.div(r.concat(this.zero.slice(0, 2*n.length)), n);
 
-    while (--l > c) {
-      j = Math.floor(l/28);
-      i = 28 - (l%28) - 1;
-      if (e[j] & (1 << i)) r = this.bmr(this.mul(r,x), n, mu);
-      x = this.bmr(this.sqr(x), n, mu);
+    for (c = 268435456, i = e.length-1; i >= 0; i--) {
+      if (i === 0)
+        c = 1 << (27 - this.msb(e[0]));
+
+      for (j = 1; j < c; j *= 2) {
+        if (e[i] & j)
+          r = this.bmr(this.mul(r, x), n, u);
+        x = this.bmr(this.sqr(x), n, u);
+      }
     }
 
-    return this.bmr(this.mul(r,x), n, mu);
+    return this.bmr(this.mul(r, x), n, u);
   },
 
   //14.71 Modified Garner's algo
@@ -492,16 +497,16 @@ var mpi = {
       dq1 = this.mod(d, this.dec(q));
     }
 
-    vp = this.exp(this.mod(x,p), dp1, p); //replace mod(x,p) with bmr(x,p) for keysizes with "saturated" modulus
-    vq = this.exp(this.mod(x,q), dq1, q);
+    vp = this.exp(this.mod(x, p), dp1, p);
+    vq = this.exp(this.mod(x, q), dq1, q);
 
-    if (this.cmp(vq,vp) < 0) {
-      t = this.cut(this.sub(vp,vq));
-      t = this.cut(this.bmr(this.mul(t,u), q));
-      t = this.cut(this.sub(q,t));
+    if (this.cmp(vq, vp) < 0) {
+      t = this.cut(this.sub(vp, vq));
+      t = this.cut(this.bmr(this.mul(t, u), q));
+      t = this.cut(this.sub(q, t));
     } else {
-      t = this.cut(this.sub(vq,vp));
-      t = this.cut(this.bmr(this.mul(t,u), q)); //bmr instead of mod, mod/div fails too frequently because of known precision issue with 28 bits
+      t = this.cut(this.sub(vq, vp));
+      t = this.cut(this.bmr(this.mul(t, u), q)); //bmr instead of mod, mod/div fails too frequently because of known precision issue with 28 bits
     }
 
     return this.cut(this.add(vp, this.mul(t, p)));
@@ -513,51 +518,53 @@ var mpi = {
       c = ((x[i] >> 14) + (c << 14)) % n;
       c = ((x[i] & 16383) + (c << 14)) % n;
     }
+
     return c;
   },
 
   //xor
   xor: function xor(x, y) {
-    if (x.length != y.length) return [];
-    for(var r = [], l = x.length, i = 0; i < l; i++) {
+    if (x.length != y.length) return;
+
+    for(var r = [], l = x.length, i = 0; i < l; i++)
       r[i] = x[i] ^ y[i];
-    }
+
     return r;
   },
 
-  //quicker decrement
+  //quick decrement if possible
   dec: function dec(x) {
-    var l = x.length - 1,
-      o = x.slice();
-
-    if (o[l] > 0) {
-      o[l] -= 1;
-    } else {
-      o = this.sub(o, [1]);
+    if (x[x.length-1] > 0) {
+      var o = x.slice();
+      o[x.length-1]--;
+      return o;
     }
 
-    return o;
+    return this.sub(x, [1]);
   },
 
   c8to28: function c8to28(a) {
     var i = [0,0,0,0,0,0].slice((a.length-1)%7).concat(a),
-        o = [];
+        o = [], 
+        p;
 
-    for (var p = 0; p < i.length; p += 7) {
+    for (p = 0; p < i.length; p += 7) {
       o.push(i[p]*1048576 + i[p+1]*4096 + i[p+2]*16 + (i[p+3]>>4));
       o.push((i[p+3]&0xf)*16777216 + i[p+4]*65536 + i[p+5]*256 + i[p+6]);
     }
 
-    if (o[0] == 0) o.shift();
+    if (o[0] === 0)
+      o.shift();
 
     return o;
   },
 
   c28to8: function c28to8(a) {
     var b = [0].slice((a.length-1)%2).concat(a),
-        o = [];
+        o = [],
+        c, j, i;
 
-    for (var c, j = 0, i = 0; i < b.length; j += 7) {
+    for (j = 0, i = 0; i < b.length; j += 7) {
       c = b[i++];
       o[j]   = (c >> 20);
       o[j+1] = (c >> 12) & 0xff;
@@ -571,9 +578,7 @@ var mpi = {
       o[j+6] = c & 0xff;
     }
 
-    for (i = 0; i < o.length; i++) {
-      if (o[i] != 0) return o.slice(i);
-    }
+    return this.cut(o);
   }
 }
 
