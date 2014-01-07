@@ -548,10 +548,8 @@ var mpi = {
         o = [], 
         p;
 
-    for (p = 0; p < i.length; p += 7) {
-      o.push(i[p]*1048576 + i[p+1]*4096 + i[p+2]*16 + (i[p+3]>>4));
-      o.push((i[p+3]&0xf)*16777216 + i[p+4]*65536 + i[p+5]*256 + i[p+6]);
-    }
+    for (p = 0; p < i.length; p += 7)
+      o.push((i[p]*1048576 + i[p+1]*4096 + i[p+2]*16 + (i[p+3]>>4)), ((i[p+3]&15)*16777216 + i[p+4]*65536 + i[p+5]*256 + i[p+6]));
 
     if (o[0] === 0)
       o.shift();
@@ -562,20 +560,13 @@ var mpi = {
   c28to8: function c28to8(a) {
     var b = [0].slice((a.length-1)%2).concat(a),
         o = [],
-        c, j, i;
+        c, d, i;
 
-    for (j = 0, i = 0; i < b.length; j += 7) {
-      c = b[i++];
-      o[j]   = (c >> 20);
-      o[j+1] = (c >> 12) & 0xff;
-      o[j+2] = (c >> 4) & 0xff;
-      o[j+3] = (c << 4) & 0xf0;
+    for (i = 0; i < b.length;) {
+      c = b[i++]; 
+      d = b[i++];
 
-      c = b[i++];
-      o[j+3] += (c >> 24);
-      o[j+4] = (c >> 16) & 0xff;
-      o[j+5] = (c >> 8) & 0xff;
-      o[j+6] = c & 0xff;
+      o.push((c >> 20), (c >> 12 & 255), (c >> 4 & 255), ((c << 4 | d >> 24) & 255), (d >> 16 & 255), (d >> 8 & 255), (d & 255));
     }
 
     return this.cut(o);
