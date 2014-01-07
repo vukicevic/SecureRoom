@@ -24,7 +24,7 @@ var mpi = {
   zero: [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
 
   //Check number of leading zeroes
-  nlz: function nlz(x) {
+  nlz: function(x) {
     for (var l = x.length, i = 0; i < l; i++)
       if (x[i] !== 0) 
         break;
@@ -33,7 +33,7 @@ var mpi = {
   },
 
   //Cut leading zeros
-  cut: function cut(x) {
+  cut: function(x) {
     for (var l = x.length, i = 0; i < l; i++)
       if (x[i] !== 0)
         return x.slice(i);
@@ -43,7 +43,7 @@ var mpi = {
 
   //Compare arrays, return 0 if equal, 1 if x > y and -1 if y > x
   //Not safe for signed numbers or front zero padded
-  cmp: function cmp(x, y) {
+  cmp: function(x, y) {
     var xl = x.length,
         yl = y.length; //zero front pad problem
 
@@ -64,7 +64,7 @@ var mpi = {
   },
 
   //Most significant bit set
-  msb: function msb(x) {
+  msb: function(x) {
     if (x === 0) return;
 
     for (var i = 134217728, l = 0; i > x; l++)
@@ -74,7 +74,7 @@ var mpi = {
   },
 
   //Least significant bit set
-  lsb: function lsb(x) {
+  lsb: function(x) {
     if (x === 0) return;
 
     for (var l = 0; !(x & 1); l++)
@@ -84,7 +84,7 @@ var mpi = {
   },
 
   //14.7 Addition
-  add: function add(x, y) {
+  add: function(x, y) {
     var n = x.length,
         t = y.length,
         i = Math.max(n, t),
@@ -115,7 +115,7 @@ var mpi = {
   },
 
   //14.9 Subtraction
-  sub: function sub(x, y, internal) {
+  sub: function(x, y, internal) {
     var n = x.length,
         t = y.length,
         i = Math.max(n, t),
@@ -149,7 +149,7 @@ var mpi = {
   },
 
   //14.12 Multiplication
-  mul: function mul(x, y) {
+  mul: function(x, y) {
     var yl, yh, xl, xh, t1, t2, c, j,
         n = x.length,
         i = y.length,
@@ -182,7 +182,7 @@ var mpi = {
   },
 
   //14.16 Squaring
-  sqr: function sqr(x) {
+  sqr: function(x) {
     var l1, l2, h1, h2, t1, t2, j, c,
         i = x.length,
         w = this.zero.slice(0, 2*i);
@@ -217,7 +217,7 @@ var mpi = {
   },
 
   //Right shift array
-  rsh: function rsh(z, s) {
+  rsh: function(z, s) {
     var ss = s % 28,
         ls = Math.floor(s/28),
         l = z.length - ls,
@@ -236,7 +236,7 @@ var mpi = {
   },
 
   //Left shift array
-  lsh: function lsh(z, s) {
+  lsh: function(z, s) {
     var ss = s % 28,
         ls = Math.floor(s/28),
         l = z.length,
@@ -257,7 +257,7 @@ var mpi = {
   },
 
   //14.20 Division, not guaranteed to work with >=28-bit
-  div: function div(u, v, remainder) {
+  div: function(u, v, remainder) {
     var s = this.msb(v[0]) - 1,
         x, y, xt, yt, d, q, k, i;
 
@@ -300,7 +300,7 @@ var mpi = {
   },
 
   //Modulus
-  mod: function mod(x, y) {
+  mod: function(x, y) {
     switch(this.cmp(x, y)) {
     case -1:
       return x;
@@ -312,7 +312,7 @@ var mpi = {
   },
 
   //Signed addition
-  sad: function sad(x, y) {
+  sad: function(x, y) {
     var a, b;
     if (x[0] >= 0) {
       if (y[0] >= 0) {
@@ -340,7 +340,7 @@ var mpi = {
   },
 
   //Signed subtraction
-  ssb: function ssb(x,y) {
+  ssb: function(x,y) {
     var a, b;
     if (x[0] >= 0) {
       if (y[0] >= 0) {
@@ -368,7 +368,7 @@ var mpi = {
   },
 
   //Signed right shift
-  srs: function srs(x,s) {
+  srs: function(x,s) {
     if (x[0] < 0) {
       x[0] *= -1;
       x = this.rsh(x,s);
@@ -380,7 +380,7 @@ var mpi = {
   },
 
   //14.61 Binary extended gcd algorithm to return mod inverse
-  gcd: function gcd(x, y) {
+  gcd: function(x, y) {
     var s,
         g = Math.min(this.lsb(x[x.length-1]), this.lsb(y[y.length-1])),
         u = this.rsh(x, g),
@@ -427,7 +427,7 @@ var mpi = {
   },
 
   //Mod inverse, 1/x mod y
-  inv: function inv(x, y) {
+  inv: function(x, y) {
     var u = this.gcd(y, x);
     while (u[0] < 0) {
       u[0] *= -1;
@@ -437,13 +437,14 @@ var mpi = {
   },
 
   //14.42 Barret modular reduction
-  bmr: function bmr(x, m, mu) {
+  bmr: function(x, m, mu) {
     if (this.cmp(x, m) < 0) return x; //if equal, return 0;
 
     var q1, q2, q3, r1, r2, r, s,
         k = m.length;
 
-    mu = mu || this.div([1].concat(this.zero.slice(0, 2*k)), m);
+    if (typeof mu == "undefined")
+      mu = this.div([1].concat(this.zero.slice(0, 2*k)), m);
 
     q1 = x.slice(0, x.length-(k-1));
     q2 = this.mul(q1, mu);
@@ -461,7 +462,7 @@ var mpi = {
       r[0] *= -1;
       r = this.cut(this.sub([1].concat(this.zero.slice(0, k+1)), r));
     }
-    
+
     while (this.cmp(r, m) >= 0)
       r = this.cut(this.sub(r, m));
 
@@ -469,7 +470,7 @@ var mpi = {
   },
 
   //Modular exponentiation with Barret reduction
-  exp: function exp(x, e, n) {
+  exp: function(x, e, n) {
     var c, i, j,
         r = [1],
         u = this.div(r.concat(this.zero.slice(0, 2*n.length)), n);
@@ -489,7 +490,7 @@ var mpi = {
   },
 
   //14.71 Modified Garner's algo
-  gar: function gar(x, p, q, d, u, dp1, dq1) {
+  gar: function(x, p, q, d, u, dp1, dq1) {
     var vp, vq, t;
 
     if (typeof dp1 == "undefined") {
@@ -513,7 +514,7 @@ var mpi = {
   },
 
   //mod where n < 2^bhmx
-  mds: function mds(x, n) {
+  mds: function(x, n) {
     for(var i = 0, c = 0, l = x.length; i < l; i++) {
       c = ((x[i] >> 14) + (c << 14)) % n;
       c = ((x[i] & 16383) + (c << 14)) % n;
@@ -523,7 +524,7 @@ var mpi = {
   },
 
   //xor
-  xor: function xor(x, y) {
+  xor: function(x, y) {
     if (x.length != y.length) return;
 
     for(var r = [], l = x.length, i = 0; i < l; i++)
@@ -533,7 +534,7 @@ var mpi = {
   },
 
   //quick decrement if possible
-  dec: function dec(x) {
+  dec: function(x) {
     if (x[x.length-1] > 0) {
       var o = x.slice();
       o[x.length-1]--;
@@ -543,7 +544,7 @@ var mpi = {
     return this.sub(x, [1]);
   },
 
-  c8to28: function c8to28(a) {
+  c8to28: function(a) {
     var i = [0,0,0,0,0,0].slice((a.length-1)%7).concat(a),
         o = [], 
         p;
@@ -557,7 +558,7 @@ var mpi = {
     return o;
   },
 
-  c28to8: function c28to8(a) {
+  c28to8: function(a) {
     var b = [0].slice((a.length-1)%2).concat(a),
         o = [],
         c, d, i;
