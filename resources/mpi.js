@@ -9,43 +9,46 @@ if (typeof WorkerGlobalScope !== "undefined" && self instanceof WorkerGlobalScop
   }
 }
 
-/*
-bits: 28,
-bmax: 268435456,
-bdmx: 72057594037927936,
-bmsk: 268435455,
-bhlf: 14,
-bhmx: 16384,
-bhmk: 16383,
+/* 
+Multi-Precision Integer Arithmetic
+
+bits: 28
+bmax: 268435456
+bdmx: 72057594037927936
+bmsk: 268435455
+bhlf: 14
+bhmx: 16384
+bhmk: 16383
 */
 var mpi = {
   zero: [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
 
   //Check number of leading zeroes
-  nlz: function nlz(x) {
+  nlz: function(x) {
     for (var l = x.length, i = 0; i < l; i++)
-      if (x[i] != 0) 
+      if (x[i] !== 0) 
         break;
 
     return i;
   },
 
   //Cut leading zeros
-  cut: function cut(x) {
+  cut: function(x) {
     for (var l = x.length, i = 0; i < l; i++)
-      if (x[i] != 0)
+      if (x[i] !== 0)
         return x.slice(i);
-
+    
     return [0];
   },
 
   //Compare arrays, return 0 if equal, 1 if x > y and -1 if y > x
   //Not safe for signed numbers or front zero padded
-  cmp: function cmp(x, y) {
+  cmp: function(x, y) {
     var xl = x.length,
         yl = y.length; //zero front pad problem
 
-    //negative number problem
+    //check negative flag here
+
     if (xl < yl) {
       return -1;
     } else if (xl > yl) {
@@ -61,7 +64,7 @@ var mpi = {
   },
 
   //Most significant bit set
-  msb: function msb(x) {
+  msb: function(x) {
     if (x === 0) return;
 
     for (var i = 134217728, l = 0; i > x; l++)
@@ -71,7 +74,7 @@ var mpi = {
   },
 
   //Least significant bit set
-  lsb: function lsb(x) {
+  lsb: function(x) {
     if (x === 0) return;
 
     for (var l = 0; !(x & 1); l++)
@@ -81,7 +84,7 @@ var mpi = {
   },
 
   //14.7 Addition
-  add: function add(x, y) {
+  add: function(x, y) {
     var n = x.length,
         t = y.length,
         i = Math.max(n, t),
@@ -112,7 +115,7 @@ var mpi = {
   },
 
   //14.9 Subtraction
-  sub: function sub(x, y, internal) {
+  sub: function(x, y, internal) {
     var n = x.length,
         t = y.length,
         i = Math.max(n, t),
@@ -146,7 +149,7 @@ var mpi = {
   },
 
   //14.12 Multiplication
-  mul: function mul(x, y) {
+  mul: function(x, y) {
     var yl, yh, xl, xh, t1, t2, c, j,
         n = x.length,
         i = y.length,
@@ -179,7 +182,7 @@ var mpi = {
   },
 
   //14.16 Squaring
-  sqr: function sqr(x) {
+  sqr: function(x) {
     var l1, l2, h1, h2, t1, t2, j, c,
         i = x.length,
         w = this.zero.slice(0, 2*i);
@@ -214,80 +217,91 @@ var mpi = {
   },
 
   //Right shift array
-  rsh: function rsh(z, s) {
+  rsh: function(z, s) {
     var ss = s % 28,
         ls = Math.floor(s/28),
         l = z.length - ls,
         x = z.slice(0,l);
 
     if (ss) {
-      while (--l) x[l] = ((x[l] >> ss) | (x[l-1] << (28-ss))) & 268435455;
+      while (--l) 
+        x[l] = ((x[l] >> ss) | (x[l-1] << (28-ss))) & 268435455;
       x[l] = (x[l] >> ss);
-      return this.cut(x);
+
+      if (x[0] === 0)
+        x.shift();
     }
+
     return x;
   },
 
   //Left shift array
-  lsh: function lsh(x, s) {
+  lsh: function(z, s) {
     var ss = s % 28,
         ls = Math.floor(s/28),
-        l = x.length,
-        r = [];
+        l = z.length,
+        x = [];
         t = 0;
 
     if (ss) {
       while (l--) {
-        r[l] = (x[l] << ss) + t;
-        t = x[l] >>> (28-ss);
-        r[l] &= 268435455;
+        x[l] = ((z[l] << ss) + t) & 268435455;
+        t    = z[l] >>> (28-ss);
       }
-      if (t != 0) r.unshift(t);
+
+      if (t !== 0)
+        x.unshift(t);
     }
-    return r.concat(this.zero.slice(0, ls));
+
+    return (ls) ? x.concat(this.zero.slice(0, ls)) : x;
   },
 
   //14.20 Division, not guaranteed to work with >=28-bit
-  div: function div(x, y, remainder) {
-    var s = this.msb(y[0]) - 1;
+  div: function(u, v, remainder) {
+    var s = this.msb(v[0]) - 1,
+        x, y, xt, yt, d, q, k, i;
+
     if (s > 0) {
-      x = this.lsh(x, s);
-      y = this.lsh(y, s);
+      x = this.lsh(u, s);
+      y = this.lsh(v, s);
+    } else {
+      x = u.slice();
+      y = v.slice();
     }
 
-    var d = x.length - y.length,
-        q = [0],
-        k = y.concat(this.zero.slice(0, d)),
-        yt = y[0]*268435456 + y[1];
+    d = x.length - y.length;
+    q = [0];
+    k = y.concat(this.zero.slice(0, d));
+    yt = y[0]*268435456 + y[1];
 
     //only mmcp as last resort. if x0>k0 then do, if x0<k0 then dont, check only if x0=k0
-    while ( x[0] > k[0] || (x[0] === k[0] && this.cmp(x, k) > -1) ) {
-      q[0] += 1;
-      x = this.sub(x,k);
+    while (x[0] > k[0] || (x[0] === k[0] && this.cmp(x, k) > -1)) {
+      q[0]++;
+      x = this.sub(x, k);
     }
 
-    for ( var p, xt, i1 = 1, i = 0; i < d; i++, i1++ ) {
-      q[i1] = (x[i] === y[0]) ? 268435455 : Math.floor((x[i]*268435456 + x[i1])/y[0]);
-      xt = x[i]*72057594037927936 + x[i1]*268435456 + x[i+2];
+    for (i = 1; i <= d; i++) {
+      q[i] = (x[i-1] === y[0]) ? 268435455 : Math.floor((x[i-1]*268435456 + x[i])/y[0]);
+      xt = x[i-1]*72057594037927936 + x[i]*268435456 + x[i+1];
 
-      while ( q[i1]*yt > xt ) q[i1]--;//condition check fails due to precision problem with bits = 28
+      while (q[i]*yt > xt) q[i]--; //condition check fails due to precision problem with bits = 28
 
-      k = this.mul(y, [q[i1]]).concat(this.zero.slice(0, d-i1));//concat after multiply
+      k = this.mul(y, [q[i]]).concat(this.zero.slice(0, d-i)); //concat after multiply
       x = this.sub(x, k);
 
       if (x.negative) {
         x[this.nlz(x)] *= -1;
-        x = this.sub(y.concat(this.zero.slice(0, d-i1)), x);
-        q[i1]--;
+        x = this.sub(y.concat(this.zero.slice(0, d-i)), x);
+        q[i]--;
       }
     }
 
-    return (remainder) ? (s > 0) ? this.rsh(x, s) : this.cut(x) : this.cut(q);
+    return (remainder) ? (s > 0) ? this.rsh(this.cut(x), s) : this.cut(x) : this.cut(q);
   },
 
   //Modulus
-  mod: function mod(x, y) {
-    switch(this.cmp(x,y)) {
+  mod: function(x, y) {
+    switch(this.cmp(x, y)) {
     case -1:
       return x;
     case 0:
@@ -298,27 +312,27 @@ var mpi = {
   },
 
   //Signed addition
-  sad: function sad(x,y) {
+  sad: function(x, y) {
     var a, b;
     if (x[0] >= 0) {
       if (y[0] >= 0) {
-        return this.add(x,y);
+        return this.add(x, y);
       } else {
-        b = y.slice(0);
+        b = y.slice();
         b[0] *= -1;
-        return this.cut(this.sub(x,b));
+        return this.cut(this.sub(x, b));
       }
     } else {
       if (y[0] >= 0) {
-        a = x.slice(0);
+        a = x.slice();
         a[0] *= -1;
-        return this.cut(this.sub(y,a));
+        return this.cut(this.sub(y, a));
       } else {
-        a = x.slice(0);
-        b = y.slice(0);
+        a = x.slice();
+        b = y.slice();
         a[0] *= -1;
         b[0] *= -1;
-        a = this.add(a,b);
+        a = this.add(a, b);
         a[0] *= -1;
         return a;
       }
@@ -326,92 +340,94 @@ var mpi = {
   },
 
   //Signed subtraction
-  ssb: function ssb(x,y) {
+  ssb: function(x,y) {
     var a, b;
     if (x[0] >= 0) {
       if (y[0] >= 0) {
-        return this.cut(this.sub(x,y));
+        return this.cut(this.sub(x, y));
       } else {
-        b = y.slice(0);
+        b = y.slice();
         b[0] *= -1;
-        return this.add(x,b);
+        return this.add(x, b);
       }
     } else {
       if (y[0] >= 0) {
-        a = x.slice(0);
+        a = x.slice();
         a[0] *= -1;
-        b = this.add(a,y);
+        b = this.add(a, y);
         b[0] *= -1;
         return b;
       } else {
-        a = x.slice(0);
-        b = y.slice(0);
+        a = x.slice();
+        b = y.slice();
         a[0] *= -1;
         b[0] *= -1;
-        return this.cut(this.sub(b,a));
+        return this.cut(this.sub(b, a));
       }
     }
   },
 
-    //Signed right shift
-  srs: function srs(x,s) {
+  //Signed right shift
+  srs: function(x,s) {
     if (x[0] < 0) {
       x[0] *= -1;
       x = this.rsh(x,s);
       x[0] *= -1;
       return x;
     }
+
     return this.rsh(x,s);
   },
 
   //14.61 Binary extended gcd algorithm to return mod inverse
-  gcd: function gcd(x, y) {
-    var s, g, a, b, c, d, u, v;
-    g = Math.min(this.lsb(x[x.length-1]), this.lsb(y[y.length-1]));
-    x = this.rsh(x, g); y = this.rsh(y, g);
-    a = [1]; b = [0]; c = [0]; d = [1];
-    u = x.slice(0);  v = y.slice(0);
+  gcd: function(x, y) {
+    var s,
+        g = Math.min(this.lsb(x[x.length-1]), this.lsb(y[y.length-1])),
+        u = this.rsh(x, g),
+        v = this.rsh(y, g),
+        a = [1], b = [0], c = [0], d = [1];
 
-    while (this.cmp(u,[0x0]) != 0) {
+    while (u.length !== 1 || u[0] !== 0) {
       s = this.lsb(u[u.length-1]);
-      u = this.rsh(u,s);
+      u = this.rsh(u, s);
       while (s--) {
-        if ( (a[a.length-1]&1) === 0 && (b[b.length-1]&1) === 0 ) {
-          a = this.srs(a,1);
-          b = this.srs(b,1);
+        if ((a[a.length-1]&1) === 0 && (b[b.length-1]&1) === 0) {
+          a = this.srs(a, 1);
+          b = this.srs(b, 1);
         } else {
-          a = this.srs(this.sad(a,y),1);
-          b = this.srs(this.ssb(b,x),1);
+          a = this.srs(this.sad(a, y), 1);
+          b = this.srs(this.ssb(b, x), 1);
         }
       }
 
       s = this.lsb(v[v.length-1]);
-      v = this.rsh(v,s);
+      v = this.rsh(v, s);
       while (s--) {
-        if ( (c[c.length-1]&1) === 0 && (d[d.length-1]&1) === 0 ) {
-          c = this.srs(c,1);
-          d = this.srs(d,1);
+        if ((c[c.length-1]&1) === 0 && (d[d.length-1]&1) === 0) {
+          c = this.srs(c, 1);
+          d = this.srs(d, 1);
         } else {
-          c = this.srs(this.sad(c,y),1);
-          d = this.srs(this.ssb(d,x),1);
+          c = this.srs(this.sad(c, y), 1);
+          d = this.srs(this.ssb(d, x), 1);
         }
       }
 
-      if ( this.cmp(u,v) >= 0 ) {
-        u = this.sub(u,v);
-        a = this.ssb(a,c);
-        b = this.ssb(b,d);
+      if ( this.cmp(u, v) >= 0 ) {
+        u = this.sub(u, v);
+        a = this.ssb(a, c);
+        b = this.ssb(b, d);
       } else {
-        v = this.sub(v,u);
-        c = this.ssb(c,a);
-        d = this.ssb(d,b);
+        v = this.sub(v, u);
+        c = this.ssb(c, a);
+        d = this.ssb(d, b);
       }
     }
-    return (this.cmp(v,[0x1]) != 0) ? [] : d;
+
+    return (v.length === 1 && v[0] === 1) ? d : [];
   },
 
   //Mod inverse, 1/x mod y
-  inv: function inv(x, y) {
+  inv: function(x, y) {
     var u = this.gcd(y, x);
     while (u[0] < 0) {
       u[0] *= -1;
@@ -421,56 +437,60 @@ var mpi = {
   },
 
   //14.42 Barret modular reduction
-  bmr: function bmr(x, m, mu) {
-    if (this.cmp(x,m) < 0) return x; //if equal, return 0;
+  bmr: function(x, m, mu) {
+    if (this.cmp(x, m) < 0) return x; //if equal, return 0;
 
     var q1, q2, q3, r1, r2, r, s,
         k = m.length;
 
-    mu = mu || this.div([1].concat(this.zero.slice(0, 2*k)), m);
+    if (typeof mu == "undefined")
+      mu = this.div([1].concat(this.zero.slice(0, 2*k)), m);
 
     q1 = x.slice(0, x.length-(k-1));
     q2 = this.mul(q1, mu);
     q3 = q2.slice(0, q2.length-(k+1));
 
-    s = x.length-(k+1);
-    r1 = (s > 0) ? x.slice(s) : x.slice(0);
+    s  = x.length-(k+1);
+    r1 = (s > 0) ? x.slice(s) : x.slice();
 
-    r2 = this.mul(q3,m);
-    s = r2.length-(k+1);
+    r2 = this.mul(q3, m);
+    s  = r2.length-(k+1);
     if (s > 0) r2 = r2.slice(s);
 
-    r = this.cut(this.sub(r1,r2));
+    r = this.cut(this.sub(r1, r2));
     if (r[0] < 0) {
       r[0] *= -1;
-      r = this.cut(this.sub([1].concat(this.zero.slice(0,k+1)), r));
+      r = this.cut(this.sub([1].concat(this.zero.slice(0, k+1)), r));
     }
-    while (this.cmp(r,m) >= 0) {
-      r = this.cut(this.sub(r,m));
-    }
+
+    while (this.cmp(r, m) >= 0)
+      r = this.cut(this.sub(r, m));
+
     return r;
   },
 
   //Modular exponentiation with Barret reduction
-  exp: function exp(x, e, n) {
-    var i, j,
-      r = [1],
-      l = e.length * 28,
-      c = this.msb(e[0]),
-      mu = this.div([1].concat(this.zero.slice(0,2*n.length)), n);
+  exp: function(x, e, n) {
+    var c, i, j,
+        r = [1],
+        u = this.div(r.concat(this.zero.slice(0, 2*n.length)), n);
 
-    while (--l > c) {
-      j = Math.floor(l/28);
-      i = 28 - (l%28) - 1;
-      if (e[j] & (1 << i)) r = this.bmr(this.mul(r,x), n, mu);
-      x = this.bmr(this.sqr(x), n, mu);
+    for (c = 268435456, i = e.length-1; i >= 0; i--) {
+      if (i === 0)
+        c = 1 << (27 - this.msb(e[0]));
+
+      for (j = 1; j < c; j *= 2) {
+        if (e[i] & j)
+          r = this.bmr(this.mul(r, x), n, u);
+        x = this.bmr(this.sqr(x), n, u);
+      }
     }
 
-    return this.bmr(this.mul(r,x), n, mu);
+    return this.bmr(this.mul(r, x), n, u);
   },
 
   //14.71 Modified Garner's algo
-  gar: function gar(x, p, q, d, u, dp1, dq1) {
+  gar: function(x, p, q, d, u, dp1, dq1) {
     var vp, vq, t;
 
     if (typeof dp1 == "undefined") {
@@ -478,88 +498,79 @@ var mpi = {
       dq1 = this.mod(d, this.dec(q));
     }
 
-    vp = this.exp(this.mod(x,p), dp1, p); //replace mod(x,p) with bmr(x,p) for keysizes with "saturated" modulus
-    vq = this.exp(this.mod(x,q), dq1, q);
+    vp = this.exp(this.mod(x, p), dp1, p);
+    vq = this.exp(this.mod(x, q), dq1, q);
 
-    if (this.cmp(vq,vp) < 0) {
-      t = this.cut(this.sub(vp,vq));
-      t = this.cut(this.bmr(this.mul(t,u), q));
-      t = this.cut(this.sub(q,t));
+    if (this.cmp(vq, vp) < 0) {
+      t = this.cut(this.sub(vp, vq));
+      t = this.cut(this.bmr(this.mul(t, u), q));
+      t = this.cut(this.sub(q, t));
     } else {
-      t = this.cut(this.sub(vq,vp));
-      t = this.cut(this.bmr(this.mul(t,u), q)); //bmr instead of mod, mod/div fails too frequently because of known precision issue with 28 bits
+      t = this.cut(this.sub(vq, vp));
+      t = this.cut(this.bmr(this.mul(t, u), q)); //bmr instead of mod, mod/div fails too frequently because of known precision issue with 28 bits
     }
 
     return this.cut(this.add(vp, this.mul(t, p)));
   },
 
   //mod where n < 2^bhmx
-  mds: function mds(x, n) {
+  mds: function(x, n) {
     for(var i = 0, c = 0, l = x.length; i < l; i++) {
       c = ((x[i] >> 14) + (c << 14)) % n;
       c = ((x[i] & 16383) + (c << 14)) % n;
     }
+
     return c;
   },
 
   //xor
-  xor: function xor(x, y) {
-    if (x.length != y.length) return [];
-    for(var r = [], l = x.length, i = 0; i < l; i++) {
+  xor: function(x, y) {
+    if (x.length != y.length) return;
+
+    for(var r = [], l = x.length, i = 0; i < l; i++)
       r[i] = x[i] ^ y[i];
-    }
+
     return r;
   },
 
-  //quicker decrement
-  dec: function dec(x) {
-    var l = x.length - 1,
-      o = x.slice();
-
-    if (o[l] > 0) {
-      o[l] -= 1;
-    } else {
-      o = this.sub(o, [1]);
+  //quick decrement if possible
+  dec: function(x) {
+    if (x[x.length-1] > 0) {
+      var o = x.slice();
+      o[x.length-1]--;
+      return o;
     }
 
-    return o;
+    return this.sub(x, [1]);
   },
 
-  c8to28: function c8to28(a) {
+  c8to28: function(a) {
     var i = [0,0,0,0,0,0].slice((a.length-1)%7).concat(a),
-        o = [];
+        o = [], 
+        p;
 
-    for (var p = 0; p < i.length; p += 7) {
-      o.push(i[p]*1048576 + i[p+1]*4096 + i[p+2]*16 + (i[p+3]>>4));
-      o.push((i[p+3]&0xf)*16777216 + i[p+4]*65536 + i[p+5]*256 + i[p+6]);
-    }
+    for (p = 0; p < i.length; p += 7)
+      o.push((i[p]*1048576 + i[p+1]*4096 + i[p+2]*16 + (i[p+3]>>4)), ((i[p+3]&15)*16777216 + i[p+4]*65536 + i[p+5]*256 + i[p+6]));
 
-    if (o[0] == 0) o.shift();
+    if (o[0] === 0)
+      o.shift();
 
     return o;
   },
 
-  c28to8: function c28to8(a) {
+  c28to8: function(a) {
     var b = [0].slice((a.length-1)%2).concat(a),
-        o = [];
+        o = [],
+        c, d, i;
 
-    for (var c, j = 0, i = 0; i < b.length; j += 7) {
-      c = b[i++];
-      o[j]   = (c >> 20);
-      o[j+1] = (c >> 12) & 0xff;
-      o[j+2] = (c >> 4) & 0xff;
-      o[j+3] = (c << 4) & 0xf0;
+    for (i = 0; i < b.length;) {
+      c = b[i++]; 
+      d = b[i++];
 
-      c = b[i++];
-      o[j+3] += (c >> 24);
-      o[j+4] = (c >> 16) & 0xff;
-      o[j+5] = (c >> 8) & 0xff;
-      o[j+6] = c & 0xff;
+      o.push((c >> 20), (c >> 12 & 255), (c >> 4 & 255), ((c << 4 | d >> 24) & 255), (d >> 16 & 255), (d >> 8 & 255), (d & 255));
     }
 
-    for (i = 0; i < o.length; i++) {
-      if (o[i] != 0) return o.slice(i);
-    }
+    return this.cut(o);
   }
 }
 
