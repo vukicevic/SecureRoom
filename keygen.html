@@ -6,12 +6,11 @@
   <style>
     body {
       margin: 0;
-      padding: 0 5px;
-      background-color: black;
     }
-    #term {
+    .terminal {
       overflow-y: scroll;
       height: 100%;
+      width: 100%;
       background-color: black;
       color: #bcefe6;
       font-family: monospace;
@@ -20,8 +19,7 @@
     dl {
       float: left;
       white-space: pre;
-      margin-left: -3em;
-      transition: margin 400ms ease;
+      margin: 0.5em;
     }
     dt {
       float: left;
@@ -30,16 +28,12 @@
     dt:after {
       content: "> ";
     }
-    dd.stdout, dd.stderr, span.clock {
-      margin-left: 3.6em;
+    dd {
+      float: left;
+      margin: 0;
     }
-    span.line {
-      display: inline-block;
-      width: 3.6em;
-      text-align: right;
-    }
-    span.clock:after, span.line:after {
-      content: " ";
+    dd.stdout, dd.stderr {
+      clear: left;
     }
     dd>span {
       box-shadow: 0 0 3px #bcefe6;
@@ -53,31 +47,34 @@
       color: #bcefe6 !important;
     }
   </style>
+  <script src="resources/mpi.js"></script>
   <script src="resources/random.default.js"></script>
   <script src="resources/asymmetric.rsa.js"></script>
   <script src="resources/hash.sha1.js"></script>
   <script src="resources/utils.js"></script>
 </head>
 <body>
-  <div id="term"></div>
+  <div id="term" class="terminal"></div>
   <script>
-  function RouterApp(stdout, prompt, caller) {
-    stdout("Type 'keygen' to generate RSA keys.");
-    return function process(stdin) {
-      switch (stdin) {
-      case "keygen":
-        return KeyGenApp.entry(stdout, prompt, process);
-      default:
-        stdout("Unknown command");
-        return process;
-      }
-    }
-  }
-
   var KeyGenApp = {
     keys: {s: null, e: null},
     name: null,
     size: null,
+    type: null,
+
+    init: function(stdout, prompt, caller) {
+      stdout("Terminal active. Type 'keygen' to generate RSA keys.");
+
+      return function process(stdin) {
+        switch (stdin) {
+        case "keygen":
+          return KeyGenApp.entry(stdout, prompt, process);
+        default:
+          stdout("Unknown command");
+          return process;
+        }
+      }
+    },
 
     exit: function(stdout, prompt, caller) {
       prompt("");
@@ -92,22 +89,32 @@
 
     enterType: function(stdout, prompt, caller) {
       function print() {
-        stdout(" ", "Do you wish to generate and export an OpenPGP style key, or just generate the key?", " ");
-        stdout("1) Key Generation");
-        stdout("2) Key Generation and OpenPGP Key Export", " ");
+        stdout(" ", "Choose a key format:", " ");
+        stdout("1) Raw");
+        stdout("2) OpenPGP (RFC4880)");
+        stdout("3) OpenSSH (RFC4716)");
+        stdout("4) PKCS #1 (RFC3447)");
+        stdout(" ", "*** NOTE: PRIVATE KEY DATA IS NOT ENCRYPTED ***", " ");
       }
 
+      prompt("Choose Format ");
       print();
 
       return function process(stdin) {
-        if (stdin == 2)
-          return KeyGenApp.enterName(stdout, prompt, caller);
-        if (stdin == 1)
-          return KeyGenApp.enterSize(stdout, prompt, caller);
-
-        stdout(" ", "Invalid input. Please select one of the presented options", " ");
-        print();
-        return process;
+        type = parseInt(stdin);
+        switch (type) {
+          case 1:
+          case 4:
+            return KeyGenApp.enterSize(stdout, prompt, caller);
+          case 2:
+          case 3:
+            return KeyGenApp.enterName(stdout, prompt, caller);
+          default:
+            type = null;
+            stdout(" ", "Invalid input. Please select one of the presented options", " ");
+            print();
+            return process;
+        }
       }
     },
 
@@ -116,6 +123,7 @@
         stdout(" ", "Enter a name. E.g. Bob, Mike, Bob Smith <bob@smith.com>", " ");
       }
 
+      prompt("Enter Name ");
       print();
 
       return function process(stdin) {
@@ -132,20 +140,30 @@
 
     enterSize: function(stdout, prompt, caller) {
       function print() {
-        stdout(" ", "Enter a key size in bits, e.g. 1024, 1536, 2048", " ");
+        stdout(" ", "Enter a key size in bits, 512 <= s <= 4096", " ", "*** NOTE: KEY SIZES >2048 CAN TAKE A LONG TIME TO GENERATE ***", " ");
       }
 
+      prompt("Enter Size ");
       print();
 
       return function process(stdin) {
-        if (stdin > 127 && stdin < 4097) {
+        if (stdin > 511 && stdin < 4097) {
           KeyGenApp.size = stdin;
-          if (KeyGenApp.name != null) {
-            var callback = KeyGenApp.printGpg(stdout, prompt, caller);
-            KeyGen(KeyGenApp.size, callback)();
-            KeyGen(KeyGenApp.size, callback)();
-          } else {
-            KeyGen(KeyGenApp.size, KeyGenApp.printRaw(stdout, prompt, caller))();
+          switch (type) {
+            case 1:
+              KeyGen(KeyGenApp.size, KeyGenApp.printRaw(stdout, prompt, caller))();
+            break;
+            case 2:
+              var callback = KeyGenApp.printGpg(stdout, prompt, caller);
+              KeyGen(KeyGenApp.size, callback)();
+              KeyGen(KeyGenApp.size, callback)();
+            break;
+            case 3:
+              KeyGen(KeyGenApp.size, KeyGenApp.printSsh(stdout, prompt, caller))();
+            break;
+            case 4:
+              KeyGen(KeyGenApp.size, KeyGenApp.printPk1(stdout, prompt, caller))();
+            break;
           }
 
           return KeyGenApp.exit(stdout, prompt, caller);
@@ -159,7 +177,7 @@
 
     printGpg: function(stdout, prompt, caller) {
       function print() {
-        stdout(" ", "Your keys are being generated...", " ");
+       stdout(" ", "Your keys are being generated...", " ");
       }
 
       print();
@@ -171,8 +189,8 @@
           KeyGenApp.keys.e = { name: KeyGenApp.name, type: C.TYPE_RSA_ENCRYPT, data: stdin, time: c, size: ArrayUtil.bitLength(stdin.n), iden: KeyUtil.generateFingerprint(C.TYPE_RSA_ENCRYPT, stdin, c) };
           KeyGenApp.keys.e.sign = Asymmetric.sign(KeyGenApp.keys.s, KeyUtil.generateSignatureHash(KeyGenApp.keys.s, KeyGenApp.keys.e), true);
 
-          stdout("Private Key Block", " ", KeyUtil.exportKey(KeyGenApp.keys.s, KeyGenApp.keys.e, true), " ");
-          stdout("Public Key Block", " ", KeyUtil.exportKey(KeyGenApp.keys.s, KeyGenApp.keys.e), " ");
+          stdout(KeyUtil.exportKey(KeyGenApp.keys.s, KeyGenApp.keys.e, true), " ");
+          stdout(KeyUtil.exportKey(KeyGenApp.keys.s, KeyGenApp.keys.e), " ");
 
           KeyGenApp.keys = {s: null, e: null};
           KeyGenApp.name = null;
@@ -193,11 +211,44 @@
 
       print();
 
-      return function process(stdin) {
+      return function process(stdin, time) {
         for (var m in stdin)
-          stdout(m+" "+ArrayUtil.toHex(stdin[m]));
-
+          stdout(m+((m.length==2)?" ":"  ")+ArrayUtil.toHex(stdin[m]));
+        
         stdout(" ");
+        stdout("Elapsed time: "+time+"ms", " ");
+
+        return;
+      }
+    },
+
+    printPk1: function(stdout, prompt, caller) {
+      function print() {
+        stdout(" ", "Your keys are being generated...", " ");
+      }
+
+      print();
+
+      return function process(stdin, time) {
+        stdout(KeyUtil.exportPK1({ data: stdin }, true), " ");
+        stdout(KeyUtil.exportPK1({ data: stdin }), " ");
+        stdout("Elapsed time: "+time+"ms", " ");
+
+        return;
+      }
+    },
+
+    printSsh: function(stdout, prompt, caller) {
+      function print() {
+        stdout(" ", "Your keys are being generated...", " ");
+      }
+
+      print();
+
+      return function process(stdin, time) {
+        stdout(KeyUtil.exportPK1({ data: stdin }, true), " ");
+        stdout(KeyUtil.exportSSH({ data: stdin, name: KeyGenApp.name }), " ");
+        stdout("Elapsed time: "+time+"ms", " ");
 
         return;
       }
@@ -209,9 +260,8 @@
         input = shell.appendChild(document.createElement("dt")),
         field = shell.appendChild(document.createElement("dd")),
         caret = field.appendChild(document.createElement("span")),
-        clock = input.appendChild(document.createElement('span')),
         label = input.appendChild(document.createElement('span')),
-        alive = false;
+        alive = true;
 
     function toggleCaret(highlight) {
       if (highlight || !caret.classList.contains("highlight")) {
@@ -226,29 +276,19 @@
       }
     }
 
-    function toggleLineNumbers() {
-      shell.style.marginLeft = (shell.style.marginLeft == "0px") ? "-3em" : "0px";
-    }
-
-    function insertText(data, type, id) {
+    function insertText(data, type) {
       var f = shell.insertBefore(document.createElement("dd"), input);
       
       if (type) f.classList.add(type);
-      f.setAttribute("id", id);
       return f.appendChild(document.createTextNode(data)).textContent;
     }
 
-    function insertLine(line, time, name, data, type) {
+    function insertLine(prompt, data, type) {
       var f = shell.insertBefore(document.createElement("dt"), input),
-          l = f.appendChild(document.createElement("span")),
-          t = f.appendChild(document.createElement("span")),
           n = f.appendChild(document.createElement("span"));
       
-      l.classList.add("line");
-      l.appendChild(document.createTextNode(line));
-      t.appendChild(document.createTextNode(time+" "));
-      n.appendChild(document.createTextNode(name));
-      return insertText(data, type, line);
+      n.appendChild(document.createTextNode(prompt));
+      return insertText(data, type);
     }
 
     function clearLine() {
@@ -294,7 +334,7 @@
           moveRight(true);
         break;
         case 37:
-          if (!moveLeft()) toggleLineNumbers();
+          moveLeft();
         break;
         case 39:
           moveRight();
@@ -321,11 +361,14 @@
         case 36:
           while(moveLeft());
         break;
+        case 67:
+          if (event.ctrlKey) clearLine();
+        break;
       }
     }
 
     function write(event) {
-      if (!alive || event.which < 32) return;
+      if (!alive || event.which < 32 || event.ctrlKey) return;
       if (!caret.previousSibling) {
         caret.parentNode.insertBefore(document.createTextNode(String.fromCharCode(event.which)), caret);
       } else {
@@ -337,7 +380,7 @@
       while(moveRight());
       if (caret.parentNode.textContent == " ") return;
 
-      state = state(insertLine(caret.line++, clock.textContent, label.textContent, caret.previousSibling.textContent, "stdin").trim());
+      state = state(insertLine(label.textContent, caret.previousSibling.textContent, "stdin").trim());
 
       clearLine();
       input.scrollIntoView();
@@ -346,19 +389,8 @@
     }
 
     caret.timer = window.setInterval(toggleCaret, 600);
-    caret.classList.add("nofocus");
     caret.textContent = " ";
     caret.pointer = 0;
-    caret.line = 0;
-
-    clock.date = new Date();
-    clock.textContent = clock.date.toString().substring(16,24);
-    clock.classList.add("clock");
-
-    window.setInterval(function() { 
-      clock.date.setTime(Date.now());
-      clock.textContent = clock.date.toString().substring(16, 24);
-    }, 1000);
 
     label.classList.add("label");
 
@@ -373,25 +405,21 @@
       }
     }, true);
 
-    state = state(function(data) { var args = Array.prototype.slice.call(arguments); while (args.length) insertText(args.shift(), "stdout"); }, 
+    state = state(function(data) { var args = Array.prototype.slice.call(arguments); while (args.length) insertText(args.shift(), "stdout"); input.scrollIntoView(); }, 
                   function(data) { if (label.firstChild) label.removeChild(label.firstChild); label.appendChild(document.createTextNode(data)); });
 
     return {
-      setLabel: function(text) {
-        if(label.firstChild) label.removeChild(label.firstChild);
-        label.appendChild(document.createTextNode(text));
+      setLabel: function(prompt) {
+        if (label.firstChild) label.removeChild(label.firstChild);
+        label.appendChild(document.createTextNode(prompt));
       },
-      read: function(line) {
-        return document.getElementById(line) && document.getElementById(line).textContent.trim();
-      },
-      print: function(data, label) {
-        return (label) ? insertLine(caret.line++, clock.textContent, label, data, "")
-                       : insertText(data, "stdout");
+      print: function(data, prompt) {
+        return (prompt) ? insertLine(prompt, data, "") : insertText(data, "stdout");
       }
     };
   }
 
-  var T = Terminal(document.getElementById("term"), RouterApp);
+  var T = Terminal(document.getElementById("term"), KeyGenApp.init);
   </script>
 </body>
 </html>
