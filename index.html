@@ -3,441 +3,170 @@
   <meta charset="utf-8"> 
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
   <title>SecureRoom</title>
-  <link href="resources/style.css" media="all" rel="stylesheet" type="text/css">
-
-  <script src="resources/random.default.js"></script>
-  <script src="resources/symmetric.aes.cfb.js"></script>
-  <script src="resources/asymmetric.rsa.js"></script>
-  <script src="resources/hash.sha1.js"></script>
-  <script src="resources/secureroom.js"></script>
-  <script src="resources/utils.js"></script>
-  <script>
-  function TemplateEngine(templ) {
-    if (typeof templ != "undefined")
-      templ = document.getElementById(templ).innerHTML.replace(/\n|\r/g, "").replace(/>\s+</g, "><").trim();
-
-    return function compile(data, template) {
-      var match, tpart, i, template = template || templ;
-
-      while (match = /\{\{#([a-zA-Z]+)\}\}(.+)\{\{\/\1\}\}/g.exec(template)) {
-        for (tpart = '', i = 0; i < data[match[1]].length; i++)
-          tpart += compile(data[match[1]][i], match[2]);
-
-        template = template.split(match[0]).join(tpart);
-        delete data[match[1]];
-      }
-
-      for (match in data)
-        template = template.split('{{'+match+'}}').join(data[match]);
-
-      return template;
-    }
+  <style>
+  @font-face {
+    font-family: "Typewriter";
+    src: url(./rough_typewriter.otf) format("opentype");
+  }
+  @font-face {
+    font-family: "Babas";
+    src: url(./BebasNeue.otf) format("opentype");
+  }
+  @font-face {
+    font-family: "Roboto";
+    font-weight: normal;
+    src: url(./Roboto-Regular.ttf) format("truetype");
+  }
+  @font-face {
+    font-family: "Roboto";
+    font-weight: bold;
+    src: url(./Roboto-Medium.ttf) format("truetype");
+  }
+  @font-face {
+    font-family: "Roboto Condensed";
+    font-weight: normal;
+    src: url(./RobotoCondensed-Regular.ttf) format("truetype");
+  }
+  @font-face {
+    font-family: "Roboto Condensed";
+    font-weight: bold;
+    src: url(./RobotoCondensed-Bold.ttf) format("truetype");
   }
 
-  var UI = {
-    toggleKeychain: function() {
-      var ctrl = document.getElementById('keychainToggle'),
-          elem = document.getElementById('keychain');
-
-      return function(close) {
-        if (ctrl.classList.contains('open') || close == 'close') {
-          ctrl.classList.remove('open');
-          elem.style.bottom = '-'+elem.clientHeight+'px';
-
-          var node;
-          while ( (node = elem.querySelector('.export:not(.hidden)')) ) node.classList.add('hidden');
-          while ( (node = elem.querySelector('.selected')) ) node.classList.remove('selected');
-        } else {
-          ctrl.classList.add('open');
-          elem.style.bottom = (ctrl.clientHeight-5)+'px';
-        }
-      };     
-    },
-
-    toggleSettings: function() {
-      var ctrl = document.getElementById('settingsToggle'),
-          elem = document.getElementById('settings');
-
-      return function(close) {
-        if (ctrl.classList.contains('open') || close == 'close') {
-          ctrl.classList.remove('open');
-          elem.style.marginTop = '-'+(elem.clientHeight-ctrl.clientHeight)+'px';
-          window.scroll(0, document.body.offsetHeight);
-        } else {
-          ctrl.classList.add('open');
-          elem.style.marginTop = ctrl.clientHeight+'px';
-          window.scrollTo(0, 0);
-        }
-      };
-    },
-
-    toggleKey: function(id, ctrl) {
-      return function() {
-        if (App.isEnabled(id)) {
-          ctrl.classList.add('inactive');
-          ctrl.textContent = 'DISABLED';
-          App.toggleKey(id, C.STATUS_DISABLED);
-        } else {
-          ctrl.classList.remove('inactive')
-          ctrl.textContent = 'ACTIVE';
-          App.toggleKey(id, C.STATUS_ENABLED);
-        }
-      };
-    },
-
-    toggleExport: function(elem, ctrl) {
-      return function() {
-        if (elem.classList.contains('hidden')) {
-          elem.classList.remove('hidden');
-          ctrl.classList.add('selected');
-        } else {
-          elem.classList.add('hidden');
-          ctrl.classList.remove('selected');
-        }
-
-        elem.style.left = (elem.parentNode.getBoundingClientRect().left - 1)+'px';
-        elem.style.top  = '-'+(elem.offsetHeight - (elem.parentNode.getBoundingClientRect().top - elem.parentNode.parentNode.getBoundingClientRect().top))+'px';
-      };
-    },
-
-    toggleSize: function(elem) {
-      elem.parentNode.querySelector('.selected').classList.remove('selected');
-      elem.classList.add('selected');
-      return parseInt(elem.textContent);
-    },
-
-    toggleInput: function(close) {
-      document.getElementById('input').style.bottom = (close) ? '-2.25em' : '0em';
-    },
-
-    toggleRoom: function() { 
-      document.getElementById('room').textContent = 'Room: '+App.getRoom();
-    },
-
-    toggleHeight: function(elem) {
-      var height = elem.offsetHeight;
-
-      if (elem.classList.contains('hidden-height')) {
-        elem.style.height = '0px';
-        elem.classList.remove('hidden-height');
-      } else {
-        elem.style.height = height+'px';
-      }
-
-      return function() {
-        elem.style.height = (elem.style.height == '0px') ? height+'px' : '0px';
-      }
-    },
-
-    removeContent: function(elem) {
-      elem.style.height = elem.offsetHeight+'px';
-
-      return function() {
-        elem.style.height = '0px';
-        while (elem.firstChild) elem.removeChild(elem.firstChild);
-      }
-    },
-
-    disableSettings: function(setting) {
-      var parent = document.getElementById(setting), node;
-    
-      switch(setting) {
-      case 'asymsize':
-        while ((node = parent.querySelector('span:not(.selected)')) ) parent.removeChild(node);
-        break;
-      case 'serverurl':
-        parent.classList.add('selected');
-        parent.contentEditable = false;
-        break;
-      }
-    },
-
-    addMessage: function(message) {
-      if (message == null) return;
-      var container = document.getElementById('content'),
-          build = TemplateEngine('template-message'),
-          content = {};
-
-      content.time    = PrintUtil.time(message.recvtime);
-      content.sender  = PrintUtil.text(App.getKey(message.sender).name);
-      content.message = PrintUtil.text(message.plaintext);
-      content.info    = UI.buildMsgInfo(message);
-      content.class   = (!message.verified) ? ' warning' : '';
-
-      container.insertAdjacentHTML('beforeend', build(content));
-
-      UI.addMessageListeners(container.lastChild);
-      window.scroll(0, document.body.offsetHeight);
-    },
-
-    addMessageListeners: function(elem) {
-      elem.addEventListener('click', UI.toggleHeight(elem.querySelector('.info')));
-    },
-
-    addKey: function(id) {
-      if (document.getElementById('alert-'+id)) return;
-
-      var container = document.getElementById('content'),
-          build = TemplateEngine('template-key-alert'),
-          content = {};
-
-      content.id   = PrintUtil.text(id);
-      content.time = PrintUtil.time(Math.round(Date.now()/1000));
-      content.name = PrintUtil.text(App.getKey(id).name);
-      content.info = UI.buildKeyInfo(id);
-
-      container.insertAdjacentHTML('beforeend', build(content));
-
-      UI.addKeyListeners(document.getElementById('alert-'+id), id);
-      window.scroll(0, document.body.offsetHeight);
-    },
-
-    addKeyListeners: function(elem, id) {
-      var a = elem.getElementsByTagName('button').item(0),
-          r = elem.getElementsByTagName('button').item(1),
-          p = elem.querySelector('.join'),
-          d = UI.removeContent(a.parentNode);
-
-      a.addEventListener('click', function() { 
-        App.toggleKey(id, C.STATUS_ENABLED);
-        Comm.sendKey();
-      });
-
-      a.addEventListener('click', function() { 
-        p.classList.add('accept');
-        UI.buildKeychain();
-      });
-
-      a.addEventListener('click', d);
-
-      r.addEventListener('click', function() { 
-        App.toggleKey(id, C.STATUS_REJECTED);
-      });
-
-      r.addEventListener('click', function() { 
-        elem.classList.add('warning');
-        p.classList.add('reject');
-      });
-      
-      r.addEventListener('click', d);
-    },
-
-    buildMsgInfo: function(message) {
-      var tools = MessageTools(message),
-          build = TemplateEngine('template-message-info'),
-          content = {info: []};
-
-      content.info.push({term: 'Verified', data: PrintUtil.bool(message.verified)});
-      content.info.push({term: 'Author', data: PrintUtil.id(message.sender)});
-      content.info.push({term: 'Cipher', data: Symmetric.name+'-'+(message.sessionkey.length*8)+' ['+Symmetric.mode+']'});
-      content.info.push({term: 'Delay', data: (message.recvtime - message.sendtime)+' sec'});
-      content.info.push(tools.recipients());
-      content.info.push(tools.strength());
-
-      return build(content);
-    },
-
-    buildKeyInfo: function(id) {
-      var build = TemplateEngine('template-key-info'),
-          content = {};
-
-      content.sid   = PrintUtil.id(id);
-      content.ssize = PrintUtil.number(App.getKey(id).size);
-      content.sdate = PrintUtil.date(App.getKey(id).time);
-
-      content.eid   = PrintUtil.id(App.getKey(id).peer);
-      content.esize = PrintUtil.number(App.getPeer(id).size);
-      content.edate = PrintUtil.date(App.getPeer(id).time);
-
-      return build(content);
-    },
-
-    buildKeychain: function() {
-      var container = document.getElementById('keychain'),
-          build = TemplateEngine('template-key-chain'),
-          content = {};
-
-      while (container.lastChild != container.firstChild) container.removeChild(container.lastChild);
-
-      for (var i = 0, d = App.getKeys(C.TYPE_RSA_SIGN, C.STATUS_ENABLED).concat(App.getKeys(C.TYPE_RSA_SIGN, C.STATUS_DISABLED)); i < d.length; i++) {
-        content.id     = PrintUtil.text(d[i]);
-        content.name   = PrintUtil.text(App.getKey(d[i]).name);
-        content.status = (App.isEnabled(d[i])) ? '' : 'inactive';
-        content.info   = UI.buildKeyInfo(d[i]);
-        content.data   = KeyUtil.exportKey(App.getKey(d[i]), App.getKey(App.getKey(d[i]).peer));
-
-        container.insertAdjacentHTML('beforeend', build(content));
-        UI.addKeychainListeners(container.lastChild, d[i]);
-      }
-
-      UI.toggleKeychain()('close');
-    },
-
-    addKeychainListeners: function(elem, id) {
-      var b1 = elem.getElementsByTagName('span').item(0),
-          b2 = elem.getElementsByTagName('span').item(1),
-          ex = elem.querySelector('.export');
-      
-      b1.addEventListener('click', UI.toggleKey(id, b1));
-      b2.addEventListener('click', UI.toggleExport(ex, b2));
-    },
-
-    addWelcome: function(type) {
-      var container = document.getElementById('welcome');
-      while (container.firstChild) container.removeChild(container.firstChild);
-
-      switch(type) {
-      case 'distribute':
-        container.insertAdjacentHTML('beforeend', '<p>Your keys have been generated.</p><div class="info">'+UI.buildKeyInfo(App.myId(C.TYPE_RSA_SIGN))+'</div><button>Connect &amp; Distribute</button>');
-        container.querySelector('button').addEventListener('click', function() { Comm.connect(); UI.addWelcome('progress'); UI.disableSettings('serverurl') });
-        UI.addMyKey();
-        break;
-      case 'progress':
-        container.insertAdjacentHTML('beforeend', '<div class="loading"></div>');
-        break;
-      case 'connect':
-        container.insertAdjacentHTML('beforeend', '<div class="time">'+PrintUtil.time(Math.round(Date.now()/1000))+'</div><p>Connected.</p>');
-        break;
-      case 'disconnect':
-        container.insertAdjacentHTML('beforeend', '<div class="time">'+PrintUtil.time(Math.round(Date.now()/1000))+'</div><p>Disconnected.</p>');
-        break;   
-      }
-    },
-
-    addMyKey: function() {
-      document.getElementById('myname').textContent = PrintUtil.text(App.myName());
-      document.getElementById('myinfo').insertAdjacentHTML('beforeend', UI.buildKeyInfo(App.myId(C.TYPE_RSA_SIGN)));
-      
-      var my = document.getElementById('mykey'),
-          e1 = my.getElementsByTagName('textarea').item(0),
-          e2 = my.getElementsByTagName('textarea').item(1),
-          b1 = my.getElementsByTagName('span').item(0),
-          b2 = my.getElementsByTagName('span').item(1);
-
-      e1.textContent = KeyUtil.exportKey(App.getKey(App.myId(C.TYPE_RSA_SIGN)), App.getKey(App.myId(C.TYPE_RSA_ENCRYPT)), true);
-      e2.textContent = KeyUtil.exportKey(App.getKey(App.myId(C.TYPE_RSA_SIGN)), App.getKey(App.myId(C.TYPE_RSA_ENCRYPT)));
-
-      b1.addEventListener('click', UI.toggleExport(e1.parentNode, b1));
-      b2.addEventListener('click', UI.toggleExport(e2.parentNode, b2));
-    }
+  body {
+    margin: 0;
+    font-family: Roboto;
+    text-align: center;
   }
-  </script>
 
-  <script type="text/html" id="template-message">
-    <li class="message{{class}}"><div class="time">{{time}}</div><p><b class="cln">{{sender}}</b>{{message}}</p>{{info}}</li>
-  </script>
-  <script type="text/html" id="template-message-info">
-    <ul class="info hidden-height">{{#info}}<li><b class="cln">{{term}}</b>{{data}}</li>{{/info}}</ul>
-  </script>
-  <script type="text/html" id="template-key-alert">
-    <li id="alert-{{id}}" class="alert"><div class="time">{{time}}</div><p class="join">{{name}}</p><div class="info">{{info}}<button>Accept</button><button>Reject</button></div></li>
-  </script>
-  <script type="text/html" id="template-key-info">
-    <p><b>{{sid}}</b><br><small>{{ssize}} | {{sdate}} | SIGNING</small></p><p>{{eid}}<br><small>{{esize}} | {{edate}} | ENCRYPTION</small></p>
-  </script>
-  <script type="text/html" id="template-key-chain">
-    <li id="key-{{id}}"><div class="export hidden"><textarea wrap="off">{{data}}</textarea></div><h3>{{name}}</h3><div class="controls"><span class="{{status}}">ACTIVE</span><span>PUBLIC KEY</span></div><div class="info">{{info}}</div></li>
-  </script>
+  header {
+    width: 640px;
+    margin: 8px auto;
+  }  
+  section {
+    width: 560px;
+    margin: 80px auto 0;
+    text-align: left;
+  }
+  nav {
+    width: 560px;
+    margin: 0 auto;
+    text-align: left;
+  }
+
+  a {
+    border-bottom: dashed 1px black;
+    color: black;
+    font-weight: bold;
+    text-decoration: none;
+  }
+  h1 {
+    font-family: Typewriter;
+    font-size: 96px;
+    /*font-weight: normal;*/
+    margin-bottom: 0;
+  }
+  h2 {
+    font-family: Babas;
+    font-size: 40px;
+    font-weight: normal;
+  }
+  h3 {
+    font-family: Babas;
+    font-size: 24px;
+    font-weight: normal;
+    margin-top: 0;
+  }
+  p {
+    text-align: justify;
+    font-size: 20px;
+    line-height: 30px;
+  }
+
+  dl {
+    font-size: 20px;
+    line-height: 30px;
+  }
+  dt {
+    float: left;
+    width: 120px;
+    overflow: hidden;
+    clear: left;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: bold;
+  }
+
+  dd {
+    margin-left: 140px;
+  }  
+  </style>
+  <script src="http://vukicevic.github.io/SecureRoom/example/resources/random.default.js"></script>
+  <script src="http://vukicevic.github.io/SecureRoom/example/resources/symmetric.aes.cfb.js"></script>
 </head>
 <body>
-  <div id="menu">
-    <span class="closed open" id="settingsToggle">
-    <svg height="19" width="16" xmlns="http://www.w3.org/2000/svg" version="1.1">
-      <rect y="3" width="16" height="3" />
-      <rect y="8" width="16" height="3" />
-      <rect y="13" width="16" height="3" />
-    </svg>
-    </span>
-    <span id="room">Room: -</span>
-  </div>
+<a href="https://github.com/vukicevic/SecureRoom"><img style="position: absolute; top: 0; right: 0; border: 0;" src="./forkme.png" alt="Fork me on GitHub"></a>
+<header>
+  <h1>SecureRoom</h1>
+  <h3><span id="c1">JavaScript</span> <span id="c2">cryptography</span> | <span id="c3">Secure</span> <span id="c4">communication</span> | <span id="c5">100%</span> <span id="c6">Client-side</span></h3>
+</header>
 
-  <ul id="settings">
-    <li>
-      <h3>Symmetric Cipher (AES)</h3>
-      <div class="controls" id="symcsize">Size (bits): <span class="selected">128</span><span>192</span><span>256</span></div>
-    </li>
-    <li>
-      <h3>Asymmetric Key (RSA)</h3>
-      <div class="controls" id="asymsize">Size (bits): <span class="selected">1024</span><span>1536</span><span>2048</span></div>
-    </li>
-    <li>
-      <h3>WebSocket Connection</h3>
-      <div class="controls">URL: <span id="serverurl" contenteditable="true" onkeydown="if(event.keyCode === 13)event.preventDefault();" onkeyup="App.setServer(this.textContent);"></span></div>
-    </li>
-  </ul>
+<section>
+  <p>A JavaScript application for encrypted communication. Built using the <a href="crunch.secureroom.net">crunch</a> cryptographic engine. Proven encryption algorithms, simple design, open-source.</p>
+  <p>Privacy matters.</p>
+</section>
 
-  <ul id="content">
-    <li class="alert" id="welcome">
-      <input type="text" id="nickname" autocomplete="off" placeholder="Enter a name..." onkeyup="this.nextSibling.disabled = (this.value.length<3);" onkeypress="(event.keyCode===13) && this.nextSibling.onclick();"><button onclick="if (!this.disabled) { App.generateKeys(this.previousSibling.value); UI.addWelcome('progress'); UI.disableSettings('asymsize'); }" disabled>Generate</button>
-    </li>
-  </ul>
+<section>
+  <h2>Getting Started</h2>
+</section>
 
-  <div id="input">
-    <div class="closed" id="keychainToggle">
-      <svg height="19" width="12" xmlns="http://www.w3.org/2000/svg" version="1.1">
-        <rect y="5" width="4" height="3" />
-        <rect y="10" width="4" height="3" />
-        <rect y="15" width="4" height="3" />
-      </svg>
-    </div>
-    <button id="send" onclick="var e = document.getElementById('message'); if (e.value) UI.addMessage(Comm.sendMessage(e.value)); e.value = '';">Send</button>
-    <span><input type="text" id="message" autocomplete="off" onkeyup="(event.keyCode === 13) && document.getElementById('send').click()"></span>
-  </div>
+<section>
+  <h2>Primitives</h2>
+  <p>SecureRoom is built from the following components:</p>
+  <dl>
+    <dt>RNG</dt>
+    <dd>window.crypto API</dd>
+    <dt>Hash</dt>
+    <dd>SHA-1</dd>
+    <dt>Symmetric</dt>
+    <dd>AES [CFB]</dd>
+    <dt>Asymmetric</dt>
+    <dd>RSA [OAEP]</dd>
+  </dl>
+</section>
 
-  <ul id="keychain"><li id="mykey">
-      <div class="export hidden"><textarea wrap="off"></textarea></div>
-      <div class="export hidden"><textarea wrap="off"></textarea></div>
-      <h3 id="myname"></h3>
-      <div id="mycontrols" class="controls"><span>PRIVATE KEY</span><span>PUBLIC KEY</span></div>
-      <div id="myinfo" class="info"></div>
-  </li></ul>
+<section>
+  <h2>Glossary</h2>
+</section>
 
-  <script>
-  if (typeof window.WebSocket === 'function' && typeof window.Worker === 'function') {
-    var App = SecureRoom(function() {
-                UI.addWelcome('distribute');
-                UI.toggleSettings()('close');
-                UI.toggleKeychain()('close');
-                UI.toggleRoom();
-              });
+<script>
+function iterate(count, encrypt, key, elem, max, period) {
+  if (encrypt && count === max) encrypt = !encrypt;
+  
+  var value = elem.textContent.split("").map(function(v){return v.charCodeAt(0)});
 
-    Comm.setCallbacks(
-      function() {
-        UI.addWelcome('connect');
-        UI.toggleInput();
-      },
-      function() {
-        UI.addWelcome('disconnect');
-        UI.toggleInput(true);
-      },
-      function(msg) {
-        UI.addMessage(msg);
-      },
-      function(id) {
-        UI.addKey(id);
-      }
-    )
-    
-    window.onload = function() {
-      UI.toggleRoom();
-
-      document.getElementById("keychainToggle").addEventListener('click', UI.toggleKeychain());
-      document.getElementById("settingsToggle").addEventListener('click', UI.toggleSettings());
-
-      document.getElementById("symcsize").addEventListener('click', function (e) { if (e.target.tagName.toLowerCase() == "span") App.setSize('cipher', UI.toggleSize(e.target)) });
-      document.getElementById("asymsize").addEventListener('click', function (e) { if (e.target.tagName.toLowerCase() == "span") App.setSize('key', UI.toggleSize(e.target)) });
-
-      document.getElementById("serverurl").textContent = App.getServer();
-      document.getElementById("nickname").focus();
-    }
-
-    window.onresize = function(event) {
-      UI.toggleKeychain()('close');
-      UI.toggleSettings()('close');
-    }
+  if (encrypt) {
+    value = Symmetric.encrypt(key, value)
+    count++;
   } else {
-    alert('Your browser does not have the necessary features to run this application. Please try the latest Firefox or Chrome.');
+    value = Symmetric.decrypt(key, value);
+    count--;
   }
-  </script>
+  
+  elem.textContent = value.map(function(v){return String.fromCharCode(v)}).join("");
+
+  if (count)
+    window.setTimeout(iterate, period, count, encrypt, key, elem, max, period);
+}
+
+iterate(0, true, Random.generate(128), document.getElementById("c1"), 1, ~~(Math.random()*1000));
+iterate(0, true, Random.generate(128), document.getElementById("c2"), 1, ~~(Math.random()*1000));
+iterate(0, true, Random.generate(128), document.getElementById("c3"), 1, ~~(Math.random()*1000));
+iterate(0, true, Random.generate(128), document.getElementById("c4"), 1, ~~(Math.random()*1000));
+iterate(0, true, Random.generate(128), document.getElementById("c5"), 1, ~~(Math.random()*1000));
+iterate(0, true, Random.generate(128), document.getElementById("c6"), 1, ~~(Math.random()*1000));
+
+
+</script>
 </body>
 </html>
