@@ -217,7 +217,7 @@ var Comm = {
 
     if (i == 0) return null;
 
-    var paddata = Random.generate(App.getSize("cipher"));
+    var paddata = Random.generate(128);
     paddata = paddata.concat(paddata.slice(-2))
                      .concat(data);
 
@@ -229,7 +229,7 @@ var Comm = {
 
     if (message.encrypted.keys[id]) {
       message.sessionkey = Asymmetric.decrypt(App.getKey(id), message.encrypted.keys[id]);
-      return Symmetric.decrypt(message.sessionkey, message.encrypted.data).slice(message.sessionkey.length+2);
+      return Symmetric.decrypt(message.sessionkey, message.encrypted.data).slice(18);
     }
 
     return null;
