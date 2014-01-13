@@ -19,7 +19,7 @@ var Random = {
   s - Size to generate, in bits
   */
   generate: function(size) {
-    var c = window.crypto || window.msCrypto;
+    var c = window.crypto || window.msCrypto,
         t = new Uint8Array(Math.ceil(size/8));
     
     c.getRandomValues(t);
