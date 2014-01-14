@@ -47,7 +47,6 @@
   a {
     border-bottom: dashed 1px black;
     color: black;
-    font-weight: bold;
     text-decoration: none;
   }
   h1 {
@@ -91,24 +90,24 @@
     margin-left: 140px;
   }  
   </style>
-  <script src="http://vukicevic.github.io/SecureRoom/example/resources/random.default.js"></script>
-  <script src="http://vukicevic.github.io/SecureRoom/example/resources/symmetric.aes.cfb.js"></script>
+  <script src="example/random.default.js"></script>
+  <script src="example/symmetric.aes.cfb.js"></script>
 </head>
 <body>
-<a href="https://github.com/vukicevic/SecureRoom"><img style="position: absolute; top: 0; right: 0; border: 0;" src="./assets/forkme.png" alt="Fork me on GitHub"></a>
 <header>
   <h1>SecureRoom</h1>
   <h3><span id="c1">JavaScript</span> <span id="c2">cryptography</span> | <span id="c3">Secure</span> <span id="c4">communication</span> | <span id="c5">100%</span> <span id="c6">Client-side</span></h3>
 </header>
 
 <section>
-  <p>A JavaScript application for encrypted communication. Built using the <a href="#">crunch</a> cryptographic engine. Proven encryption algorithms, simple design, open-source.</p>
+  <p>A JavaScript application for encrypted communication. Built using the <b><a href="http://crunch.secureroom.net/">crunch</a></b> arbitrary-precision arithmetic library. Proven encryption algorithms, simple design, open-source.</p>
   <p>Privacy matters.</p>
+  <h3><a href="https://princip.secureroom.net/">Create a Room</a> | <a href="https://github.com/vukicevic/SecureRoom">View on GitHub</a></h3>
 </section>
 
-<section>
+<!--section>
   <h2>Getting Started</h2>
-</section>
+</section-->
 
 <section>
   <h2>Primitives</h2>
@@ -125,9 +124,9 @@
   </dl>
 </section>
 
-<section>
+<!--section>
   <h2>Glossary</h2>
-</section>
+</section-->
 
 <script>
 function iterate(count, encrypt, key, elem, max, period) {
