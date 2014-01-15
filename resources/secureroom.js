@@ -15,7 +15,8 @@
 
 function SecureRoom(callback) {
   var chain = {},
-      prefs = {};
+      prefs = {},
+      mpi = Crunch();
 
       prefs.room   = window.location.pathname.substr(window.location.pathname.lastIndexOf('/')+1);
       if (prefs.room == 'index.html') prefs.room = UrlUtil.getParameter('room');
@@ -62,10 +63,12 @@ function SecureRoom(callback) {
   }
 
   return {
+    calc: mpi,
+
     generateKeys: function(name) {
       prefs.name = name;
-      KeyGen(prefs.key.size, onGenerate)();
-      KeyGen(prefs.key.size, onGenerate)();
+      KeyGen(prefs.key.size, onGenerate, mpi)();
+      KeyGen(prefs.key.size, onGenerate, mpi)();
     },
 
     getKeys: function(type, mode) {
