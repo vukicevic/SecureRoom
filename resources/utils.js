@@ -45,7 +45,7 @@ var KeyUtil = {
       tag = (key.type == C.TYPE_RSA_SIGN) ? 5 : 7;
       tmp = [0].concat(this.createMpi(key.data.d));
       
-      if (mpi.cmp(key.data.p, key.data.q) == -1) {
+      if (App.calc.compare(key.data.p, key.data.q) == -1) {
         tmp = tmp.concat(this.createMpi(key.data.p))
                  .concat(this.createMpi(key.data.q));
       } else {

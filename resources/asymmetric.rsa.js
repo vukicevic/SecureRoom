@@ -19,24 +19,24 @@ var Asymmetric = {
 
   encrypt: function(key, data) {
     var pad = this.encryptPadding.encode(data, key.size);
-    return mpi.c28to8(mpi.exp(mpi.c8to28(pad), mpi.c8to28(key.data.e), mpi.c8to28(key.data.n)));
+    return App.calc.exp(pad, key.data.e, key.data.n);
   },
 
   decrypt: function(key, data) {
-    var pad = mpi.c28to8(mpi.gar(mpi.c8to28(data), mpi.c8to28(key.data.p), mpi.c8to28(key.data.q), mpi.c8to28(key.data.d), mpi.c8to28(key.data.u), mpi.c8to28(key.data.dp), mpi.c8to28(key.data.dq)));
+    var pad = App.calc.gar(data, key.data.p, key.data.q, key.data.d, key.data.u, key.data.dp, key.data.dq);
     return this.encryptPadding.decode(pad);
   },
 
   sign: function(key, data, prehashed) {
     var dat = this.signaturePadding.encode(key.size, data, prehashed);
-    return mpi.c28to8(mpi.gar(mpi.c8to28(dat), mpi.c8to28(key.data.p), mpi.c8to28(key.data.q), mpi.c8to28(key.data.d), mpi.c8to28(key.data.u), mpi.c8to28(key.data.dp), mpi.c8to28(key.data.dq)));
+    return App.calc.gar(dat, key.data.p, key.data.q, key.data.d, key.data.u, key.data.dp, key.data.dq);
   },
 
   verify: function(key, data, signature, prehashed) {
-    var dat = mpi.c8to28(this.signaturePadding.encode(key.size, data, prehashed)),
-        sig = mpi.exp(mpi.c8to28(signature), mpi.c8to28(key.data.e), mpi.c8to28(key.data.n));
+    var dat = this.signaturePadding.encode(key.size, data, prehashed),
+        sig = App.calc.exp(signature, key.data.e, key.data.n);
 
-    return (mpi.cmp(dat, sig) === 0);
+    return (App.calc.compare(dat, sig) === 0);
   },
 
   signaturePadding: {
@@ -44,7 +44,7 @@ var Asymmetric = {
 
     encode: function(keysize, data, prehashed) {
       var pad = [],
-          len = Math.floor((keysize + 7)/8) - (3 + hash.der.length + hash.length);
+          len = ~~((keysize + 7)/8) - (3 + hash.der.length + hash.length);
 
       while(len--)
         pad[len] = 255;
@@ -77,47 +77,48 @@ var Asymmetric = {
           ms = data.slice(0, le),
           md = data.slice(le),
           sm = this.mgf(md, le),
-          sd = mpi.xor(ms, sm),
+          sd = App.calc.xor(ms, sm),
           dm = this.mgf(sd, data.length-le),
-          db = mpi.xor(md, dm);
+          db = App.calc.xor(md, dm);
 
       while (le < data.length) {
         if (db[le++] === 1) break;
       }
 
       //skip checking hash, if incorrect, it won't work anyway
-      //return (mpi.cmp(db.slice(0, 20), sha1.hash(this.a28to8(this.pub.n))) === 0) ? db.slice(le) : [];
+      //return (App.calc.compare(db.slice(0, 20), sha1.hash(this.a28to8(this.pub.n))) === 0) ? db.slice(le) : [];
       return db.slice(le);
     },
 
     encode: function(data, size) {
       if ((data.length*8) > (size-328)) return [];
 
-      var ln = Math.floor((size-8)/8),
-          ps = mpi.zero.slice(0, ln-data.length-41),
+      var ln = ~~((size-8)/8),
+          ps = App.calc.zero(ln-data.length-41),
           db = [218, 57, 163, 238, 94, 107, 75, 13, 50, 85, 191, 239, 149, 96, 24, 144, 175, 216, 7, 9].concat(ps.concat([1].concat(data))),
           sd = Random.generate(160),
           dm = this.mgf(sd, ln-20),
-          md = mpi.xor(db, dm),
+          md = App.calc.xor(db, dm),
           sm = this.mgf(md, 20),
-          ms = mpi.xor(sd, sm);
+          ms = App.calc.xor(sd, sm);
 
       return ms.concat(md);
     }
   }
 }
 
-function KeyGen(size, callback) {
-  var w = {}, time, timer;
+function KeyGen(size, callback, mpi) {
+  var w = {}, time, timer, mpi = mpi || Crunch();
 
   function createWorker (worker, callback) {
-    w[worker] = new Worker('resources/mpi.js');
+    w[worker] = new Worker("resources/external/crunch.js");
     w[worker].onmessage = function (e) {
       this.data = e.data;
       callback();
     };
 
-    w[worker].postMessage(mpi.c8to28(Random.generate(size/2)));
+    w[worker].postMessage({"func": "nextPrime",
+                           "args": [Random.generate(size/2)]});
   };
 
   function process() {
@@ -126,7 +127,7 @@ function KeyGen(size, callback) {
       var data = {};
 
       data.n = mpi.cut(mpi.mul(w.p.data, w.q.data));
-      data.f = mpi.mul(mpi.dec(w.p.data), mpi.dec(w.q.data));
+      data.f = mpi.mul(mpi.decrement(w.p.data), mpi.decrement(w.q.data));
 
       var t = [257,65537,17,41,19], i = 0;
       do {
@@ -141,16 +142,12 @@ function KeyGen(size, callback) {
         return;
       }
 
-      data.u  = mpi.c28to8(mpi.cut(mpi.inv(w.p.data, w.q.data)));
-      data.dp = mpi.c28to8(mpi.mod(data.d, mpi.dec(w.p.data)));
-      data.dq = mpi.c28to8(mpi.mod(data.d, mpi.dec(w.q.data)));
+      data.u  = mpi.cut(mpi.inv(w.p.data, w.q.data));
+      data.dp = mpi.mod(data.d, mpi.decrement(w.p.data));
+      data.dq = mpi.mod(data.d, mpi.decrement(w.q.data));
 
-      data.n = mpi.c28to8(data.n);
-      data.f = mpi.c28to8(data.f);
-      data.e = mpi.c28to8(data.e);
-      data.d = mpi.c28to8(data.d);
-      data.p = mpi.c28to8(w.p.data);
-      data.q = mpi.c28to8(w.q.data);
+      data.p = w.p.data.slice();
+      data.q = w.q.data.slice();
 
       callback(data, Date.now() - time);
     }
