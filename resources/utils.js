@@ -118,7 +118,7 @@ var KeyUtil = {
 
   generateFingerprint: function(type, data, time) {
     data = this.generateKeyData(type, data, time);
-    return ArrayUtil.toHex(hash.digest([0x99].concat(ArrayUtil.fromHalf(data.length)).concat(data)));
+    return ArrayUtil.toHex(Hash.digest([0x99].concat(ArrayUtil.fromHalf(data.length)).concat(data)));
   },
 
   generateSignatureHash: function(sKey, eKey) {
@@ -141,7 +141,7 @@ var KeyUtil = {
 
     suff = [4,255].concat(ArrayUtil.fromWord(meta.length));
 
-    return hash.digest(
+    return Hash.digest(
       sdat.concat(edat).concat(meta).concat(suff)
     );
   },

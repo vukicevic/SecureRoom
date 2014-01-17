@@ -13,7 +13,7 @@
  * GNU General Public License for more details.
  **/
 
-hash = {
+Hash = {
   length: 20,
   algorithm: 2,
   name: 'SHA-1',

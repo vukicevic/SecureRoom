@@ -44,17 +44,17 @@ var Asymmetric = {
 
     encode: function(keysize, data, prehashed) {
       var pad = [],
-          len = ~~((keysize + 7)/8) - (3 + hash.der.length + hash.length);
+          len = ~~((keysize + 7)/8) - (3 + Hash.der.length + Hash.length);
 
       while(len--)
         pad[len] = 255;
 
       if (!prehashed)
-        data = hash.digest(data);
+        data = Hash.digest(data);
 
       return [1].concat(pad)
                 .concat([0])
-                .concat(hash.der)
+                .concat(Hash.der)
                 .concat(data);
     }
   },
@@ -65,7 +65,7 @@ var Asymmetric = {
     mgf: function(z, l) {
       for (var t = [], c = [0,0,0,0], s = Math.ceil(l/20)-1, i = 0; i <= s; i++) {
         c[3] = i; //only implemented for l<5120 (i<256), only using lsb, key size can't be >5120
-        t = t.concat(hash.digest(z.concat(c)));
+        t = t.concat(Hash.digest(z.concat(c)));
       }
       return t.slice(0, l);
     },
@@ -86,7 +86,7 @@ var Asymmetric = {
       }
 
       //skip checking hash, if incorrect, it won't work anyway
-      //return (App.calc.compare(db.slice(0, 20), sha1.hash(this.a28to8(this.pub.n))) === 0) ? db.slice(le) : [];
+      //return (App.calc.compare(db.slice(0, 20), Hash(this.a28to8(this.pub.n))) === 0) ? db.slice(le) : [];
       return db.slice(le);
     },
 
