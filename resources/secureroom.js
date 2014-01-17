@@ -13,10 +13,11 @@
  * GNU General Public License for more details.
  **/
 
-function SecureRoom(callback) {
+function SecureRoom(onGenerateCallback, onConnectCallback, onDisconnectCallback, onMessageCallback, onKeyCallback) {
   var chain = {},
       prefs = {},
-      mpi = Crunch();
+      comms = Comm(onConnectCallback, onDisconnectCallback, onMessageCallback, onKeyCallback),
+      maths = Crunch();
 
       prefs.room   = window.location.pathname.substr(window.location.pathname.lastIndexOf('/')+1);
       if (prefs.room == 'index.html') prefs.room = UrlUtil.getParameter('room');
@@ -55,7 +56,7 @@ function SecureRoom(callback) {
         window.history.replaceState({} , 'SecureRoom', path);
       }
 
-      callback();
+      onGenerateCallback();
     } else {
       prefs.myid = buildKey(prefs.name, C.TYPE_RSA_SIGN, data, Math.round(Date.now()/1000), C.STATUS_ENABLED);
       chain[prefs.myid].sign = Asymmetric.sign(chain[prefs.myid], KeyUtil.generateSignatureHash(chain[prefs.myid]), true);
@@ -63,12 +64,13 @@ function SecureRoom(callback) {
   }
 
   return {
-    calc: mpi,
+    calc: maths,
+    comm: comms,
 
     generateKeys: function(name) {
       prefs.name = name;
-      KeyGen(prefs.key.size, onGenerate, mpi)();
-      KeyGen(prefs.key.size, onGenerate, mpi)();
+      KeyGen(prefs.key.size, onGenerate, maths)();
+      KeyGen(prefs.key.size, onGenerate, maths)();
     },
 
     getKeys: function(type, mode) {
@@ -167,54 +169,42 @@ function SecureRoom(callback) {
   }
 }
 
-var Comm = {
-  socket: null,
-  connected: false,
+function Comm(onConnectCallback, onDisconnectCallback, onMessageCallback, onKeyCallback) {
+  var socket = null,
+      connected = false;
 
-  cbConnect: null,
-  cbDisconnect: null,
-  cbMessage: null,
-  cbKey: null,
-
-  setCallbacks: function(o, c, m, k) {
-    this.cbConnect = o;
-    this.cbDisconnect = c;
-    this.cbMessage = m;
-    this.cbKey = k;
-  },
-
-  connect: function() {
+  function connect() {
     try {
-      this.socket = new WebSocket(App.getServer());
-      this.socket.onopen = function() {
-        Comm.connected = true;
-        Comm.cbConnect();
-        Comm.sendKey();
+      socket = new WebSocket(App.getServer());
+      socket.onopen = function() {
+        connected = true;
+        onConnectCallback();
+        sendKey();
       }
 
-      this.socket.onmessage = function(event){
+      socket.onmessage = function(event){
         var obj = JSON.parse(event.data);
         console.log(obj);
         switch (obj.type) {
         case 'key':
-          Comm.cbKey(Comm.receiveKey(obj.data));
+          onKeyCallback(receiveKey(obj.data));
           break;
         case 'message':
-          Comm.cbMessage(Comm.receiveMessage(obj.data));
+          onMessageCallback(receiveMessage(obj.data));
           break;
         }
       }
 
-      this.socket.onclose = function(){
-        Comm.connected = false;
-        Comm.cbDisconnect();
+      socket.onclose = function(){
+        connected = false;
+        onDisconnectCallback();
       }
     } catch (e) {
       console.log(e);
     }
-  },
+  }
 
-  encryptMessage: function(message, data) {
+  function encryptMessage(message, data) {
     for (var i = 0, d = App.getKeys(C.TYPE_RSA_ENCRYPT, C.STATUS_ENABLED); i < d.length; i++)
       message.encrypted.keys[d[i]] = Asymmetric.encrypt(App.getKey(d[i]), message.sessionkey);
 
@@ -225,9 +215,9 @@ var Comm = {
                      .concat(data);
 
     return Symmetric.encrypt(message.sessionkey, paddata);
-  },
+  }
 
-  decryptMessage: function(message) {
+  function decryptMessage(message) {
     var id = App.myId(C.TYPE_RSA_ENCRYPT);
 
     if (message.encrypted.keys[id]) {
@@ -236,9 +226,9 @@ var Comm = {
     }
 
     return null;
-  },
+  }
 
-  sendMessage: function(text) {
+  function sendMessage(text) {
     var rawdata, message = new Message();
 
     message.sendtime = Math.round(Date.now()/1000);
@@ -246,26 +236,27 @@ var Comm = {
     message.sender   = App.myId(C.TYPE_RSA_SIGN);
 
     message.plaintext = text;
+
     rawdata = ArrayUtil.fromString(text)
-                .concat(0)
-                .concat(ArrayUtil.fromWord(message.sendtime))
-                .concat(ArrayUtil.fromHex(message.sender));
+                       .concat(0)
+                       .concat(ArrayUtil.fromWord(message.sendtime))
+                       .concat(ArrayUtil.fromHex(message.sender));
 
     message.signature = Asymmetric.sign(App.getKey(message.sender), rawdata);
     message.verified  = true;
 
     rawdata = rawdata.concat(message.signature);
-    message.encrypted.data = this.encryptMessage(message, rawdata);
+    message.encrypted.data = encryptMessage(message, rawdata);
 
     if (message.encrypted.data)
-      this.socket.send(JSON.stringify({"type": "message", "data": message.encrypted}));
+      socket.send(JSON.stringify({"type": "message", "data": message.encrypted}));
 
     return message;
-  },
+  }
 
-  receiveMessage: function(data) {
+  function receiveMessage(data) {
     var message = new Message(data),
-        rawdata = this.decryptMessage(message), i;
+        rawdata = decryptMessage(message), i;
 
     if (rawdata == null) return null;
 
@@ -281,14 +272,26 @@ var Comm = {
     message.verified  = Asymmetric.verify(App.getKey(message.sender), rawdata.slice(0,i+13), message.signature);
 
     return message;
-  },
+  }
 
-  sendKey: function() {
-    this.socket.send(JSON.stringify({"type": "key", "data": App.shareKey()}));
-  },
+  function sendKey() {
+    socket.send(JSON.stringify({"type": "key", "data": App.shareKey()}));
+  }
 
-  receiveKey: function(data) {
+  function receiveKey(data) {
     return App.setKey(data.name, data.key1, data.key2);
+  }
+
+  return {
+    sendKey: function() {
+      sendKey();
+    },
+    sendMessage: function(data) {
+      return onMessageCallback(sendMessage(data));
+    },
+    connect: function() {
+      connect();
+    }
   }
 }
 

@@ -154,7 +154,7 @@
     },
 
     addMessage: function(message) {
-      if (message == null) return;
+      if (message === null) return;
       var container = document.getElementById('content'),
           build = TemplateEngine('template-message'),
           content = {};
@@ -169,6 +169,8 @@
 
       UI.addMessageListeners(container.lastChild);
       window.scroll(0, document.body.offsetHeight);
+
+      return message;
     },
 
     addMessageListeners: function(elem) {
@@ -201,7 +203,7 @@
 
       a.addEventListener('click', function() { 
         App.toggleKey(id, C.STATUS_ENABLED);
-        Comm.sendKey();
+        App.comm.sendKey();
       });
 
       a.addEventListener('click', function() { 
@@ -290,7 +292,7 @@
       switch(type) {
       case 'distribute':
         container.insertAdjacentHTML('beforeend', '<p>Your keys have been generated.</p><div class="info">'+UI.buildKeyInfo(App.myId(C.TYPE_RSA_SIGN))+'</div><button>Connect &amp; Distribute</button>');
-        container.querySelector('button').addEventListener('click', function() { Comm.connect(); UI.addWelcome('progress'); UI.disableSettings('serverurl') });
+        container.querySelector('button').addEventListener('click', function() { App.comm.connect(); UI.addWelcome('progress'); UI.disableSettings('serverurl') });
         UI.addMyKey();
         break;
       case 'progress':
@@ -381,7 +383,7 @@
         <rect y="15" width="4" height="3" />
       </svg>
     </div>
-    <button id="send" onclick="var e = document.getElementById('message'); if (e.value) UI.addMessage(Comm.sendMessage(e.value)); e.value = '';">Send</button>
+    <button id="send" onclick="var e = document.getElementById('message'); if (e.value) App.comm.sendMessage(e.value); e.value = '';">Send</button>
     <span><input type="text" id="message" autocomplete="off" onkeyup="(event.keyCode === 13) && document.getElementById('send').click()"></span>
   </div>
 
@@ -395,25 +397,26 @@
 
   <script>
   if (typeof window.WebSocket === 'function' && typeof window.Worker === 'function') {
-    var App = SecureRoom(function() {
-                UI.addWelcome('distribute');
-                UI.toggleSettings()('close');
-                UI.toggleKeychain()('close');
-                UI.toggleRoom();
-              });
-
-    Comm.setCallbacks(
-      function() {
-        UI.addWelcome('connect');
-        UI.toggleInput();
-      },
-      function() {
-        UI.addWelcome('disconnect');
-        UI.toggleInput(true);
-      },
-      UI.addMessage,
-      UI.addKey
-    )
+    var App = SecureRoom(
+                function() {
+                  UI.addWelcome('distribute');
+                  UI.toggleSettings()('close');
+                  UI.toggleKeychain()('close');
+                  UI.toggleRoom();
+                },
+                function() {
+                  UI.addWelcome('connect');
+                  UI.toggleInput();
+                },
+                function() {
+                  UI.addWelcome('disconnect');
+                  UI.toggleInput(true);
+                },
+                function(message) {
+                  return UI.addMessage(message);
+                },
+                UI.addKey
+              );
     
     window.onload = function() {
       UI.toggleRoom();
