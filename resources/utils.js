@@ -12,12 +12,12 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  **/
- 
+
 var KeyUtil = {
   createTag: function(tag, length) {
     return (length > 65535) ? tag*4 + 130 : (length > 255) ? tag*4 + 129 : tag*4 + 128;
   },
-  
+
   createLength: function(l) {
     return (l < 256) ? [l] : (l < 65536) ? ArrayUtil.fromHalf(l) : ArrayUtil.fromWord(l);
   },
@@ -37,14 +37,14 @@ var KeyUtil = {
     return ArrayUtil.fromHalf(ArrayUtil.bitLength(mpi)).concat(mpi);
   },
 
-  createKeyPacket: function(key, private) {
+  createKeyPacket: function(key, secret) {
     var len, tag, result, tmp;
 
-    if (private) {
+    if (secret) {
       len = 21 + key.data.n.length + key.data.e.length + key.data.d.length + key.data.p.length + key.data.q.length + key.data.u.length;
       tag = (key.type == C.TYPE_RSA_SIGN) ? 5 : 7;
       tmp = [0].concat(this.createMpi(key.data.d));
-      
+
       if (App.calc.compare(key.data.p, key.data.q) == -1) {
         tmp = tmp.concat(this.createMpi(key.data.p))
                  .concat(this.createMpi(key.data.q));
@@ -52,9 +52,9 @@ var KeyUtil = {
         tmp = tmp.concat(this.createMpi(key.data.q))
                  .concat(this.createMpi(key.data.p));
       }
-      
+
       tmp = tmp.concat(this.createMpi(key.data.u));
-      
+
       for (var c = 0, i = 0; i < tmp.length; i++)
         c += tmp[i];
 
@@ -81,7 +81,7 @@ var KeyUtil = {
 
     if (eKey) {
       sigMeta   = this.encryptSignatureMeta(eKey);
-      sigSigned = eKey.sign;      
+      sigSigned = eKey.sign;
     } else {
       sigMeta   = this.signSignatureMeta(sKey);
       sigSigned = sKey.sign;
@@ -146,20 +146,20 @@ var KeyUtil = {
     );
   },
 
-  exportKey: function(sKey, eKey, private) {
+  exportKey: function(sKey, eKey, secret) {
     var headers       = {"Version": "SecureRoom 1.0"},
-        type          = (private) ? "PRIVATE KEY BLOCK" : "PUBLIC KEY BLOCK",
+        type          = (secret) ? "PRIVATE KEY BLOCK" : "PUBLIC KEY BLOCK",
         namePacket    = this.createNamePacket(sKey.name),
-        encryptPacket = this.createKeyPacket(eKey, private),
-        signPacket    = this.createKeyPacket(sKey, private),
-        signSigPacket = this.createSignaturePacket(sKey), 
+        encryptPacket = this.createKeyPacket(eKey, secret),
+        signPacket    = this.createKeyPacket(sKey, secret),
+        signSigPacket = this.createSignaturePacket(sKey),
         encSigPacket  = this.createSignaturePacket(sKey, eKey);
-    
+
     return ArmorUtil.dress({"type": type, "headers": headers, "packets": signPacket.concat(namePacket).concat(signSigPacket).concat(encryptPacket).concat(encSigPacket)});
   },
 
   exportSSH: function(key) {
-    var prefix = [00, 00, 00, 07, 115, 115, 104, 45, 114, 115, 97];
+    var prefix = [0, 0, 0, 7, 115, 115, 104, 45, 114, 115, 97];
 
     prefix = prefix.concat(ArrayUtil.fromWord(key.data.e.length))
                    .concat(key.data.e)
@@ -169,10 +169,10 @@ var KeyUtil = {
     return "ssh-rsa " + Base64Util.encode(prefix) + " " + key.name;
   },
 
-  exportPK1: function(key, private) {
+  exportPK1: function(key, secret) {
     var pref = [48], type, data;
 
-    if (private) {
+    if (secret) {
       type = " PRIVATE KEY-----\n";
       data = [2,1,0,2].concat(this.createBerLength(key.data.n.length)).concat(key.data.n)
                       .concat([2]).concat(this.createBerLength(key.data.e.length)).concat(key.data.e)
@@ -191,7 +191,7 @@ var KeyUtil = {
 
     return "-----BEGIN RSA" + type + Base64Util.encode(pref.concat(this.createBerLength(data.length)).concat(data), true) + "\n-----END RSA" + type;
   }
-}
+};
 
 var ArmorUtil = {
   crc: function(data) {
@@ -242,7 +242,7 @@ var ArmorUtil = {
     input.checksum = ArmorUtil.crc(input.packets);
     input.valid    = true;
 
-    output  = '-----BEGIN PGP ' + input.type + '-----\n'
+    output  = '-----BEGIN PGP ' + input.type + '-----\n';
 
     for (var header in input.headers) {
       output += header + ': ' + input.headers[header] + '\n';
@@ -254,7 +254,7 @@ var ArmorUtil = {
 
     return output;
   }
-}
+};
 
 var Base64Util = {
   r64 : ['A','B','C','D','E','F','G','H',
@@ -273,7 +273,7 @@ var Base64Util = {
         i = 0,
         j = 0;
 
-    input   = input.replace(/[^A-Za-z0-9\+\/\=]/g, '');
+    input   = input.replace(/[^A-Za-z0-9\+\/=]/g, '');
     var len = input.length,
         out = [];
 
@@ -330,7 +330,7 @@ var Base64Util = {
 
     return out.join('');
   }
-}
+};
 
 var PrintUtil = {
   time: function(timestamp) {
@@ -358,7 +358,7 @@ var PrintUtil = {
   id: function(id) {
     return id.match(/.{2}/g).map(function(v){return v;}).join(':').toUpperCase();
   }
-}
+};
 
 var ArrayUtil = {
   //to/from string not currently handling charcode < 16 - if needed use ('0'+s).slice(-2);
@@ -392,17 +392,19 @@ var ArrayUtil = {
   },
 
   bitLength: function(a) {
-    for (var i = 128, l = a.length*8; i >= 1; i /= 2) 
-      if (a[0] >= i) return l; else --l;
+    for (var i = 128, l = a.length*8; i >= 1; i /= 2, l--)
+      if (a[0] >= i) break;
+
+    return l;
   }
-}
+};
 
 var UrlUtil = {
   getParameter: function(name) {
-    var match = RegExp('[?&]' + name + '=([^&]*)').exec(window.location.search);
+    var match = new RegExp('[?&]' + name + '=([^&]*)').exec(window.location.search);
     return (match) ? decodeURIComponent(match[1].replace(/\+/g, ' ')) : '';
   }
-}
+};
 
 var C = {
   TYPE_RSA_SIGN: 3,
@@ -410,5 +412,5 @@ var C = {
   STATUS_DISABLED: 2,
   STATUS_ENABLED: 1,
   STATUS_PENDING: 0,
-  STATUS_REJECTED: -1,
-}
+  STATUS_REJECTED: -1
+};

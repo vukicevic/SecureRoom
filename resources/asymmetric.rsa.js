@@ -105,10 +105,13 @@ var Asymmetric = {
       return ms.concat(md);
     }
   }
-}
+};
 
 function KeyGen(size, callback, mpi) {
-  var w = {}, time, timer, mpi = mpi || Crunch();
+  var w = {}, time, timer;
+
+  if (typeof mpi === "undefined")
+    mpi = Crunch();
 
   function createWorker (worker, callback) {
     w[worker] = new Worker("resources/external/crunch.js");
@@ -119,7 +122,7 @@ function KeyGen(size, callback, mpi) {
 
     w[worker].postMessage({"func": "nextPrime",
                            "args": [Random.generate(size/2)]});
-  };
+  }
 
   function process() {
     if (w.p.data && w.q.data) {
@@ -151,7 +154,7 @@ function KeyGen(size, callback, mpi) {
 
       callback(data, Date.now() - time);
     }
-  };
+  }
 
   function timeout() {
     return window.setTimeout(function() {
@@ -167,9 +170,9 @@ function KeyGen(size, callback, mpi) {
 
       if (!w.q.data || !w.p.data) timer = timeout();
     }, Math.floor((size*size)/100), w);
-  };
+  }
 
-  return function() { 
+  return function() {
     time = Date.now();
 
     createWorker('p', process);

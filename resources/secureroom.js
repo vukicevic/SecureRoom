@@ -29,7 +29,7 @@ function SecureRoom(onGenerateCallback, onConnectCallback, onDisconnectCallback,
       prefs.key    = {size: 1024, type: 'RSA'};
       prefs.myid   = null;
       prefs.name   = null;
-   
+
   function buildKey(n, t, d, c, m, s) {
     var key = { name: n, type: t, data: d, time: c, mode: m, sign: s,
                 size: ArrayUtil.bitLength(d.n),
@@ -52,7 +52,7 @@ function SecureRoom(onGenerateCallback, onConnectCallback, onDisconnectCallback,
         prefs.room = prefs.myid.substr(-5);
         var opts = (window.location.search) ? window.location.search+'&room=' : '?room=',
             path = (window.location.pathname.indexOf('index.html') > -1) ? window.location.pathname+opts+prefs.room : window.location.pathname+prefs.room;
-      
+
         window.history.replaceState({} , 'SecureRoom', path);
       }
 
@@ -151,14 +151,6 @@ function SecureRoom(onGenerateCallback, onConnectCallback, onDisconnectCallback,
       prefs.server = server;
     },
 
-    getName: function() {
-      return prefs.name;
-    },
-
-    setName: function(name) {
-      prefs.name = name;
-    },
-
     getSize: function(type) {
       return prefs[type].size;
     },
@@ -180,9 +172,9 @@ function Comm(onConnectCallback, onDisconnectCallback, onMessageCallback, onKeyC
         connected = true;
         onConnectCallback();
         sendKey();
-      }
+      };
 
-      socket.onmessage = function(event){
+      socket.onmessage = function(event) {
         var obj = JSON.parse(event.data);
         console.log(obj);
         switch (obj.type) {
@@ -193,9 +185,9 @@ function Comm(onConnectCallback, onDisconnectCallback, onMessageCallback, onKeyC
           onMessageCallback(receiveMessage(obj.data));
           break;
         }
-      }
+      };
 
-      socket.onclose = function(){
+      socket.onclose = function() {
         connected = false;
         onDisconnectCallback();
       }
@@ -297,14 +289,14 @@ function Comm(onConnectCallback, onDisconnectCallback, onMessageCallback, onKeyC
 
 function Message(message) {
   this.encrypted  = {keys: {}, data: null};
-  
+
   this.sessionkey = null;
   this.plaintext  = null;
 
   this.sender     = null;
   this.sendtime   = null;
   this.recvtime   = null;
-  
+
   this.signature  = null;
   this.verified   = false;
 
@@ -313,12 +305,6 @@ function Message(message) {
   } else {
     this.encrypted = message;
   }
-
-  Object.defineProperty(this, "recipients", {
-    get: function() {
-        return Object.keys(this.encrypted.keys);
-    }
-  });
 }
 
 function MessageTools(message) {

@@ -14,7 +14,7 @@
  **/
 
 var Symmetric = {
-  algorighm: 7, //8,9
+  algorithm: 7, //8,9
   name: 'AES',
   mode: 'CFB',
   size: 16,
@@ -46,7 +46,7 @@ var Symmetric = {
   decrypt: function(key, data) {
     return this.cipher(key, data, false);
   },
-  
+
   setKey: function(key) {
     this.size = key.length;
     this.Nk = key.length/4;

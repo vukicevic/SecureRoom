@@ -3,7 +3,7 @@
  /**
  * @module Crunch
  * Radix: 28 bits
- * Endianness: Big 
+ * Endianness: Big
  */
 function Crunch() {
 
@@ -42,8 +42,8 @@ function Crunch() {
     return z;
   }
 
-  /** 
-   * Predefined constants for performance: zeroes for zero-filled arrays, 
+  /**
+   * Predefined constants for performance: zeroes for zero-filled arrays,
    * primes for sieve, ptests for Miller-Rabin primality
    */
   const zeroes = nzeroes(500);
@@ -77,14 +77,14 @@ function Crunch() {
   }
 
   /**
-   * Compare values of two MPIs. 
+   * Compare values of two MPIs.
    * Not safe for signed or leading zero MPI
    *
    * @method cmp
    * @param {array} x
    * @param {array} y
    * @return {integer} 1: x > y
-   *                   0: x = y 
+   *                   0: x = y
    *                  -1: x < y
    */
   function cmp(x, y) {
@@ -301,7 +301,7 @@ function Crunch() {
 
     if (w[0] === 0)
       w.shift();
-    
+
     return w;
   }
 
@@ -321,7 +321,7 @@ function Crunch() {
         w  = x.slice(0,l);
 
     if (ss) {
-      while (--l) 
+      while (--l)
         w[l] = ((w[l] >> ss) | (w[l-1] << (28-ss))) & 268435455;
 
       w[l] = (w[l] >> ss);
@@ -389,7 +389,7 @@ function Crunch() {
     k  = v.concat(zeroes.slice(0, d));
     yt = v[0]*268435456 + v[1];
 
-    // only mmcp as last resort. if x0 > k0 then do, 
+    // only mmcp as last resort. if x0 > k0 then do,
     // if x0 < k0 then dont, check only if x0 = k0
     while (u[0] > k[0] || (u[0] === k[0] && cmp(u, k) > -1)) {
       q[0]++;
@@ -397,7 +397,7 @@ function Crunch() {
     }
 
     for (i = 1; i <= d; i++) {
-      q[i] = (u[i-1] === v[0]) ? 268435455 
+      q[i] = (u[i-1] === v[0]) ? 268435455
                                : ~~((u[i-1]*268435456 + u[i])/v[0]);
 
       xt = u[i-1]*72057594037927936 + u[i]*268435456 + u[i+1];
@@ -615,7 +615,7 @@ function Crunch() {
    * @return {array} x % y
    */
   function bmr(x, m, mu) {
-    if (cmp(x, m) < 0) return x; 
+    if (cmp(x, m) < 0) return x;
     //if equal, return 0;
 
     var q1, q2, q3, r1, r2, r, s,
@@ -785,7 +785,7 @@ function Crunch() {
         j = 1; t = true;
         while (t && s > j++) {
           y = mod(sqr(y), n);
-          if (y.length === 1 && y[0] === 1) 
+          if (y.length === 1 && y[0] === 1)
             return false;
 
           t = (cmp(y,m) !== 0);
@@ -840,7 +840,7 @@ function Crunch() {
    */
   function ci(a) {
     var i = [0,0,0,0,0,0].slice((a.length-1)%7).concat(a),
-        o = [], 
+        o = [],
         p;
 
     for (p = 0; p < i.length; p += 7)
@@ -865,7 +865,7 @@ function Crunch() {
         c, d, i;
 
     for (i = 0; i < b.length;) {
-      c = b[i++]; 
+      c = b[i++];
       d = b[i++];
 
       o.push((c >> 20), (c >> 12 & 255), (c >> 4 & 255), ((c << 4 | d >> 24) & 255), (d >> 16 & 255), (d >> 8 & 255), (d & 255));
@@ -875,7 +875,7 @@ function Crunch() {
   }
 
   return {
-    
+
     /**
      * Constants for input/output conversion (8 <=> 28 bit array)
      *
@@ -1039,7 +1039,7 @@ function Crunch() {
         x = ci(x);
       }
 
-      return (raw & this.RAWOUT) ? tpr(x) : co(tpr(x));
+      return tpr(x);
     },
 
     /**
@@ -1062,7 +1062,7 @@ function Crunch() {
  * Invoked by messaging.
  *
  * @example
- * 
+ *
  * Request: { "func": "add",
  *            "args": [[123], [456]] }
  *
