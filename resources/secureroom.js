@@ -165,59 +165,78 @@ function Comm(onConnectCallback, onDisconnectCallback, onMessageCallback, onKeyC
   var socket = null,
       connected = false;
 
-  function connect() {
+  function onConnectEvent() {
+    connected = true;
+    sendKey();
+    onConnectCallback();
+  }
+
+  function onDisconnectEvent() {
+    connected = false;
+    onDisconnectCallback();
+  }
+
+  function onDataEvent(data) {
+    var message = JSON.parse(data.data);
+    
+    switch (message.type) {
+      case 'key':
+        onKeyCallback(receiveKey(message.data));
+        break;
+      case 'message':
+        onMessageCallback(receiveMessage(message.data));
+        break;
+    }
+
+    console.log(message);
+  }
+
+  function onErrorEvent(error) {
+    console.log(error);
+  }
+
+  function openSocket(server) {
     try {
-      socket = new WebSocket(App.getServer());
-      socket.onopen = function() {
-        connected = true;
-        onConnectCallback();
-        sendKey();
-      };
+      socket = new WebSocket(server);
 
-      socket.onmessage = function(event) {
-        var obj = JSON.parse(event.data);
-        console.log(obj);
-        switch (obj.type) {
-        case 'key':
-          onKeyCallback(receiveKey(obj.data));
-          break;
-        case 'message':
-          onMessageCallback(receiveMessage(obj.data));
-          break;
-        }
-      };
-
-      socket.onclose = function() {
-        connected = false;
-        onDisconnectCallback();
-      }
+      socket.addEventListener("open", onConnectEvent);
+      socket.addEventListener("message", onDataEvent);
+      socket.addEventListener("error", onErrorEvent);
+      socket.addEventListener("close", onDisconnectEvent);
     } catch (e) {
       console.log(e);
     }
   }
 
+  function encryptSessionKeys(recipient, sessionkey) {
+    for (var encrypted = {}, i = 0; i < recipient.length; i++)
+      encrypted[recipient[i]] = Asymmetric.encrypt(App.getKey(recipient[i]), sessionkey);
+
+    return encrypted;
+  }
+
   function encryptMessage(message, data) {
-    for (var i = 0, d = App.getKeys(C.TYPE_RSA_ENCRYPT, C.STATUS_ENABLED); i < d.length; i++)
-      message.encrypted.keys[d[i]] = Asymmetric.encrypt(App.getKey(d[i]), message.sessionkey);
+    var recipient = App.getKeys(C.TYPE_RSA_ENCRYPT, C.STATUS_ENABLED),
+        encrypted = null;
 
-    if (i == 0) return null;
+    if (recipient.length) {
+      message.encrypted.keys = encryptSessionKeys(recipient, message.sessionkey);
+      encrypted = Symmetric.encrypt(message.sessionkey, Random.generate(128).concat(data));
+    }
 
-    var paddata = Random.generate(128);
-    paddata = paddata.concat(paddata.slice(-2))
-                     .concat(data);
-
-    return Symmetric.encrypt(message.sessionkey, paddata);
+    return encrypted;
   }
 
   function decryptMessage(message) {
-    var id = App.myId(C.TYPE_RSA_ENCRYPT);
+    var id = App.myId(C.TYPE_RSA_ENCRYPT),
+        decrypted = null;
 
     if (message.encrypted.keys[id]) {
       message.sessionkey = Asymmetric.decrypt(App.getKey(id), message.encrypted.keys[id]);
-      return Symmetric.decrypt(message.sessionkey, message.encrypted.data).slice(18);
+      decrypted = Symmetric.decrypt(message.sessionkey, message.encrypted.data).slice(16);
     }
 
-    return null;
+    return decrypted;
   }
 
   function sendMessage(text) {
@@ -282,15 +301,12 @@ function Comm(onConnectCallback, onDisconnectCallback, onMessageCallback, onKeyC
       return onMessageCallback(sendMessage(data));
     },
     connect: function() {
-      connect();
+      openSocket(App.getServer());
     }
   }
 }
 
 function Message(message) {
-  this.encrypted  = {keys: {}, data: null};
-
-  this.sessionkey = null;
   this.plaintext  = null;
 
   this.sender     = null;
@@ -300,10 +316,12 @@ function Message(message) {
   this.signature  = null;
   this.verified   = false;
 
-  if (typeof message == 'undefined') {
-    this.sessionkey = Random.generate(App.getSize('cipher'));
+  if (typeof message === "undefined") {
+    this.sessionkey = Random.generate(App.getSize("cipher"));
+    this.encrypted  = {keys: {}, data: null};
   } else {
-    this.encrypted = message;
+    this.sessionkey = null;
+    this.encrypted  = message;
   }
 }
 
