@@ -157,7 +157,7 @@
     },
 
     addMessage: function(message) {
-      if (typeof message !== "undefined") {
+      if (message.isVerified()) {
         var container = document.getElementById("content"),
             build = TemplateEngine("template-message"),
             content = {};
@@ -173,8 +173,6 @@
         UI.addMessageListeners(container.lastChild);
         window.scrollTo(0, document.body.offsetHeight);
       }
-
-      return message;
     },
 
     addMessageListeners: function(elem) {
@@ -182,21 +180,21 @@
     },
 
     addKey: function(id) {
-      if (document.getElementById('alert-'+id)) return;
+      if (!document.getElementById('alert-'+id)) {
+        var container = document.getElementById('content'),
+            build     = TemplateEngine('template-key-alert'),
+            content   = {};
 
-      var container = document.getElementById('content'),
-          build = TemplateEngine('template-key-alert'),
-          content = {};
+        content.id   = PrintUtil.text(id);
+        content.time = PrintUtil.time(Math.round(Date.now()/1000));
+        content.name = PrintUtil.text(App.getKey(id).name);
+        content.info = UI.buildKeyInfo(id);
 
-      content.id   = PrintUtil.text(id);
-      content.time = PrintUtil.time(Math.round(Date.now()/1000));
-      content.name = PrintUtil.text(App.getKey(id).name);
-      content.info = UI.buildKeyInfo(id);
+        container.insertAdjacentHTML('beforeend', build(content));
 
-      container.insertAdjacentHTML('beforeend', build(content));
-
-      UI.addKeyListeners(document.getElementById('alert-'+id), id);
-      window.scrollTo(0, document.body.offsetHeight);
+        UI.addKeyListeners(document.getElementById('alert-'+id), id);
+        window.scrollTo(0, document.body.offsetHeight);
+      }
     },
 
     addKeyListeners: function(elem, id) {
@@ -233,11 +231,11 @@
       var build = TemplateEngine('template-message-info'),
           content = {info: []};
 
-      content.info.push({term: 'Verified', data: PrintUtil.bool(message.isVerified())});
+      //content.info.push({term: 'Verified', data: PrintUtil.bool(message.isVerified())});
       content.info.push({term: 'Author', data: PrintUtil.id(message.getSender())});
       //content.info.push({term: 'Cipher', data: Symmetric.name+'-'+(message.sessionkey.length*8)+' ['+Symmetric.mode+']'});
       content.info.push({term: 'Delay', data: message.getTimeDiff()+' sec'});
-      content.info.push({term: 'Recipients', data: message.getRecipients().join(', ')});
+      content.info.push({term: 'Recipients', data: message.getRecipientsByName().join(', ')});
 
       return build(content);
     },
@@ -414,9 +412,7 @@
                   UI.addWelcome('disconnect');
                   UI.toggleInput(true);
                 },
-                function(message) {
-                  return UI.addMessage(message);
-                },
+                UI.addMessage,
                 UI.addKey
               );
 
