@@ -105,10 +105,13 @@ var Asymmetric = {
       return ms.concat(md);
     }
   }
-}
+};
 
 function KeyGen(size, callback, mpi) {
-  var w = {}, time, timer, mpi = mpi || Crunch();
+  var w = {}, time, timer;
+
+  if (typeof mpi === "undefined")
+    mpi = Crunch();
 
   function createWorker (worker, callback) {
     w[worker] = new Worker("resources/external/crunch.js");
@@ -119,19 +122,20 @@ function KeyGen(size, callback, mpi) {
 
     w[worker].postMessage({"func": "nextPrime",
                            "args": [Random.generate(size/2)]});
-  };
+  }
 
   function process() {
     if (w.p.data && w.q.data) {
       timer = null;
-      var data = {};
+      var data = {},
+          t = [[17], [19], [41], [1,1], [1,0,1]],
+          i = 0;
 
       data.n = mpi.cut(mpi.mul(w.p.data, w.q.data));
       data.f = mpi.mul(mpi.decrement(w.p.data), mpi.decrement(w.q.data));
 
-      var t = [257,65537,17,41,19], i = 0;
       do {
-        data.e = [t[Math.floor(Math.random()*t.length)]];
+        data.e = t[Math.floor(Math.random()*t.length)];
         data.d = mpi.inv(data.e, data.f);
       } while (data.d.length == 0 && i++ < t.length);
 
@@ -151,7 +155,7 @@ function KeyGen(size, callback, mpi) {
 
       callback(data, Date.now() - time);
     }
-  };
+  }
 
   function timeout() {
     return window.setTimeout(function() {
@@ -167,9 +171,9 @@ function KeyGen(size, callback, mpi) {
 
       if (!w.q.data || !w.p.data) timer = timeout();
     }, Math.floor((size*size)/100), w);
-  };
+  }
 
-  return function() { 
+  return function() {
     time = Date.now();
 
     createWorker('p', process);
