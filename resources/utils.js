@@ -28,7 +28,7 @@ var KeyUtil = {
     var ll = Math.floor(Math.log(l)/Math.log(256))+1,
         pr = [128 + ll];
 
-    while (ll-- > 0) pr.push( (l >> (ll*8)) & 255 );
+    while (ll--) pr.push( (l >> (ll*8)) & 255 );
 
     return pr;
   },
@@ -57,8 +57,8 @@ var KeyUtil = {
         sum;
 
     tmp = (App.calc.compare(key.data.p, key.data.q) === -1)
-          ? tmp.concat(this.createMpi(key.data.p)).concat(this.createMpi(key.data.q))
-          : tmp.concat(this.createMpi(key.data.q)).concat(this.createMpi(key.data.p));
+            ? tmp.concat(this.createMpi(key.data.p)).concat(this.createMpi(key.data.q))
+            : tmp.concat(this.createMpi(key.data.q)).concat(this.createMpi(key.data.p));
 
     tmp = tmp.concat(this.createMpi(key.data.u));
     sum = tmp.reduce(function(a, b) { return a + b }) % 65536;

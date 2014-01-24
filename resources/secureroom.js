@@ -19,14 +19,14 @@ function SecureRoom(onGenerateCallback, onConnectCallback, onDisconnectCallback,
       comms = Comm(onConnectCallback, onDisconnectCallback, onMessageCallback, onKeyCallback),
       maths = Crunch();
 
-      prefs.room   = window.location.pathname.substr(window.location.pathname.lastIndexOf('/')+1);
-      if (prefs.room == 'index.html') prefs.room = UrlUtil.getParameter('room');
+      prefs.room   = window.location.pathname.substr(window.location.pathname.lastIndexOf("/")+1);
+      if (prefs.room === "index.html") prefs.room = UrlUtil.getParameter("room");
 
-      prefs.server = (UrlUtil.getParameter('server')) ? 'wss://'+UrlUtil.getParameter('server')+':443/ws/'
-                                                      : 'wss://'+document.location.host+':443/ws/';
+      prefs.server = (UrlUtil.getParameter("server")) ? "wss://"+UrlUtil.getParameter("server")+":443/ws/"
+                                                      : "wss://"+document.location.host+":443/ws/";
 
-      prefs.cipher = {size: 128, type: 'AES'};
-      prefs.key    = {size: 1024, type: 'RSA'};
+      prefs.cipher = {size: 128,  type: "AES"};
+      prefs.key    = {size: 1024, type: "RSA"};
       prefs.myid   = null;
       prefs.name   = null;
 
@@ -36,7 +36,7 @@ function SecureRoom(onGenerateCallback, onConnectCallback, onDisconnectCallback,
                 iden: KeyUtil.generateFingerprint(t, d, c) },
         id  = key.iden.substr(-16);
 
-    if (typeof chain[id] == "undefined") chain[id] = key;
+    if (typeof chain[id] === "undefined") chain[id] = key;
 
     return id;
   }
@@ -44,16 +44,18 @@ function SecureRoom(onGenerateCallback, onConnectCallback, onDisconnectCallback,
   function onGenerate(data) {
     if (prefs.myid) {
       var id = buildKey(prefs.name, C.TYPE_RSA_ENCRYPT, data, Math.round(Date.now()/1000), C.STATUS_ENABLED);
+
       chain[prefs.myid].peer = id;
       chain[id].peer = prefs.myid;
       chain[id].sign = Asymmetric.sign(chain[prefs.myid], KeyUtil.generateSignatureHash(chain[prefs.myid], chain[id]), true);
 
       if (!prefs.room) {
         prefs.room = prefs.myid.substr(-5);
-        var opts = (window.location.search) ? window.location.search+'&room=' : '?room=',
-            path = (window.location.pathname.indexOf('index.html') > -1) ? window.location.pathname+opts+prefs.room : window.location.pathname+prefs.room;
+        var opts = (window.location.search) ? window.location.search+"&room=" : "?room=",
+            path = (window.location.pathname.indexOf("index.html") > -1) ? window.location.pathname+opts+prefs.room
+                                                                         : window.location.pathname+prefs.room;
 
-        window.history.replaceState({} , 'SecureRoom', path);
+        window.history.replaceState({} , "SecureRoom", path);
       }
 
       onGenerateCallback();
@@ -114,7 +116,7 @@ function SecureRoom(onGenerateCallback, onConnectCallback, onDisconnectCallback,
       chain[id1].peer = id2;
       chain[id2].peer = id1;
 
-      //verify key signature, reject outright if sig is wrong
+      //TODO: verify key signature, reject outright if sig is wrong
 
       return (key1.type === C.TYPE_RSA_SIGN) ? id1 : id2;
     },
