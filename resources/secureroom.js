@@ -165,6 +165,15 @@ function SecureRoom(onGenerateCallback, onConnectCallback, onDisconnectCallback,
   }
 }
 
+var C = {
+  TYPE_RSA_SIGN: 3,
+  TYPE_RSA_ENCRYPT: 2,
+  STATUS_DISABLED: 2,
+  STATUS_ENABLED: 1,
+  STATUS_PENDING: 0,
+  STATUS_REJECTED: -1
+};
+
 function Comm(onConnectCallback, onDisconnectCallback, onMessageCallback, onKeyCallback) {
   var socket;
 

@@ -127,14 +127,15 @@ function KeyGen(size, callback, mpi) {
   function process() {
     if (w.p.data && w.q.data) {
       timer = null;
-      var data = {};
+      var data = {},
+          t = [[17], [19], [41], [1,1], [1,0,1]],
+          i = 0;
 
       data.n = mpi.cut(mpi.mul(w.p.data, w.q.data));
       data.f = mpi.mul(mpi.decrement(w.p.data), mpi.decrement(w.q.data));
 
-      var t = [257,65537,17,41,19], i = 0;
       do {
-        data.e = [t[Math.floor(Math.random()*t.length)]];
+        data.e = t[Math.floor(Math.random()*t.length)];
         data.d = mpi.inv(data.e, data.f);
       } while (data.d.length == 0 && i++ < t.length);
 

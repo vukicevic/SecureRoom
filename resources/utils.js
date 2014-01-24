@@ -37,38 +37,41 @@ var KeyUtil = {
     return ArrayUtil.fromHalf(ArrayUtil.bitLength(mpi)).concat(mpi);
   },
 
-  createKeyPacket: function(key, secret) {
-    var len, tag, result, tmp;
 
-    if (secret) {
-      len = 21 + key.data.n.length + key.data.e.length + key.data.d.length + key.data.p.length + key.data.q.length + key.data.u.length;
-      tag = (key.type == C.TYPE_RSA_SIGN) ? 5 : 7;
-      tmp = [0].concat(this.createMpi(key.data.d));
+  createKeyPacketBase: function(key) {
+    return [4].concat(ArrayUtil.fromWord(key.time))
+              .concat([key.type])
+              .concat(this.createMpi(key.data.n))
+              .concat(this.createMpi(key.data.e));
+  },
 
-      if (App.calc.compare(key.data.p, key.data.q) == -1) {
-        tmp = tmp.concat(this.createMpi(key.data.p))
-                 .concat(this.createMpi(key.data.q));
-      } else {
-        tmp = tmp.concat(this.createMpi(key.data.q))
-                 .concat(this.createMpi(key.data.p));
-      }
+  createKeyPacket: function(tag, length, key) {
+    return [this.createTag(tag, length)].concat(this.createLength(length))
+                                        .concat(this.createKeyPacketBase(key));
+  },
 
-      tmp = tmp.concat(this.createMpi(key.data.u));
+  createSecretKeyPacket: function(key) {
+    var len = 21 + key.data.n.length + key.data.e.length + key.data.d.length + key.data.p.length + key.data.q.length + key.data.u.length,
+        tag = (key.type === C.TYPE_RSA_SIGN) ? 5 : 7,
+        tmp = [0].concat(this.createMpi(key.data.d)),
+        sum;
 
-      for (var c = 0, i = 0; i < tmp.length; i++)
-        c += tmp[i];
+    tmp = (App.calc.compare(key.data.p, key.data.q) === -1)
+          ? tmp.concat(this.createMpi(key.data.p)).concat(this.createMpi(key.data.q))
+          : tmp.concat(this.createMpi(key.data.q)).concat(this.createMpi(key.data.p));
 
-      tmp = tmp.concat(ArrayUtil.fromHalf(c%65536));
-    } else {
-      len = 10 + key.data.n.length + key.data.e.length;
-      tag = (key.type == C.TYPE_RSA_SIGN) ? 6 : 14;
-      tmp = [];
-    }
+    tmp = tmp.concat(this.createMpi(key.data.u));
+    sum = tmp.reduce(function(a, b) { return a + b }) % 65536;
+    tmp = tmp.concat(ArrayUtil.fromHalf(sum));
 
-    result = [this.createTag(tag, len)].concat(this.createLength(len))
-                                       .concat(this.generateKeyData(key.type, key.data, key.time));
+    return this.createKeyPacket(tag, len, key).concat(tmp);
+  },
 
-    return result.concat(tmp);
+  createPublicKeyPacket: function(key) {
+    var len = 10 + key.data.n.length + key.data.e.length,
+        tag = (key.type === C.TYPE_RSA_SIGN) ? 6 : 14;
+
+    return this.createKeyPacket(tag, len, key);
   },
 
   createNamePacket: function(name) {
@@ -109,26 +112,19 @@ var KeyUtil = {
                               .concat([4,11,7,8,9,2,21,2,2,22,0]);
   },
 
-  generateKeyData: function(type, data, time) {
-    return [4].concat(ArrayUtil.fromWord(time))
-              .concat([type])
-              .concat(this.createMpi(data.n))
-              .concat(this.createMpi(data.e));
-  },
-
   generateFingerprint: function(type, data, time) {
-    data = this.generateKeyData(type, data, time);
+    data = this.createKeyPacketBase({"type": type, "data": data, "time": time});
     return ArrayUtil.toHex(Hash.digest([0x99].concat(ArrayUtil.fromHalf(data.length)).concat(data)));
   },
 
   generateSignatureHash: function(sKey, eKey) {
     var sdat, edat, meta, suff;
 
-    sdat = this.generateKeyData(sKey.type, sKey.data, sKey.time);
+    sdat = this.createKeyPacketBase(sKey);
     sdat = [153].concat(ArrayUtil.fromHalf(sdat.length)).concat(sdat);
 
     if (eKey) {
-      edat = this.generateKeyData(eKey.type, eKey.data, eKey.time);
+      edat = this.createKeyPacketBase(eKey);
       edat = [153].concat(ArrayUtil.fromHalf(edat.length)).concat(edat);
 
       meta = this.encryptSignatureMeta(eKey);
@@ -148,12 +144,20 @@ var KeyUtil = {
 
   exportKey: function(sKey, eKey, secret) {
     var headers       = {"Version": "SecureRoom 1.0"},
-        type          = (secret) ? "PRIVATE KEY BLOCK" : "PUBLIC KEY BLOCK",
         namePacket    = this.createNamePacket(sKey.name),
-        encryptPacket = this.createKeyPacket(eKey, secret),
-        signPacket    = this.createKeyPacket(sKey, secret),
         signSigPacket = this.createSignaturePacket(sKey),
-        encSigPacket  = this.createSignaturePacket(sKey, eKey);
+        encSigPacket  = this.createSignaturePacket(sKey, eKey),
+        type, encryptPacket, signPacket;
+
+    if (secret) {
+      type          = "PRIVATE KEY BLOCK";
+      encryptPacket = this.createSecretKeyPacket(eKey);
+      signPacket    = this.createSecretKeyPacket(sKey);
+    } else {
+      type          = "PUBLIC KEY BLOCK";
+      encryptPacket = this.createPublicKeyPacket(eKey);
+      signPacket    = this.createPublicKeyPacket(sKey);
+    }
 
     return ArmorUtil.dress({"type": type, "headers": headers, "packets": signPacket.concat(namePacket).concat(signSigPacket).concat(encryptPacket).concat(encSigPacket)});
   },
@@ -404,13 +408,4 @@ var UrlUtil = {
     var match = new RegExp('[?&]' + name + '=([^&]*)').exec(window.location.search);
     return (match) ? decodeURIComponent(match[1].replace(/\+/g, ' ')) : '';
   }
-};
-
-var C = {
-  TYPE_RSA_SIGN: 3,
-  TYPE_RSA_ENCRYPT: 2,
-  STATUS_DISABLED: 2,
-  STATUS_ENABLED: 1,
-  STATUS_PENDING: 0,
-  STATUS_REJECTED: -1
 };
