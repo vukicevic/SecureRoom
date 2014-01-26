@@ -340,7 +340,7 @@ function Message() {
       signature = data.slice(i+13);
     },
 
-    pack: function(data) {
+    pack: function() {
       return pack().concat(signature);
     },
 
@@ -390,4 +390,229 @@ function Message() {
       recipients = data;
     }
   };
+}
+
+function Identity(name) {
+  var master, ephemeral, status;
+
+  function createTag(tag, length) {
+    return (length > 65535) ? tag*4 + 130 : (length > 255) ? tag*4 + 129 : tag*4 + 128;
+  }
+
+  function createLength(l) {
+    return (l < 256) ? [l] : (l < 65536) ? ArrayUtil.fromHalf(l) : ArrayUtil.fromWord(l);
+  }
+
+
+  function genSigPacket(hashValue, packetHeader) {
+    var sigPacket, sigSigned;
+
+    sigSigned = Asymmetric.sign(master, hashValue, true);
+    sigPacket = packetHeader.concat([0, 10, 9, 16])
+                            .concat(ArrayUtil.fromHex(master.getId()))
+                            .concat(hashValue.slice(0, 2))
+                            .concat(ArrayUtil.toMpi(sigSigned));
+
+    return [createTag(2, sigPacket.length)].concat(createLength(sigPacket.length)).concat(sigPacket);
+  }
+
+  function genEphemeralSigHead() {
+    return [4,24,2,2,0,15,5,2].concat(ArrayUtil.fromWord(ephemeral.getCreatedTime()+2))
+                              .concat([2,27,4,5,9])
+                              .concat(ArrayUtil.fromWord(86400));
+  }
+
+  function genMasterSigHead() {
+    return [4,19,3,2,0,26,5,2].concat(ArrayUtil.fromWord(master.getCreatedTime()+2))
+                              .concat([2,27,3,5,9])
+                              .concat(ArrayUtil.fromWord(86400))
+                              .concat([4,11,7,8,9,2,21,2,2,22,0]);
+  }
+
+  function genSigHash(tail) {
+    var head = master.getBaseGpgPacket();
+
+    return Hash.digest(
+      [153].concat(ArrayUtil.fromHalf(head.length)).concat(head).concat(tail)
+    );
+  }
+
+  function genEphemeralSigHash() {
+    var keyHead, sigHead, suffix;
+
+    keyHead = ephemeral.getBaseGpgPacket();
+    keyHead = [153].concat(ArrayUtil.fromHalf(keyHead.length)).concat(keyHead);
+
+    sigHead = genEphemeralSigHead();
+    suffix  = [4,255].concat(ArrayUtil.fromWord(sigHead.length));
+
+    return genSigHash(keyHead.concat(sigHead).concat(suffix));
+  }
+
+  function genMasterSigHash() {
+    var keyHead, sigHead, suffix;
+
+    keyHead = [180].concat(ArrayUtil.fromWord(name.length))
+                   .concat(ArrayUtil.fromString(name));
+
+    sigHead = genMasterSigHead();
+    suffix  = [4,255].concat(ArrayUtil.fromWord(sigHead.length));
+
+    return genSigHash(keyHead.concat(sigHead).concat(suffix));
+  }
+
+  function getNamePacket() {
+    var namePacket = ArrayUtil.fromString(name);
+    return [createTag(13, namePacket.length)].concat(createLength(namePacket.length)).concat(namePacket);
+  }
+
+  function getEphemeralSigPacket() {
+    var sigHead = genEphemeralSigHead(),
+        sigHash = genEphemeralSigHash();
+
+    return genSigPacket(sigHash, sigHead);
+  }
+
+  function getMasterSigPacket() {
+    var sigHead = genMasterSigHead(),
+        sigHash = genMasterSigHash();
+
+    return genSigPacket(sigHash, sigHead);
+  }
+
+  return {
+    getName: function() {
+      return name;
+    },
+
+    share: function() {
+      return {"name": name, "master": master.share(), "masterSignature": genMasterSigHash(), "ephemeral": ephemeral.share(), "ephemeralSignature": genEphemeralSigHash()};
+    },
+
+    getPublicGpgKey: function() {
+      return master.getPublicGpgPacket()
+        .concat(getNamePacket())
+        .concat(getMasterSigPacket())
+        .concat(ephemeral.getPublicGpgPacket())
+        .concat(getEphemeralSigPacket());
+    },
+
+    getSecretGpgKey: function() {
+      var key;
+
+      if (master.hasSecret() && ephemeral.hasSecret())
+        key = master.getSecretGpgPacket()
+                .concat(getNamePacket())
+                .concat(getMasterSigPacket())
+                .concat(ephemeral.getSecretGpgPacket())
+                .concat(getEphemeralSigPacket());
+
+      return key;
+    },
+
+    hasId: function(id) {
+      return master.getId() === id || ephemeral.getId() === id;
+    },
+
+    setEphemeral: function(key) {
+      ephemeral = key;
+    },
+
+    setMaster: function(key) {
+      master = key;
+    },
+
+    setStatus: function(value) {
+      status = value;
+    }
+  }
+}
+
+function Key(type, data, created) {
+  var fingerprint = genFingerprint();
+
+  if (typeof created === "undefined")
+    created = Math.floor(Date.now()/1000);
+
+  function createTag(tag, length) {
+    return (length > 65535) ? tag*4 + 130 : (length > 255) ? tag*4 + 129 : tag*4 + 128;
+  }
+
+  function createLength(l) {
+    return (l < 256) ? [l] : (l < 65536) ? ArrayUtil.fromHalf(l) : ArrayUtil.fromWord(l);
+  }
+
+  function createPublicBase() {
+    return [4].concat(ArrayUtil.fromWord(created))
+              .concat([type])
+              .concat(ArrayUtil.toMpi(data.n))
+              .concat(ArrayUtil.toMpi(data.e));
+  }
+
+  function genFingerprint() {
+    var base = createPublicBase();
+    return ArrayUtil.toHex(Hash.digest([153].concat(ArrayUtil.fromHalf(base.length)).concat(base)));
+  }
+
+  function genKeyPacket(tag, length) {
+    return [createTag(tag, length)].concat(createLength(length)).concat(createPublicBase());
+  }
+
+  return {
+    getCreatedTime: function() {
+      return created;
+    },
+
+    getType: function() {
+      return type;
+    },
+
+    getMPI: function(value) {
+      return data[value];
+    },
+
+    getFingerprint: function() {
+      return fingerprint;
+    },
+
+    getId: function() {
+      return fingerprint.substr(-16);
+    },
+
+    getPublicGpgPacket: function() {
+      var len = 10 + data.n.length + data.e.length,
+          tag = (type === C.TYPE_RSA_SIGN) ? 6 : 14;
+
+      return genKeyPacket(tag, len);
+    },
+
+    getSecretGpgPacket: function() {
+      var len = 21 + data.n.length + data.e.length + data.d.length + data.p.length + data.q.length + data.u.length,
+          tag = (type === C.TYPE_RSA_SIGN) ? 5 : 7,
+          tmp, sum;
+
+      tmp = [0].concat(ArrayUtil.toMpi(data.d));
+      tmp = (App.calc.compare(data.p, data.q) === -1)
+        ? tmp.concat(ArrayUtil.toMpi(data.p)).concat(ArrayUtil.toMpi(data.q))
+        : tmp.concat(ArrayUtil.toMpi(data.q)).concat(ArrayUtil.toMpi(data.p));
+
+      tmp = tmp.concat(ArrayUtil.toMpi(data.u));
+      sum = tmp.reduce(function(a, b) { return a + b }) % 65536;
+      tmp = tmp.concat(ArrayUtil.fromHalf(sum));
+
+      return genKeyPacket(tag, len).concat(tmp);
+    },
+
+    getBaseGpgPacket: function() {
+      return createPublicBase();
+    },
+
+    hasSecret: function() {
+      return (data.hasOwnProperty("d"));
+    },
+
+    share: function() {
+      return {"type": type, "time": created, "data": {"e": data.e, "n": data.n}};
+    }
+  }
 }

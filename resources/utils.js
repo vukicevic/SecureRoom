@@ -112,11 +112,6 @@ var KeyUtil = {
                               .concat([4,11,7,8,9,2,21,2,2,22,0]);
   },
 
-  generateFingerprint: function(type, data, time) {
-    data = this.createKeyPacketBase({"type": type, "data": data, "time": time});
-    return ArrayUtil.toHex(Hash.digest([0x99].concat(ArrayUtil.fromHalf(data.length)).concat(data)));
-  },
-
   generateSignatureHash: function(sKey, eKey) {
     var sdat, edat, meta, suff;
 
@@ -140,6 +135,11 @@ var KeyUtil = {
     return Hash.digest(
       sdat.concat(edat).concat(meta).concat(suff)
     );
+  },
+
+  generateFingerprint: function(type, data, time) {
+    data = this.createKeyPacketBase({"type": type, "data": data, "time": time});
+    return ArrayUtil.toHex(Hash.digest([0x99].concat(ArrayUtil.fromHalf(data.length)).concat(data)));
   },
 
   exportKey: function(sKey, eKey, secret) {
@@ -367,12 +367,12 @@ var PrintUtil = {
 var ArrayUtil = {
   //to/from string not currently handling charcode < 16 - if needed use ('0'+s).slice(-2);
   toString: function(a) {
-    return decodeURIComponent(a.map(function(v) {return '%'+v.toString(16);}).join(''));
+    return decodeURIComponent(a.map(function(v){ return '%'+v.toString(16) }).join(''));
   },
 
   fromString: function(s) {
-    return encodeURIComponent(s.split('').map(function(v){return (v.charCodeAt(0) < 128) ? '%'+v.charCodeAt(0).toString(16) : v;}).join('')).replace(/%25/g,'%')
-            .slice(1).split('%').map(function(v){return parseInt(v, 16);});
+    return encodeURIComponent(s.split('').map(function(v){ return (v.charCodeAt(0) < 128) ? '%'+v.charCodeAt(0).toString(16) : v }).join('')).replace(/%25/g,'%')
+            .slice(1).split('%').map(function(v){ return parseInt(v, 16) });
   },
 
   toHex: function(a) {
@@ -400,6 +400,10 @@ var ArrayUtil = {
       if (a[0] >= i) break;
 
     return l;
+  },
+
+  toMpi: function(a) {
+    return ArrayUtil.fromHalf(ArrayUtil.bitLength(a)).concat(a);
   }
 };
 
