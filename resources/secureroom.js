@@ -76,14 +76,9 @@ function SecureRoom(onGenerateCallback, onConnectCallback, onDisconnectCallback,
     },
 
     getKeys: function(type, mode) {
-      var result = [];
-      for (var id in chain)
-        if (id != prefs.myid && chain[id].peer != prefs.myid
-          && chain[id].type == type
-            && chain[id].mode == mode)
-              result.push(id);
-
-      return result;
+      return Object.keys(chain).filter(function(id) {
+        return id !== prefs.myid && id !== chain[prefs.myid].peer && chain[id].type === type && chain[id].mode === mode;
+      });
     },
 
     getKey: function(id) {
@@ -394,154 +389,158 @@ function Message() {
 
 function KeyHelper(name, master, ephemeral) {
 
-  function genPacketMpi(a) {
+  function makeMpi(a) {
     return ArrayUtil.fromHalf(ArrayUtil.bitLength(a)).concat(a);
   }
 
-  function genPacketLength(l) {
+  function makeLength(l) {
     return (l < 256) ? [l] : (l < 65536) ? ArrayUtil.fromHalf(l) : ArrayUtil.fromWord(l);
   }
 
-  function genPacketTag(t, l) {
+  function makeOrderedMpi(p, q) {
+    return (App.calc.compare(p, q) === -1) ? makeMpi(p).concat(makeMpi(q)) : makeMpi(q).concat(makeMpi(p));
+  }
+
+  function makeTag(t, l) {
     return (l > 65535) ? [t*4 + 130] : (l > 255) ? [t*4 + 129] : [t*4 + 128];
   }
 
-  function genEphemeralSigHead() {
+  function generateSigHash(head, tail) {
+    return Hash.digest(
+      [153].concat(ArrayUtil.fromHalf(head.length)).concat(head).concat(tail)
+    );
+  }
+
+  function generateEphemeralSigHash() {
+    var keyHead, sigHead, suffix;
+
+    keyHead = makeBase(ephemeral);
+    keyHead = [153].concat(ArrayUtil.fromHalf(keyHead.length)).concat(keyHead);
+
+    sigHead = makeEphemeralSigHead();
+    suffix  = [4,255].concat(ArrayUtil.fromWord(sigHead.length));
+
+    return generateSigHash(makeBase(master), keyHead.concat(sigHead).concat(suffix));
+  }
+
+  function generateMasterSigHash() {
+    var keyHead, sigHead, suffix;
+
+    keyHead = [180].concat(ArrayUtil.fromWord(name.length))
+                   .concat(ArrayUtil.fromString(name));
+
+    sigHead = makeMasterSigHead();
+    suffix  = [4,255].concat(ArrayUtil.fromWord(sigHead.length));
+
+    return generateSigHash(makeBase(master), keyHead.concat(sigHead).concat(suffix));
+  }
+
+  function generateSignature(hash) {
+    return Asymmetric.sign(master, hash, true);
+  }
+
+  function generateFingerprint(base) {
+    return ArrayUtil.toHex(Hash.digest([153].concat(ArrayUtil.fromHalf(base.length)).concat(base)));
+  }
+
+  function generateChecksum(array) {
+    return ArrayUtil.fromHalf(array.reduce(function(a, b) { return a + b }) % 65536);
+  }
+
+  function makeEphemeralSigHead() {
     return [4,24,2,2,0,15,5,2].concat(ArrayUtil.fromWord(ephemeral.time+2))
                               .concat([2,27,4,5,9])
                               .concat(ArrayUtil.fromWord(86400));
   }
 
-  function genMasterSigHead() {
+  function makeMasterSigHead() {
     return [4,19,3,2,0,26,5,2].concat(ArrayUtil.fromWord(master.time+2))
                               .concat([2,27,3,5,9])
                               .concat(ArrayUtil.fromWord(86400))
                               .concat([4,11,7,8,9,2,21,2,2,22,0]);
   }
 
-  function genBase(key) {
-    return [4].concat(ArrayUtil.fromWord(key.created))
-              .concat([key.type])
-              .concat(genPacketMpi(key.data.n))
-              .concat(genPacketMpi(key.data.e));
-  }
-
-  function genSigHash(head, tail) {
-    return Hash.digest(
-      [153].concat(ArrayUtil.fromHalf(head.length)).concat(head).concat(tail)
-    );
-  }
-
-  function genEphemeralSigHash() {
-    var keyHead, sigHead, suffix;
-
-    keyHead = genBase(ephemeral);
-    keyHead = [153].concat(ArrayUtil.fromHalf(keyHead.length)).concat(keyHead);
-
-    sigHead = genEphemeralSigHead();
-    suffix  = [4,255].concat(ArrayUtil.fromWord(sigHead.length));
-
-    return genSigHash(genBase(ephemeral), keyHead.concat(sigHead).concat(suffix));
-  }
-
-  function genMasterSigHash() {
-    var keyHead, sigHead, suffix;
-
-    keyHead = [180].concat(ArrayUtil.fromWord(name.length))
-                   .concat(ArrayUtil.fromString(name));
-
-    sigHead = genMasterSigHead();
-    suffix  = [4,255].concat(ArrayUtil.fromWord(sigHead.length));
-
-    return genSigHash(genBase(master), keyHead.concat(sigHead).concat(suffix));
-  }
-
-  function genSigPacket(hash, head, signature) {
+  function makeSigPacket(hash, head, signature) {
     var packet = head.concat([0, 10, 9, 16])
-                     .concat(ArrayUtil.fromHex(master.iden.substr(-16)))//TODO: extract ID some better way
+                     .concat(ArrayUtil.fromHex(master.iden.substr(-16)))//TODO: extract ID more elegantly
                      .concat(hash.slice(0, 2))
-                     .concat(genPacketMpi(signature));
+                     .concat(makeMpi(signature));
 
-    return genPacketTag(2, packet.length).concat(genPacketLength(packet.length)).concat(packet);
+    return makeTag(2, packet.length).concat(makeLength(packet.length)).concat(packet);
   }
 
-  function getNamePacket() {
-    var namePacket = ArrayUtil.fromString(name);
-    return genPacketTag(13, namePacket.length).concat(genPacketLength(namePacket.length)).concat(namePacket);
+  function makeEphemeralSigPacket() {
+    var head = makeEphemeralSigHead(),
+        hash = generateEphemeralSigHash(),
+        signature = generateSignature(hash);
+
+    return makeSigPacket(hash, head, signature);
   }
 
-  function getEphemeralSigPacket() {
-    var head = genEphemeralSigHead(),
-        hash = genEphemeralSigHash(),
-        signature = genSignature(hash);
+  function makeMasterSigPacket() {
+    var head = makeMasterSigHead(),
+        hash = generateMasterSigHash(),
+        signature = generateSignature(hash);
 
-    return genSigPacket(hash, head, signature);
+    return makeSigPacket(hash, head, signature);
   }
 
-  function getMasterSigPacket() {
-    var head = genMasterSigHead(),
-        hash = genMasterSigHash(),
-        signature = genSignature(hash);
-
-    return genSigPacket(hash, head, signature);
+  function makeBase(key) {
+    return [4].concat(ArrayUtil.fromWord(key.time))
+              .concat([key.type])
+              .concat(makeMpi(key.data.n))
+              .concat(makeMpi(key.data.e));
   }
 
-  function genSignature(hash) {
-    return Asymmetric.sign(master, hash, true);
-  }
-
-  function genFingerprint(base) {
-    return ArrayUtil.toHex(Hash.digest([153].concat(ArrayUtil.fromHalf(base.length)).concat(base)));
-  }
-
-  function getPublicGpgPacket(key) {
+  function makePublicKeyPacket(key) {
     var len = 10 + key.data.n.length + key.data.e.length,
         tag = (key.type === C.TYPE_RSA_SIGN) ? 6 : 14;
 
-    return genPacketTag(tag, len).concat(genPacketLength(len)).concat(genBase(key));
+    return makeTag(tag, len).concat(makeLength(len)).concat(makeBase(key));
   }
 
-  function getSecretGpgPacket(key) {
+  function makeSecretKeyPacket(key) {
     var len = 21 + key.data.n.length + key.data.e.length + key.data.d.length + key.data.p.length + key.data.q.length + key.data.u.length,
         tag = (key.type === C.TYPE_RSA_SIGN) ? 5 : 7,
-        tmp, sum;
+        tmp = [0].concat(makeMpi(key.data.d))
+                 .concat(makeOrderedMpi(key.data.p, key.data.q))
+                 .concat(makeMpi(key.data.u));
 
-    tmp = [0].concat(genPacketMpi(key.data.d));
+    return makeTag(tag, len).concat(makeLength(len)).concat(makeBase(key)).concat(tmp).concat(generateChecksum(tmp));
+  }
 
-    tmp = (App.calc.compare(key.data.p, key.data.q) === -1)
-      ? tmp.concat(genPacketMpi(key.data.p)).concat(genPacketMpi(key.data.q))
-      : tmp.concat(genPacketMpi(key.data.q)).concat(genPacketMpi(key.data.p));
-
-    tmp = tmp.concat(genPacketMpi(key.data.u));
-    sum = tmp.reduce(function(a, b) { return a + b }) % 65536;
-    tmp = tmp.concat(ArrayUtil.fromHalf(sum));
-
-    return genPacketTag(tag, len).concat(genPacketLength(len)).concat(genBase(key)).concat(tmp);
+  function makeNamePacket() {
+    var packet = ArrayUtil.fromString(name);
+    return makeTag(13, packet.length).concat(makeLength(packet.length)).concat(packet);
   }
 
   return {
     getPublicGpgKey: function() {
-      return getPublicGpgPacket(master)
-        .concat(getNamePacket())
-        .concat(getMasterSigPacket())
-        .concat(getPublicGpgPacket(ephemeral))
-        .concat(getEphemeralSigPacket());
+      var packets = makePublicKeyPacket(master)
+        .concat(makeNamePacket())
+        .concat(makeMasterSigPacket())
+        .concat(makePublicKeyPacket(ephemeral))
+        .concat(makeEphemeralSigPacket());
+
+      return ArmorUtil.dress({"type": "PUBLIC KEY BLOCK", "headers": {"Version": "SecureRoom 1.0"}, "packets": packets});
     },
 
     getSecretGpgKey: function() {
-      return getSecretGpgPacket(master)
-        .concat(getNamePacket())
-        .concat(getMasterSigPacket())
-        .concat(getSecretGpgPacket(ephemeral))
-        .concat(getEphemeralSigPacket());
+      var packets = makeSecretKeyPacket(master)
+        .concat(makeNamePacket())
+        .concat(makeMasterSigPacket())
+        .concat(makeSecretKeyPacket(ephemeral))
+        .concat(makeEphemeralSigPacket());
+
+      return ArmorUtil.dress({"type": "PRIVATE KEY BLOCK", "headers": {"Version": "SecureRoom 1.0"}, "packets": packets});
     },
 
-    genEphemeralFingerprint: function() {
-      return genFingerprint(genBase(ephemeral));
+    getEphemeralFingerprint: function() {
+      return generateFingerprint(makeBase(ephemeral));
     },
 
-    genMasterFingerprint: function() {
-      return genFingerprint(genBase(master));
+    getMasterFingerprint: function() {
+      return generateFingerprint(makeBase(master));
     }
   }
 }
