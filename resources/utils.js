@@ -400,10 +400,6 @@ var ArrayUtil = {
       if (a[0] >= i) break;
 
     return l;
-  },
-
-  toMpi: function(a) {
-    return ArrayUtil.fromHalf(ArrayUtil.bitLength(a)).concat(a);
   }
 };
 

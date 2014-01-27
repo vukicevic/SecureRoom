@@ -392,46 +392,41 @@ function Message() {
   };
 }
 
-function Identity(name) {
-  var master, ephemeral, status;
+function KeyHelper(name, master, ephemeral) {
 
-  function createTag(tag, length) {
-    return (length > 65535) ? tag*4 + 130 : (length > 255) ? tag*4 + 129 : tag*4 + 128;
+  function genPacketMpi(a) {
+    return ArrayUtil.fromHalf(ArrayUtil.bitLength(a)).concat(a);
   }
 
-  function createLength(l) {
+  function genPacketLength(l) {
     return (l < 256) ? [l] : (l < 65536) ? ArrayUtil.fromHalf(l) : ArrayUtil.fromWord(l);
   }
 
-
-  function genSigPacket(hashValue, packetHeader) {
-    var sigPacket, sigSigned;
-
-    sigSigned = Asymmetric.sign(master, hashValue, true);
-    sigPacket = packetHeader.concat([0, 10, 9, 16])
-                            .concat(ArrayUtil.fromHex(master.getId()))
-                            .concat(hashValue.slice(0, 2))
-                            .concat(ArrayUtil.toMpi(sigSigned));
-
-    return [createTag(2, sigPacket.length)].concat(createLength(sigPacket.length)).concat(sigPacket);
+  function genPacketTag(t, l) {
+    return (l > 65535) ? [t*4 + 130] : (l > 255) ? [t*4 + 129] : [t*4 + 128];
   }
 
   function genEphemeralSigHead() {
-    return [4,24,2,2,0,15,5,2].concat(ArrayUtil.fromWord(ephemeral.getCreatedTime()+2))
+    return [4,24,2,2,0,15,5,2].concat(ArrayUtil.fromWord(ephemeral.time+2))
                               .concat([2,27,4,5,9])
                               .concat(ArrayUtil.fromWord(86400));
   }
 
   function genMasterSigHead() {
-    return [4,19,3,2,0,26,5,2].concat(ArrayUtil.fromWord(master.getCreatedTime()+2))
+    return [4,19,3,2,0,26,5,2].concat(ArrayUtil.fromWord(master.time+2))
                               .concat([2,27,3,5,9])
                               .concat(ArrayUtil.fromWord(86400))
                               .concat([4,11,7,8,9,2,21,2,2,22,0]);
   }
 
-  function genSigHash(tail) {
-    var head = master.getBaseGpgPacket();
+  function genBase(key) {
+    return [4].concat(ArrayUtil.fromWord(key.created))
+              .concat([key.type])
+              .concat(genPacketMpi(key.data.n))
+              .concat(genPacketMpi(key.data.e));
+  }
 
+  function genSigHash(head, tail) {
     return Hash.digest(
       [153].concat(ArrayUtil.fromHalf(head.length)).concat(head).concat(tail)
     );
@@ -440,13 +435,13 @@ function Identity(name) {
   function genEphemeralSigHash() {
     var keyHead, sigHead, suffix;
 
-    keyHead = ephemeral.getBaseGpgPacket();
+    keyHead = genBase(ephemeral);
     keyHead = [153].concat(ArrayUtil.fromHalf(keyHead.length)).concat(keyHead);
 
     sigHead = genEphemeralSigHead();
     suffix  = [4,255].concat(ArrayUtil.fromWord(sigHead.length));
 
-    return genSigHash(keyHead.concat(sigHead).concat(suffix));
+    return genSigHash(genBase(ephemeral), keyHead.concat(sigHead).concat(suffix));
   }
 
   function genMasterSigHash() {
@@ -458,161 +453,95 @@ function Identity(name) {
     sigHead = genMasterSigHead();
     suffix  = [4,255].concat(ArrayUtil.fromWord(sigHead.length));
 
-    return genSigHash(keyHead.concat(sigHead).concat(suffix));
+    return genSigHash(genBase(master), keyHead.concat(sigHead).concat(suffix));
+  }
+
+  function genSigPacket(hash, head, signature) {
+    var packet = head.concat([0, 10, 9, 16])
+                     .concat(ArrayUtil.fromHex(master.iden.substr(-16)))//TODO: extract ID some better way
+                     .concat(hash.slice(0, 2))
+                     .concat(genPacketMpi(signature));
+
+    return genPacketTag(2, packet.length).concat(genPacketLength(packet.length)).concat(packet);
   }
 
   function getNamePacket() {
     var namePacket = ArrayUtil.fromString(name);
-    return [createTag(13, namePacket.length)].concat(createLength(namePacket.length)).concat(namePacket);
+    return genPacketTag(13, namePacket.length).concat(genPacketLength(namePacket.length)).concat(namePacket);
   }
 
   function getEphemeralSigPacket() {
-    var sigHead = genEphemeralSigHead(),
-        sigHash = genEphemeralSigHash();
+    var head = genEphemeralSigHead(),
+        hash = genEphemeralSigHash(),
+        signature = genSignature(hash);
 
-    return genSigPacket(sigHash, sigHead);
+    return genSigPacket(hash, head, signature);
   }
 
   function getMasterSigPacket() {
-    var sigHead = genMasterSigHead(),
-        sigHash = genMasterSigHash();
+    var head = genMasterSigHead(),
+        hash = genMasterSigHash(),
+        signature = genSignature(hash);
 
-    return genSigPacket(sigHash, sigHead);
+    return genSigPacket(hash, head, signature);
+  }
+
+  function genSignature(hash) {
+    return Asymmetric.sign(master, hash, true);
+  }
+
+  function genFingerprint(base) {
+    return ArrayUtil.toHex(Hash.digest([153].concat(ArrayUtil.fromHalf(base.length)).concat(base)));
+  }
+
+  function getPublicGpgPacket(key) {
+    var len = 10 + key.data.n.length + key.data.e.length,
+        tag = (key.type === C.TYPE_RSA_SIGN) ? 6 : 14;
+
+    return genPacketTag(tag, len).concat(genPacketLength(len)).concat(genBase(key));
+  }
+
+  function getSecretGpgPacket(key) {
+    var len = 21 + key.data.n.length + key.data.e.length + key.data.d.length + key.data.p.length + key.data.q.length + key.data.u.length,
+        tag = (key.type === C.TYPE_RSA_SIGN) ? 5 : 7,
+        tmp, sum;
+
+    tmp = [0].concat(genPacketMpi(key.data.d));
+
+    tmp = (App.calc.compare(key.data.p, key.data.q) === -1)
+      ? tmp.concat(genPacketMpi(key.data.p)).concat(genPacketMpi(key.data.q))
+      : tmp.concat(genPacketMpi(key.data.q)).concat(genPacketMpi(key.data.p));
+
+    tmp = tmp.concat(genPacketMpi(key.data.u));
+    sum = tmp.reduce(function(a, b) { return a + b }) % 65536;
+    tmp = tmp.concat(ArrayUtil.fromHalf(sum));
+
+    return genPacketTag(tag, len).concat(genPacketLength(len)).concat(genBase(key)).concat(tmp);
   }
 
   return {
-    getName: function() {
-      return name;
-    },
-
-    share: function() {
-      return {"name": name, "master": master.share(), "masterSignature": genMasterSigHash(), "ephemeral": ephemeral.share(), "ephemeralSignature": genEphemeralSigHash()};
-    },
-
     getPublicGpgKey: function() {
-      return master.getPublicGpgPacket()
+      return getPublicGpgPacket(master)
         .concat(getNamePacket())
         .concat(getMasterSigPacket())
-        .concat(ephemeral.getPublicGpgPacket())
+        .concat(getPublicGpgPacket(ephemeral))
         .concat(getEphemeralSigPacket());
     },
 
     getSecretGpgKey: function() {
-      var key;
-
-      if (master.hasSecret() && ephemeral.hasSecret())
-        key = master.getSecretGpgPacket()
-                .concat(getNamePacket())
-                .concat(getMasterSigPacket())
-                .concat(ephemeral.getSecretGpgPacket())
-                .concat(getEphemeralSigPacket());
-
-      return key;
+      return getSecretGpgPacket(master)
+        .concat(getNamePacket())
+        .concat(getMasterSigPacket())
+        .concat(getSecretGpgPacket(ephemeral))
+        .concat(getEphemeralSigPacket());
     },
 
-    hasId: function(id) {
-      return master.getId() === id || ephemeral.getId() === id;
+    genEphemeralFingerprint: function() {
+      return genFingerprint(genBase(ephemeral));
     },
 
-    setEphemeral: function(key) {
-      ephemeral = key;
-    },
-
-    setMaster: function(key) {
-      master = key;
-    },
-
-    setStatus: function(value) {
-      status = value;
-    }
-  }
-}
-
-function Key(type, data, created) {
-  var fingerprint = genFingerprint();
-
-  if (typeof created === "undefined")
-    created = Math.floor(Date.now()/1000);
-
-  function createTag(tag, length) {
-    return (length > 65535) ? tag*4 + 130 : (length > 255) ? tag*4 + 129 : tag*4 + 128;
-  }
-
-  function createLength(l) {
-    return (l < 256) ? [l] : (l < 65536) ? ArrayUtil.fromHalf(l) : ArrayUtil.fromWord(l);
-  }
-
-  function createPublicBase() {
-    return [4].concat(ArrayUtil.fromWord(created))
-              .concat([type])
-              .concat(ArrayUtil.toMpi(data.n))
-              .concat(ArrayUtil.toMpi(data.e));
-  }
-
-  function genFingerprint() {
-    var base = createPublicBase();
-    return ArrayUtil.toHex(Hash.digest([153].concat(ArrayUtil.fromHalf(base.length)).concat(base)));
-  }
-
-  function genKeyPacket(tag, length) {
-    return [createTag(tag, length)].concat(createLength(length)).concat(createPublicBase());
-  }
-
-  return {
-    getCreatedTime: function() {
-      return created;
-    },
-
-    getType: function() {
-      return type;
-    },
-
-    getMPI: function(value) {
-      return data[value];
-    },
-
-    getFingerprint: function() {
-      return fingerprint;
-    },
-
-    getId: function() {
-      return fingerprint.substr(-16);
-    },
-
-    getPublicGpgPacket: function() {
-      var len = 10 + data.n.length + data.e.length,
-          tag = (type === C.TYPE_RSA_SIGN) ? 6 : 14;
-
-      return genKeyPacket(tag, len);
-    },
-
-    getSecretGpgPacket: function() {
-      var len = 21 + data.n.length + data.e.length + data.d.length + data.p.length + data.q.length + data.u.length,
-          tag = (type === C.TYPE_RSA_SIGN) ? 5 : 7,
-          tmp, sum;
-
-      tmp = [0].concat(ArrayUtil.toMpi(data.d));
-      tmp = (App.calc.compare(data.p, data.q) === -1)
-        ? tmp.concat(ArrayUtil.toMpi(data.p)).concat(ArrayUtil.toMpi(data.q))
-        : tmp.concat(ArrayUtil.toMpi(data.q)).concat(ArrayUtil.toMpi(data.p));
-
-      tmp = tmp.concat(ArrayUtil.toMpi(data.u));
-      sum = tmp.reduce(function(a, b) { return a + b }) % 65536;
-      tmp = tmp.concat(ArrayUtil.fromHalf(sum));
-
-      return genKeyPacket(tag, len).concat(tmp);
-    },
-
-    getBaseGpgPacket: function() {
-      return createPublicBase();
-    },
-
-    hasSecret: function() {
-      return (data.hasOwnProperty("d"));
-    },
-
-    share: function() {
-      return {"type": type, "time": created, "data": {"e": data.e, "n": data.n}};
+    genMasterFingerprint: function() {
+      return genFingerprint(genBase(master));
     }
   }
 }
