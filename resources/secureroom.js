@@ -19,49 +19,58 @@ function SecureRoom(onGenerateCallback, onConnectCallback, onDisconnectCallback,
       comms = Comm(onConnectCallback, onDisconnectCallback, onMessageCallback, onKeyCallback),
       maths = Crunch();
 
-      prefs.room   = window.location.pathname.substr(window.location.pathname.lastIndexOf("/")+1);
-      if (prefs.room === "index.html") prefs.room = UrlUtil.getParameter("room");
+  prefs.room = window.location.pathname.substr(window.location.pathname.lastIndexOf("/")+1);
 
-      prefs.server = (UrlUtil.getParameter("server")) ? "wss://"+UrlUtil.getParameter("server")+":443/ws/"
-                                                      : "wss://"+document.location.host+":443/ws/";
+  if (prefs.room === "index.html")
+    prefs.room = UrlUtil.getParameter("room");
 
-      prefs.cipher = {size: 128,  type: "AES"};
-      prefs.key    = {size: 1024, type: "RSA"};
-      prefs.myid   = null;
-      prefs.name   = null;
+  prefs.server = UrlUtil.getParameter("server") ? "wss://"+UrlUtil.getParameter("server")+":443/ws/"
+                                                : "wss://"+document.location.host+":443/ws/";
 
-  function buildKey(n, t, d, c, m, s) {
-    var key = { name: n, type: t, data: d, time: c, mode: m, sign: s,
-                size: ArrayUtil.bitLength(d.n),
-                iden: KeyUtil.generateFingerprint(t, d, c) },
-        id  = key.iden.substr(-16);
+  prefs.cipher = {size: 128,  type: "AES"};
+  prefs.key    = {size: 1024, type: "RSA"};
+  prefs.myid   = null;
+  prefs.name   = null;
 
-    if (typeof chain[id] === "undefined") chain[id] = key;
+  function makeKey(n, t, d, c, m, s) {
+    var key = { name: n, type: t, data: d, time: c, mode: m, sign: s, size: ArrayUtil.bitLength(d.n) },
+        id;
+
+    key.iden = KeyHelper().getFingerprint(key);
+    id       = key.iden.substr(-16);
+
+    if (typeof chain[id] === "undefined")
+      chain[id] = key;
 
     return id;
   }
 
+  function makeRoom(room) {
+    if (!prefs.room) {
+      prefs.room = room;
+      var opts = (window.location.search) ? window.location.search+"&room=" : "?room=",
+          path = (window.location.pathname.indexOf("index.html") > -1) ? window.location.pathname+opts+prefs.room
+                                                                       : window.location.pathname+prefs.room;
+
+      window.history.replaceState({} , "SecureRoom", path);
+    }
+  }
+
   function onGenerate(data) {
     if (prefs.myid) {
-      var id = buildKey(prefs.name, C.TYPE_RSA_ENCRYPT, data, Math.round(Date.now()/1000), C.STATUS_ENABLED);
+      var id = makeKey(prefs.name, C.TYPE_EPHEMERAL, data, Math.round(Date.now()/1000), C.STATUS_ENABLED),
+          kh = KeyHelper(chain[prefs.myid], chain[id]);
 
       chain[prefs.myid].peer = id;
+      chain[prefs.myid].sign = kh.getMasterSignature();
       chain[id].peer = prefs.myid;
-      chain[id].sign = Asymmetric.sign(chain[prefs.myid], KeyUtil.generateSignatureHash(chain[prefs.myid], chain[id]), true);
+      chain[id].sign = kh.getEphemeralSignature();
 
-      if (!prefs.room) {
-        prefs.room = prefs.myid.substr(-5);
-        var opts = (window.location.search) ? window.location.search+"&room=" : "?room=",
-            path = (window.location.pathname.indexOf("index.html") > -1) ? window.location.pathname+opts+prefs.room
-                                                                         : window.location.pathname+prefs.room;
-
-        window.history.replaceState({} , "SecureRoom", path);
-      }
+      makeRoom(prefs.myid.substr(-5));
 
       onGenerateCallback();
     } else {
-      prefs.myid = buildKey(prefs.name, C.TYPE_RSA_SIGN, data, Math.round(Date.now()/1000), C.STATUS_ENABLED);
-      chain[prefs.myid].sign = Asymmetric.sign(chain[prefs.myid], KeyUtil.generateSignatureHash(chain[prefs.myid]), true);
+      prefs.myid = makeKey(prefs.name, C.TYPE_MASTER, data, Math.round(Date.now()/1000), C.STATUS_ENABLED);
     }
   }
 
@@ -76,14 +85,9 @@ function SecureRoom(onGenerateCallback, onConnectCallback, onDisconnectCallback,
     },
 
     getKeys: function(type, mode) {
-      var result = [];
-      for (var id in chain)
-        if (id != prefs.myid && chain[id].peer != prefs.myid
-          && chain[id].type == type
-            && chain[id].mode == mode)
-              result.push(id);
-
-      return result;
+      return Object.keys(chain).filter(function(id) {
+        return id !== prefs.myid && id !== chain[prefs.myid].peer && chain[id].type === type && chain[id].mode & mode;
+      });
     },
 
     getKey: function(id) {
@@ -95,30 +99,34 @@ function SecureRoom(onGenerateCallback, onConnectCallback, onDisconnectCallback,
     },
 
     hasKey: function(id) {
-      return (typeof chain[id] != "undefined");
+      return (typeof chain[id] !== "undefined");
     },
 
     shareKey: function() {
-      var ek = chain[this.myId(C.TYPE_RSA_ENCRYPT)],
-          sk = chain[this.myId(C.TYPE_RSA_SIGN)];
+      var ek = chain[this.myId(C.TYPE_EPHEMERAL)],
+          sk = chain[this.myId(C.TYPE_MASTER)];
 
       return {
-        name: prefs.name,
-        key1: {type: sk.type, time: sk.time, data: {e: sk.data.e, n: sk.data.n}, sign: sk.sign},
-        key2: {type: ek.type, time: ek.time, data: {e: ek.data.e, n: ek.data.n}, sign: ek.sign}
+        "name":      prefs.name,
+        "master":    { time: sk.time, data: {e: sk.data.e, n: sk.data.n}, sign: sk.sign},
+        "ephemeral": { time: ek.time, data: {e: ek.data.e, n: ek.data.n}, sign: ek.sign}
       }
     },
 
-    setKey: function(name, key1, key2) {
-      var id1 = buildKey(name, key1.type, key1.data, key1.time, C.STATUS_PENDING, key1.sign),
-          id2 = buildKey(name, key2.type, key2.data, key2.time, C.STATUS_PENDING, key2.sign);
+    setKey: function(name, master, ephemeral) {
+      var idm = makeKey(name, C.TYPE_MASTER, master.data, master.time, C.STATUS_PENDING, master.sign),
+          ide = makeKey(name, C.TYPE_EPHEMERAL, ephemeral.data, ephemeral.time, C.STATUS_PENDING, ephemeral.sign);
 
-      chain[id1].peer = id2;
-      chain[id2].peer = id1;
+      if (KeyHelper(chain[idm], chain[ide]).verifySignature()) {
+        chain[idm].peer = ide;
+        chain[ide].peer = idm;
+      } else {
+        delete chain[idm];
+        delete chain[ide];
+        idm = undefined;
+      }
 
-      //TODO: verify key signature, reject outright if sig is wrong
-
-      return (key1.type === C.TYPE_RSA_SIGN) ? id1 : id2;
+      return idm;
     },
 
     toggleKey: function(id, mode) {
@@ -138,7 +146,7 @@ function SecureRoom(onGenerateCallback, onConnectCallback, onDisconnectCallback,
     },
 
     myId: function(type) {
-      return (type === C.TYPE_RSA_SIGN) ? prefs.myid : chain[prefs.myid].peer;
+      return (type === C.TYPE_MASTER) ? prefs.myid : chain[prefs.myid].peer;
     },
 
     myName: function() {
@@ -166,15 +174,6 @@ function SecureRoom(onGenerateCallback, onConnectCallback, onDisconnectCallback,
     }
   }
 }
-
-var C = {
-  TYPE_RSA_SIGN: 3,
-  TYPE_RSA_ENCRYPT: 2,
-  STATUS_DISABLED: 2,
-  STATUS_ENABLED: 1,
-  STATUS_PENDING: 0,
-  STATUS_REJECTED: -1
-};
 
 function Comm(onConnectCallback, onDisconnectCallback, onMessageCallback, onKeyCallback) {
   var socket;
@@ -236,7 +235,7 @@ function Comm(onConnectCallback, onDisconnectCallback, onMessageCallback, onKeyC
 
   function encryptMessage(message) {
     var sessionkey = Random.generate(App.getSize("cipher")),
-        recipient = message.getRecipients(),
+        recipient  = message.getRecipients(),
         encrypted;
 
     if (recipient.length) {
@@ -249,7 +248,7 @@ function Comm(onConnectCallback, onDisconnectCallback, onMessageCallback, onKeyC
   }
 
   function decryptMessage(encrypted) {
-    var id = App.myId(C.TYPE_RSA_ENCRYPT),
+    var id = App.myId(C.TYPE_EPHEMERAL),
         sessionkey, decrypted;
 
     if (encrypted.keys[id]) {
@@ -262,7 +261,7 @@ function Comm(onConnectCallback, onDisconnectCallback, onMessageCallback, onKeyC
 
   function sendMessage(plaintext) {
     var message   = Message(),
-        recipient = App.getKeys(C.TYPE_RSA_ENCRYPT, C.STATUS_ENABLED),
+        recipient = App.getKeys(C.TYPE_EPHEMERAL, C.STATUS_ENABLED),
         encrypted;
 
     message.create(plaintext);
@@ -297,7 +296,7 @@ function Comm(onConnectCallback, onDisconnectCallback, onMessageCallback, onKeyC
   }
 
   function receiveKey(data) {
-    return App.setKey(data.name, data.key1, data.key2);
+    return App.setKey(data.name, data.master, data.ephemeral);
   }
 
   return {
@@ -346,7 +345,7 @@ function Message() {
 
     create: function(data) {
       sendtime  = recvtime = Math.round(Date.now()/1000);
-      sender    = App.myId(C.TYPE_RSA_SIGN);
+      sender    = App.myId(C.TYPE_MASTER);
       plaintext = data;
 
       sign();
@@ -392,156 +391,176 @@ function Message() {
   };
 }
 
-function KeyHelper(name, master, ephemeral) {
+function KeyHelper(master, ephemeral) {
 
-  function genPacketMpi(a) {
+  function makeMpi(a) {
     return ArrayUtil.fromHalf(ArrayUtil.bitLength(a)).concat(a);
   }
 
-  function genPacketLength(l) {
+  function makeLength(l) {
     return (l < 256) ? [l] : (l < 65536) ? ArrayUtil.fromHalf(l) : ArrayUtil.fromWord(l);
   }
 
-  function genPacketTag(t, l) {
+  function makeOrderedMpi(p, q) {
+    return (App.calc.compare(p, q) === -1) ? makeMpi(p).concat(makeMpi(q)) : makeMpi(q).concat(makeMpi(p));
+  }
+
+  function makeTag(t, l) {
     return (l > 65535) ? [t*4 + 130] : (l > 255) ? [t*4 + 129] : [t*4 + 128];
   }
 
-  function genEphemeralSigHead() {
+  function generateSigHash(head, tail) {
+    return Hash.digest(
+      [153].concat(ArrayUtil.fromHalf(head.length)).concat(head).concat(tail)
+    );
+  }
+
+  function generateEphemeralSigHash() {
+    var keyHead, sigHead, suffix;
+
+    keyHead = makeBase(ephemeral);
+    keyHead = [153].concat(ArrayUtil.fromHalf(keyHead.length)).concat(keyHead);
+
+    sigHead = makeEphemeralSigHead();
+    suffix  = [4,255].concat(ArrayUtil.fromWord(sigHead.length));
+
+    return generateSigHash(makeBase(master), keyHead.concat(sigHead).concat(suffix));
+  }
+
+  function generateMasterSigHash() {
+    var keyHead, sigHead, suffix;
+
+    keyHead = [180].concat(ArrayUtil.fromWord(master.name.length))
+                   .concat(ArrayUtil.fromString(master.name));
+
+    sigHead = makeMasterSigHead();
+    suffix  = [4,255].concat(ArrayUtil.fromWord(sigHead.length));
+
+    return generateSigHash(makeBase(master), keyHead.concat(sigHead).concat(suffix));
+  }
+
+  function generateSignature(hash) {
+    return Asymmetric.sign(master, hash, true);
+  }
+
+  function generateFingerprint(base) {
+    return ArrayUtil.toHex(Hash.digest([153].concat(ArrayUtil.fromHalf(base.length)).concat(base)));
+  }
+
+  function generateChecksum(array) {
+    return ArrayUtil.fromHalf(array.reduce(function(a, b) { return a + b }) % 65536);
+  }
+
+  function makeEphemeralSigHead() {
     return [4,24,2,2,0,15,5,2].concat(ArrayUtil.fromWord(ephemeral.time+2))
                               .concat([2,27,4,5,9])
                               .concat(ArrayUtil.fromWord(86400));
   }
 
-  function genMasterSigHead() {
+  function makeMasterSigHead() {
     return [4,19,3,2,0,26,5,2].concat(ArrayUtil.fromWord(master.time+2))
                               .concat([2,27,3,5,9])
                               .concat(ArrayUtil.fromWord(86400))
                               .concat([4,11,7,8,9,2,21,2,2,22,0]);
   }
 
-  function genBase(key) {
-    return [4].concat(ArrayUtil.fromWord(key.created))
-              .concat([key.type])
-              .concat(genPacketMpi(key.data.n))
-              .concat(genPacketMpi(key.data.e));
-  }
-
-  function genSigHash(head, tail) {
-    return Hash.digest(
-      [153].concat(ArrayUtil.fromHalf(head.length)).concat(head).concat(tail)
-    );
-  }
-
-  function genEphemeralSigHash() {
-    var keyHead, sigHead, suffix;
-
-    keyHead = genBase(ephemeral);
-    keyHead = [153].concat(ArrayUtil.fromHalf(keyHead.length)).concat(keyHead);
-
-    sigHead = genEphemeralSigHead();
-    suffix  = [4,255].concat(ArrayUtil.fromWord(sigHead.length));
-
-    return genSigHash(genBase(ephemeral), keyHead.concat(sigHead).concat(suffix));
-  }
-
-  function genMasterSigHash() {
-    var keyHead, sigHead, suffix;
-
-    keyHead = [180].concat(ArrayUtil.fromWord(name.length))
-                   .concat(ArrayUtil.fromString(name));
-
-    sigHead = genMasterSigHead();
-    suffix  = [4,255].concat(ArrayUtil.fromWord(sigHead.length));
-
-    return genSigHash(genBase(master), keyHead.concat(sigHead).concat(suffix));
-  }
-
-  function genSigPacket(hash, head, signature) {
+  function makeSigPacket(hash, head, signature) {
     var packet = head.concat([0, 10, 9, 16])
-                     .concat(ArrayUtil.fromHex(master.iden.substr(-16)))//TODO: extract ID some better way
+                     .concat(ArrayUtil.fromHex(master.iden.substr(-16)))
                      .concat(hash.slice(0, 2))
-                     .concat(genPacketMpi(signature));
+                     .concat(makeMpi(signature));
 
-    return genPacketTag(2, packet.length).concat(genPacketLength(packet.length)).concat(packet);
+    return makeTag(2, packet.length).concat(makeLength(packet.length)).concat(packet);
   }
 
-  function getNamePacket() {
-    var namePacket = ArrayUtil.fromString(name);
-    return genPacketTag(13, namePacket.length).concat(genPacketLength(namePacket.length)).concat(namePacket);
+  function makeEphemeralSigPacket() {
+    var head = makeEphemeralSigHead(),
+        hash = generateEphemeralSigHash();
+
+    return makeSigPacket(hash, head, ephemeral.sign);
   }
 
-  function getEphemeralSigPacket() {
-    var head = genEphemeralSigHead(),
-        hash = genEphemeralSigHash(),
-        signature = genSignature(hash);
+  function makeMasterSigPacket() {
+    var head = makeMasterSigHead(),
+        hash = generateMasterSigHash();
 
-    return genSigPacket(hash, head, signature);
+    return makeSigPacket(hash, head, master.sign);
   }
 
-  function getMasterSigPacket() {
-    var head = genMasterSigHead(),
-        hash = genMasterSigHash(),
-        signature = genSignature(hash);
-
-    return genSigPacket(hash, head, signature);
+  function makeBase(key) {
+    return [4].concat(ArrayUtil.fromWord(key.time))
+              .concat([key.type])
+              .concat(makeMpi(key.data.n))
+              .concat(makeMpi(key.data.e));
   }
 
-  function genSignature(hash) {
-    return Asymmetric.sign(master, hash, true);
-  }
-
-  function genFingerprint(base) {
-    return ArrayUtil.toHex(Hash.digest([153].concat(ArrayUtil.fromHalf(base.length)).concat(base)));
-  }
-
-  function getPublicGpgPacket(key) {
+  function makePublicKeyPacket(key) {
     var len = 10 + key.data.n.length + key.data.e.length,
-        tag = (key.type === C.TYPE_RSA_SIGN) ? 6 : 14;
+        tag = (key.type === C.TYPE_MASTER) ? 6 : 14;
 
-    return genPacketTag(tag, len).concat(genPacketLength(len)).concat(genBase(key));
+    return makeTag(tag, len).concat(makeLength(len)).concat(makeBase(key));
   }
 
-  function getSecretGpgPacket(key) {
+  function makeSecretKeyPacket(key) {
     var len = 21 + key.data.n.length + key.data.e.length + key.data.d.length + key.data.p.length + key.data.q.length + key.data.u.length,
-        tag = (key.type === C.TYPE_RSA_SIGN) ? 5 : 7,
-        tmp, sum;
+        tag = (key.type === C.TYPE_MASTER) ? 5 : 7,
+        tmp = [0].concat(makeMpi(key.data.d))
+                 .concat(makeOrderedMpi(key.data.p, key.data.q))
+                 .concat(makeMpi(key.data.u));
 
-    tmp = [0].concat(genPacketMpi(key.data.d));
+    return makeTag(tag, len).concat(makeLength(len)).concat(makeBase(key)).concat(tmp).concat(generateChecksum(tmp));
+  }
 
-    tmp = (App.calc.compare(key.data.p, key.data.q) === -1)
-      ? tmp.concat(genPacketMpi(key.data.p)).concat(genPacketMpi(key.data.q))
-      : tmp.concat(genPacketMpi(key.data.q)).concat(genPacketMpi(key.data.p));
-
-    tmp = tmp.concat(genPacketMpi(key.data.u));
-    sum = tmp.reduce(function(a, b) { return a + b }) % 65536;
-    tmp = tmp.concat(ArrayUtil.fromHalf(sum));
-
-    return genPacketTag(tag, len).concat(genPacketLength(len)).concat(genBase(key)).concat(tmp);
+  function makeNamePacket() {
+    var packet = ArrayUtil.fromString(master.name);
+    return makeTag(13, packet.length).concat(makeLength(packet.length)).concat(packet);
   }
 
   return {
     getPublicGpgKey: function() {
-      return getPublicGpgPacket(master)
-        .concat(getNamePacket())
-        .concat(getMasterSigPacket())
-        .concat(getPublicGpgPacket(ephemeral))
-        .concat(getEphemeralSigPacket());
+      var packets = makePublicKeyPacket(master)
+        .concat(makeNamePacket())
+        .concat(makeMasterSigPacket())
+        .concat(makePublicKeyPacket(ephemeral))
+        .concat(makeEphemeralSigPacket());
+
+      return ArmorUtil.dress({"type": "PUBLIC KEY BLOCK", "headers": {"Version": "SecureRoom 1.0"}, "packets": packets});
     },
 
     getSecretGpgKey: function() {
-      return getSecretGpgPacket(master)
-        .concat(getNamePacket())
-        .concat(getMasterSigPacket())
-        .concat(getSecretGpgPacket(ephemeral))
-        .concat(getEphemeralSigPacket());
+      var packets = makeSecretKeyPacket(master)
+        .concat(makeNamePacket())
+        .concat(makeMasterSigPacket())
+        .concat(makeSecretKeyPacket(ephemeral))
+        .concat(makeEphemeralSigPacket());
+
+      return ArmorUtil.dress({"type": "PRIVATE KEY BLOCK", "headers": {"Version": "SecureRoom 1.0"}, "packets": packets});
     },
 
-    genEphemeralFingerprint: function() {
-      return genFingerprint(genBase(ephemeral));
+    getFingerprint: function(key) {
+      return generateFingerprint(makeBase(key));
     },
 
-    genMasterFingerprint: function() {
-      return genFingerprint(genBase(master));
+    getMasterSignature: function() {
+      return generateSignature(generateMasterSigHash());
+    },
+
+    getEphemeralSignature: function() {
+      return generateSignature(generateEphemeralSigHash());
+    },
+
+    verifySignature: function() {
+      return Asymmetric.verify(master, generateMasterSigHash(), master.sign, true)
+          && Asymmetric.verify(master, generateEphemeralSigHash(), ephemeral.sign, true);
     }
   }
 }
+
+var C = {
+  TYPE_MASTER:     3,
+  TYPE_EPHEMERAL:  2,
+  STATUS_ENABLED:  1,
+  STATUS_DISABLED: 2,
+  STATUS_PENDING:  4,
+  STATUS_REJECTED: 8
+};
