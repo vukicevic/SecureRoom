@@ -19,16 +19,18 @@ function SecureRoom(onGenerateCallback, onConnectCallback, onDisconnectCallback,
       comms = Comm(onConnectCallback, onDisconnectCallback, onMessageCallback, onKeyCallback),
       maths = Crunch();
 
-      prefs.room   = window.location.pathname.substr(window.location.pathname.lastIndexOf("/")+1);
-      if (prefs.room === "index.html") prefs.room = UrlUtil.getParameter("room");
+  prefs.room = window.location.pathname.substr(window.location.pathname.lastIndexOf("/")+1);
 
-      prefs.server = (UrlUtil.getParameter("server")) ? "wss://"+UrlUtil.getParameter("server")+":443/ws/"
-                                                      : "wss://"+document.location.host+":443/ws/";
+  if (prefs.room === "index.html")
+    prefs.room = UrlUtil.getParameter("room");
 
-      prefs.cipher = {size: 128,  type: "AES"};
-      prefs.key    = {size: 1024, type: "RSA"};
-      prefs.myid   = null;
-      prefs.name   = null;
+  prefs.server = UrlUtil.getParameter("server") ? "wss://"+UrlUtil.getParameter("server")+":443/ws/"
+                                                : "wss://"+document.location.host+":443/ws/";
+
+  prefs.cipher = {size: 128,  type: "AES"};
+  prefs.key    = {size: 1024, type: "RSA"};
+  prefs.myid   = null;
+  prefs.name   = null;
 
   function makeKey(n, t, d, c, m, s) {
     var key = { name: n, type: t, data: d, time: c, mode: m, sign: s, size: ArrayUtil.bitLength(d.n) },
@@ -56,7 +58,7 @@ function SecureRoom(onGenerateCallback, onConnectCallback, onDisconnectCallback,
 
   function onGenerate(data) {
     if (prefs.myid) {
-      var id = makeKey(prefs.name, C.TYPE_RSA_ENCRYPT, data, Math.round(Date.now()/1000), C.STATUS_ENABLED),
+      var id = makeKey(prefs.name, C.TYPE_EPHEMERAL, data, Math.round(Date.now()/1000), C.STATUS_ENABLED),
           kh = KeyHelper(chain[prefs.myid], chain[id]);
 
       chain[prefs.myid].peer = id;
@@ -68,7 +70,7 @@ function SecureRoom(onGenerateCallback, onConnectCallback, onDisconnectCallback,
 
       onGenerateCallback();
     } else {
-      prefs.myid = makeKey(prefs.name, C.TYPE_RSA_SIGN, data, Math.round(Date.now()/1000), C.STATUS_ENABLED);
+      prefs.myid = makeKey(prefs.name, C.TYPE_MASTER, data, Math.round(Date.now()/1000), C.STATUS_ENABLED);
     }
   }
 
@@ -84,7 +86,7 @@ function SecureRoom(onGenerateCallback, onConnectCallback, onDisconnectCallback,
 
     getKeys: function(type, mode) {
       return Object.keys(chain).filter(function(id) {
-        return id !== prefs.myid && id !== chain[prefs.myid].peer && chain[id].type === type && chain[id].mode === mode;
+        return id !== prefs.myid && id !== chain[prefs.myid].peer && chain[id].type === type && chain[id].mode & mode;
       });
     },
 
@@ -101,24 +103,28 @@ function SecureRoom(onGenerateCallback, onConnectCallback, onDisconnectCallback,
     },
 
     shareKey: function() {
-      var ek = chain[this.myId(C.TYPE_RSA_ENCRYPT)],
-          sk = chain[this.myId(C.TYPE_RSA_SIGN)];
+      var ek = chain[this.myId(C.TYPE_EPHEMERAL)],
+          sk = chain[this.myId(C.TYPE_MASTER)];
 
       return {
-        "name": prefs.name,
-        "master": { time: sk.time, data: {e: sk.data.e, n: sk.data.n}, sign: sk.sign},
+        "name":      prefs.name,
+        "master":    { time: sk.time, data: {e: sk.data.e, n: sk.data.n}, sign: sk.sign},
         "ephemeral": { time: ek.time, data: {e: ek.data.e, n: ek.data.n}, sign: ek.sign}
       }
     },
 
     setKey: function(name, master, ephemeral) {
-      var idm = makeKey(name, C.TYPE_RSA_SIGN, master.data, master.time, C.STATUS_PENDING, master.sign),
-          ide = makeKey(name, C.TYPE_RSA_ENCRYPT, ephemeral.data, ephemeral.time, C.STATUS_PENDING, ephemeral.sign);
+      var idm = makeKey(name, C.TYPE_MASTER, master.data, master.time, C.STATUS_PENDING, master.sign),
+          ide = makeKey(name, C.TYPE_EPHEMERAL, ephemeral.data, ephemeral.time, C.STATUS_PENDING, ephemeral.sign);
 
-      chain[idm].peer = ide;
-      chain[ide].peer = idm;
-
-      //TODO: verify key signature, reject outright if sig is wrong
+      if (KeyHelper(chain[idm], chain[ide]).verifySignature()) {
+        chain[idm].peer = ide;
+        chain[ide].peer = idm;
+      } else {
+        delete chain[idm];
+        delete chain[ide];
+        idm = undefined;
+      }
 
       return idm;
     },
@@ -140,7 +146,7 @@ function SecureRoom(onGenerateCallback, onConnectCallback, onDisconnectCallback,
     },
 
     myId: function(type) {
-      return (type === C.TYPE_RSA_SIGN) ? prefs.myid : chain[prefs.myid].peer;
+      return (type === C.TYPE_MASTER) ? prefs.myid : chain[prefs.myid].peer;
     },
 
     myName: function() {
@@ -168,15 +174,6 @@ function SecureRoom(onGenerateCallback, onConnectCallback, onDisconnectCallback,
     }
   }
 }
-
-var C = {
-  TYPE_RSA_SIGN: 3,
-  TYPE_RSA_ENCRYPT: 2,
-  STATUS_DISABLED: 2,
-  STATUS_ENABLED: 1,
-  STATUS_PENDING: 0,
-  STATUS_REJECTED: -1
-};
 
 function Comm(onConnectCallback, onDisconnectCallback, onMessageCallback, onKeyCallback) {
   var socket;
@@ -238,7 +235,7 @@ function Comm(onConnectCallback, onDisconnectCallback, onMessageCallback, onKeyC
 
   function encryptMessage(message) {
     var sessionkey = Random.generate(App.getSize("cipher")),
-        recipient = message.getRecipients(),
+        recipient  = message.getRecipients(),
         encrypted;
 
     if (recipient.length) {
@@ -251,7 +248,7 @@ function Comm(onConnectCallback, onDisconnectCallback, onMessageCallback, onKeyC
   }
 
   function decryptMessage(encrypted) {
-    var id = App.myId(C.TYPE_RSA_ENCRYPT),
+    var id = App.myId(C.TYPE_EPHEMERAL),
         sessionkey, decrypted;
 
     if (encrypted.keys[id]) {
@@ -264,7 +261,7 @@ function Comm(onConnectCallback, onDisconnectCallback, onMessageCallback, onKeyC
 
   function sendMessage(plaintext) {
     var message   = Message(),
-        recipient = App.getKeys(C.TYPE_RSA_ENCRYPT, C.STATUS_ENABLED),
+        recipient = App.getKeys(C.TYPE_EPHEMERAL, C.STATUS_ENABLED),
         encrypted;
 
     message.create(plaintext);
@@ -348,7 +345,7 @@ function Message() {
 
     create: function(data) {
       sendtime  = recvtime = Math.round(Date.now()/1000);
-      sender    = App.myId(C.TYPE_RSA_SIGN);
+      sender    = App.myId(C.TYPE_MASTER);
       plaintext = data;
 
       sign();
@@ -469,7 +466,7 @@ function KeyHelper(master, ephemeral) {
 
   function makeSigPacket(hash, head, signature) {
     var packet = head.concat([0, 10, 9, 16])
-                     .concat(ArrayUtil.fromHex(master.iden.substr(-16)))//TODO: extract ID more elegantly
+                     .concat(ArrayUtil.fromHex(master.iden.substr(-16)))
                      .concat(hash.slice(0, 2))
                      .concat(makeMpi(signature));
 
@@ -499,14 +496,14 @@ function KeyHelper(master, ephemeral) {
 
   function makePublicKeyPacket(key) {
     var len = 10 + key.data.n.length + key.data.e.length,
-        tag = (key.type === C.TYPE_RSA_SIGN) ? 6 : 14;
+        tag = (key.type === C.TYPE_MASTER) ? 6 : 14;
 
     return makeTag(tag, len).concat(makeLength(len)).concat(makeBase(key));
   }
 
   function makeSecretKeyPacket(key) {
     var len = 21 + key.data.n.length + key.data.e.length + key.data.d.length + key.data.p.length + key.data.q.length + key.data.u.length,
-        tag = (key.type === C.TYPE_RSA_SIGN) ? 5 : 7,
+        tag = (key.type === C.TYPE_MASTER) ? 5 : 7,
         tmp = [0].concat(makeMpi(key.data.d))
                  .concat(makeOrderedMpi(key.data.p, key.data.q))
                  .concat(makeMpi(key.data.u));
@@ -550,6 +547,20 @@ function KeyHelper(master, ephemeral) {
 
     getEphemeralSignature: function() {
       return generateSignature(generateEphemeralSigHash());
+    },
+
+    verifySignature: function() {
+      return Asymmetric.verify(master, generateMasterSigHash(), master.sign, true)
+          && Asymmetric.verify(master, generateEphemeralSigHash(), ephemeral.sign, true);
     }
   }
 }
+
+var C = {
+  TYPE_MASTER:     3,
+  TYPE_EPHEMERAL:  2,
+  STATUS_ENABLED:  1,
+  STATUS_DISABLED: 2,
+  STATUS_PENDING:  4,
+  STATUS_REJECTED: 8
+};

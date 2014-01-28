@@ -231,7 +231,6 @@
       var build = TemplateEngine('template-message-info'),
           content = {info: []};
 
-      //content.info.push({term: 'Verified', data: PrintUtil.bool(message.isVerified())});
       content.info.push({term: 'Author', data: PrintUtil.id(message.getSender())});
       //content.info.push({term: 'Cipher', data: Symmetric.name+'-'+(message.sessionkey.length*8)+' ['+Symmetric.mode+']'});
       content.info.push({term: 'Delay', data: message.getTimeDiff()+' sec'});
@@ -260,9 +259,10 @@
           build = TemplateEngine('template-key-chain'),
           content = {};
 
-      while (container.lastChild != container.firstChild) container.removeChild(container.lastChild);
+      while (container.lastChild != container.firstChild)
+        container.removeChild(container.lastChild);
 
-      for (var i = 0, d = App.getKeys(C.TYPE_RSA_SIGN, C.STATUS_ENABLED).concat(App.getKeys(C.TYPE_RSA_SIGN, C.STATUS_DISABLED)); i < d.length; i++) {
+      for (var i = 0, d = App.getKeys(C.TYPE_MASTER, C.STATUS_ENABLED | C.STATUS_DISABLED); i < d.length; i++) {
         content.id     = PrintUtil.text(d[i]);
         content.name   = PrintUtil.text(App.getKey(d[i]).name);
         content.status = (App.isEnabled(d[i])) ? '' : 'inactive';
@@ -291,7 +291,7 @@
 
       switch(type) {
       case 'distribute':
-        container.insertAdjacentHTML('beforeend', '<p>Your keys have been generated.</p><div class="info">'+UI.buildKeyInfo(App.myId(C.TYPE_RSA_SIGN))+'</div><button>Connect &amp; Distribute</button>');
+        container.insertAdjacentHTML('beforeend', '<p>Your keys have been generated.</p><div class="info">'+UI.buildKeyInfo(App.myId(C.TYPE_MASTER))+'</div><button>Connect &amp; Distribute</button>');
         container.querySelector('button').addEventListener('click', function() { App.comm.connect(); UI.addWelcome('progress'); UI.disableSettings('serverurl') });
         UI.addMyKey();
         break;
@@ -309,14 +309,14 @@
 
     addMyKey: function() {
       document.getElementById('myname').textContent = PrintUtil.text(App.myName());
-      document.getElementById('myinfo').insertAdjacentHTML('beforeend', UI.buildKeyInfo(App.myId(C.TYPE_RSA_SIGN)));
+      document.getElementById('myinfo').insertAdjacentHTML('beforeend', UI.buildKeyInfo(App.myId(C.TYPE_MASTER)));
 
       var my = document.getElementById('mykey'),
           e1 = my.getElementsByTagName('textarea').item(0),
           e2 = my.getElementsByTagName('textarea').item(1),
           b1 = my.getElementsByTagName('span').item(0),
           b2 = my.getElementsByTagName('span').item(1),
-          kh = KeyHelper(App.getKey(App.myId(C.TYPE_RSA_SIGN)), App.getKey(App.myId(C.TYPE_RSA_ENCRYPT)));
+          kh = KeyHelper(App.getKey(App.myId(C.TYPE_MASTER)), App.getKey(App.myId(C.TYPE_EPHEMERAL)));
 
       e1.textContent = kh.getSecretGpgKey();
       e2.textContent = kh.getPublicGpgKey();

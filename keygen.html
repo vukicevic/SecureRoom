@@ -95,7 +95,7 @@
 
       createSecretKeyPacket: function(key) {
           var len = 21 + key.data.n.length + key.data.e.length + key.data.d.length + key.data.p.length + key.data.q.length + key.data.u.length,
-                  tag = (key.type === C.TYPE_RSA_SIGN) ? 5 : 7,
+                  tag = (key.type === C.TYPE_MASTER) ? 5 : 7,
                   tmp = [0].concat(this.createMpi(key.data.d)),
                   sum;
 
@@ -112,7 +112,7 @@
 
       createPublicKeyPacket: function(key) {
           var len = 10 + key.data.n.length + key.data.e.length,
-                  tag = (key.type === C.TYPE_RSA_SIGN) ? 6 : 14;
+                  tag = (key.type === C.TYPE_MASTER) ? 6 : 14;
 
           return this.createKeyPacket(tag, len, key);
       },
@@ -370,7 +370,7 @@
         var c = Math.floor(Date.now()/1000);
 
         if (KeyGenApp.keys.s) {
-          KeyGenApp.keys.e = { name: KeyGenApp.name, type: C.TYPE_RSA_ENCRYPT, data: stdin, time: c, size: ArrayUtil.bitLength(stdin.n), iden: KeyUtil.generateFingerprint(C.TYPE_RSA_ENCRYPT, stdin, c) };
+          KeyGenApp.keys.e = { name: KeyGenApp.name, type: C.TYPE_EPHEMERAL, data: stdin, time: c, size: ArrayUtil.bitLength(stdin.n), iden: KeyUtil.generateFingerprint(C.TYPE_EPHEMERAL, stdin, c) };
           KeyGenApp.keys.e.sign = Asymmetric.sign(KeyGenApp.keys.s, KeyUtil.generateSignatureHash(KeyGenApp.keys.s, KeyGenApp.keys.e), true);
 
           stdout(KeyUtil.exportKey(KeyGenApp.keys.s, KeyGenApp.keys.e, true), " ");
@@ -380,7 +380,7 @@
           KeyGenApp.name = null;
           KeyGenApp.size = null;
         } else {
-          KeyGenApp.keys.s = { name: KeyGenApp.name, type: C.TYPE_RSA_SIGN, data: stdin, time: c, size: ArrayUtil.bitLength(stdin.n), iden: KeyUtil.generateFingerprint(C.TYPE_RSA_SIGN, stdin, c) };
+          KeyGenApp.keys.s = { name: KeyGenApp.name, type: C.TYPE_MASTER, data: stdin, time: c, size: ArrayUtil.bitLength(stdin.n), iden: KeyUtil.generateFingerprint(C.TYPE_MASTER, stdin, c) };
           KeyGenApp.keys.s.sign = Asymmetric.sign(KeyGenApp.keys.s, KeyUtil.generateSignatureHash(KeyGenApp.keys.s), true);
         }
 
