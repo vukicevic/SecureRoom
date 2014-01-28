@@ -267,7 +267,7 @@
         content.name   = PrintUtil.text(App.getKey(d[i]).name);
         content.status = (App.isEnabled(d[i])) ? '' : 'inactive';
         content.info   = UI.buildKeyInfo(d[i]);
-        content.data   = KeyUtil.exportKey(App.getKey(d[i]), App.getKey(App.getKey(d[i]).peer));
+        content.data   = KeyHelper(App.getKey(d[i]), App.getKey(App.getKey(d[i]).peer)).getPublicGpgKey();
 
         container.insertAdjacentHTML('beforeend', build(content));
         UI.addKeychainListeners(container.lastChild, d[i]);
@@ -315,10 +315,11 @@
           e1 = my.getElementsByTagName('textarea').item(0),
           e2 = my.getElementsByTagName('textarea').item(1),
           b1 = my.getElementsByTagName('span').item(0),
-          b2 = my.getElementsByTagName('span').item(1);
+          b2 = my.getElementsByTagName('span').item(1),
+          kh = KeyHelper(App.getKey(App.myId(C.TYPE_RSA_SIGN)), App.getKey(App.myId(C.TYPE_RSA_ENCRYPT)));
 
-      e1.textContent = KeyUtil.exportKey(App.getKey(App.myId(C.TYPE_RSA_SIGN)), App.getKey(App.myId(C.TYPE_RSA_ENCRYPT)), true);
-      e2.textContent = KeyUtil.exportKey(App.getKey(App.myId(C.TYPE_RSA_SIGN)), App.getKey(App.myId(C.TYPE_RSA_ENCRYPT)));
+      e1.textContent = kh.getSecretGpgKey();
+      e2.textContent = kh.getPublicGpgKey();
 
       b1.addEventListener('click', UI.toggleExport(e1.parentNode, b1));
       b2.addEventListener('click', UI.toggleExport(e2.parentNode, b2));

@@ -30,38 +30,45 @@ function SecureRoom(onGenerateCallback, onConnectCallback, onDisconnectCallback,
       prefs.myid   = null;
       prefs.name   = null;
 
-  function buildKey(n, t, d, c, m, s) {
-    var key = { name: n, type: t, data: d, time: c, mode: m, sign: s,
-                size: ArrayUtil.bitLength(d.n),
-                iden: KeyUtil.generateFingerprint(t, d, c) },
-        id  = key.iden.substr(-16);
+  function makeKey(n, t, d, c, m, s) {
+    var key = { name: n, type: t, data: d, time: c, mode: m, sign: s, size: ArrayUtil.bitLength(d.n) },
+        id;
 
-    if (typeof chain[id] === "undefined") chain[id] = key;
+    key.iden = KeyHelper().getFingerprint(key);
+    id       = key.iden.substr(-16);
+
+    if (typeof chain[id] === "undefined")
+      chain[id] = key;
 
     return id;
   }
 
+  function makeRoom(room) {
+    if (!prefs.room) {
+      prefs.room = room;
+      var opts = (window.location.search) ? window.location.search+"&room=" : "?room=",
+          path = (window.location.pathname.indexOf("index.html") > -1) ? window.location.pathname+opts+prefs.room
+                                                                       : window.location.pathname+prefs.room;
+
+      window.history.replaceState({} , "SecureRoom", path);
+    }
+  }
+
   function onGenerate(data) {
     if (prefs.myid) {
-      var id = buildKey(prefs.name, C.TYPE_RSA_ENCRYPT, data, Math.round(Date.now()/1000), C.STATUS_ENABLED);
+      var id = makeKey(prefs.name, C.TYPE_RSA_ENCRYPT, data, Math.round(Date.now()/1000), C.STATUS_ENABLED),
+          kh = KeyHelper(chain[prefs.myid], chain[id]);
 
       chain[prefs.myid].peer = id;
+      chain[prefs.myid].sign = kh.getMasterSignature();
       chain[id].peer = prefs.myid;
-      chain[id].sign = Asymmetric.sign(chain[prefs.myid], KeyUtil.generateSignatureHash(chain[prefs.myid], chain[id]), true);
+      chain[id].sign = kh.getEphemeralSignature();
 
-      if (!prefs.room) {
-        prefs.room = prefs.myid.substr(-5);
-        var opts = (window.location.search) ? window.location.search+"&room=" : "?room=",
-            path = (window.location.pathname.indexOf("index.html") > -1) ? window.location.pathname+opts+prefs.room
-                                                                         : window.location.pathname+prefs.room;
-
-        window.history.replaceState({} , "SecureRoom", path);
-      }
+      makeRoom(prefs.myid.substr(-5));
 
       onGenerateCallback();
     } else {
-      prefs.myid = buildKey(prefs.name, C.TYPE_RSA_SIGN, data, Math.round(Date.now()/1000), C.STATUS_ENABLED);
-      chain[prefs.myid].sign = Asymmetric.sign(chain[prefs.myid], KeyUtil.generateSignatureHash(chain[prefs.myid]), true);
+      prefs.myid = makeKey(prefs.name, C.TYPE_RSA_SIGN, data, Math.round(Date.now()/1000), C.STATUS_ENABLED);
     }
   }
 
@@ -90,7 +97,7 @@ function SecureRoom(onGenerateCallback, onConnectCallback, onDisconnectCallback,
     },
 
     hasKey: function(id) {
-      return (typeof chain[id] != "undefined");
+      return (typeof chain[id] !== "undefined");
     },
 
     shareKey: function() {
@@ -98,22 +105,22 @@ function SecureRoom(onGenerateCallback, onConnectCallback, onDisconnectCallback,
           sk = chain[this.myId(C.TYPE_RSA_SIGN)];
 
       return {
-        name: prefs.name,
-        key1: {type: sk.type, time: sk.time, data: {e: sk.data.e, n: sk.data.n}, sign: sk.sign},
-        key2: {type: ek.type, time: ek.time, data: {e: ek.data.e, n: ek.data.n}, sign: ek.sign}
+        "name": prefs.name,
+        "master": { time: sk.time, data: {e: sk.data.e, n: sk.data.n}, sign: sk.sign},
+        "ephemeral": { time: ek.time, data: {e: ek.data.e, n: ek.data.n}, sign: ek.sign}
       }
     },
 
-    setKey: function(name, key1, key2) {
-      var id1 = buildKey(name, key1.type, key1.data, key1.time, C.STATUS_PENDING, key1.sign),
-          id2 = buildKey(name, key2.type, key2.data, key2.time, C.STATUS_PENDING, key2.sign);
+    setKey: function(name, master, ephemeral) {
+      var idm = makeKey(name, C.TYPE_RSA_SIGN, master.data, master.time, C.STATUS_PENDING, master.sign),
+          ide = makeKey(name, C.TYPE_RSA_ENCRYPT, ephemeral.data, ephemeral.time, C.STATUS_PENDING, ephemeral.sign);
 
-      chain[id1].peer = id2;
-      chain[id2].peer = id1;
+      chain[idm].peer = ide;
+      chain[ide].peer = idm;
 
       //TODO: verify key signature, reject outright if sig is wrong
 
-      return (key1.type === C.TYPE_RSA_SIGN) ? id1 : id2;
+      return idm;
     },
 
     toggleKey: function(id, mode) {
@@ -292,7 +299,7 @@ function Comm(onConnectCallback, onDisconnectCallback, onMessageCallback, onKeyC
   }
 
   function receiveKey(data) {
-    return App.setKey(data.name, data.key1, data.key2);
+    return App.setKey(data.name, data.master, data.ephemeral);
   }
 
   return {
@@ -387,7 +394,7 @@ function Message() {
   };
 }
 
-function KeyHelper(name, master, ephemeral) {
+function KeyHelper(master, ephemeral) {
 
   function makeMpi(a) {
     return ArrayUtil.fromHalf(ArrayUtil.bitLength(a)).concat(a);
@@ -426,8 +433,8 @@ function KeyHelper(name, master, ephemeral) {
   function generateMasterSigHash() {
     var keyHead, sigHead, suffix;
 
-    keyHead = [180].concat(ArrayUtil.fromWord(name.length))
-                   .concat(ArrayUtil.fromString(name));
+    keyHead = [180].concat(ArrayUtil.fromWord(master.name.length))
+                   .concat(ArrayUtil.fromString(master.name));
 
     sigHead = makeMasterSigHead();
     suffix  = [4,255].concat(ArrayUtil.fromWord(sigHead.length));
@@ -471,18 +478,16 @@ function KeyHelper(name, master, ephemeral) {
 
   function makeEphemeralSigPacket() {
     var head = makeEphemeralSigHead(),
-        hash = generateEphemeralSigHash(),
-        signature = generateSignature(hash);
+        hash = generateEphemeralSigHash();
 
-    return makeSigPacket(hash, head, signature);
+    return makeSigPacket(hash, head, ephemeral.sign);
   }
 
   function makeMasterSigPacket() {
     var head = makeMasterSigHead(),
-        hash = generateMasterSigHash(),
-        signature = generateSignature(hash);
+        hash = generateMasterSigHash();
 
-    return makeSigPacket(hash, head, signature);
+    return makeSigPacket(hash, head, master.sign);
   }
 
   function makeBase(key) {
@@ -510,7 +515,7 @@ function KeyHelper(name, master, ephemeral) {
   }
 
   function makeNamePacket() {
-    var packet = ArrayUtil.fromString(name);
+    var packet = ArrayUtil.fromString(master.name);
     return makeTag(13, packet.length).concat(makeLength(packet.length)).concat(packet);
   }
 
@@ -535,12 +540,16 @@ function KeyHelper(name, master, ephemeral) {
       return ArmorUtil.dress({"type": "PRIVATE KEY BLOCK", "headers": {"Version": "SecureRoom 1.0"}, "packets": packets});
     },
 
-    getEphemeralFingerprint: function() {
-      return generateFingerprint(makeBase(ephemeral));
+    getFingerprint: function(key) {
+      return generateFingerprint(makeBase(key));
     },
 
-    getMasterFingerprint: function() {
-      return generateFingerprint(makeBase(master));
+    getMasterSignature: function() {
+      return generateSignature(generateMasterSigHash());
+    },
+
+    getEphemeralSignature: function() {
+      return generateSignature(generateEphemeralSigHash());
     }
   }
 }
