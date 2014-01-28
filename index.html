@@ -44,7 +44,7 @@
           elem = document.getElementById('keychain');
 
       return function(close) {
-        if (ctrl.classList.contains('open') || close == 'close') {
+        if (ctrl.classList.contains('open') || close === 'close') {
           ctrl.classList.remove('open');
           elem.style.bottom = '-'+elem.clientHeight+'px';
 
@@ -63,7 +63,7 @@
           elem = document.getElementById('settings');
 
       return function(close) {
-        if (ctrl.classList.contains('open') || close == 'close') {
+        if (ctrl.classList.contains('open') || close === 'close') {
           ctrl.classList.remove('open');
           elem.style.marginTop = '-'+(elem.clientHeight-ctrl.clientHeight)+'px';
           window.scrollTo(0, document.body.offsetHeight);
@@ -247,10 +247,6 @@
       content.ssize = PrintUtil.number(App.getKey(id).size);
       content.sdate = PrintUtil.date(App.getKey(id).time);
 
-      content.eid   = PrintUtil.id(App.getKey(id).peer);
-      content.esize = PrintUtil.number(App.getPeer(id).size);
-      content.edate = PrintUtil.date(App.getPeer(id).time);
-
       return build(content);
     },
 
@@ -266,6 +262,7 @@
         content.id     = PrintUtil.text(d[i]);
         content.name   = PrintUtil.text(App.getKey(d[i]).name);
         content.status = (App.isEnabled(d[i])) ? '' : 'inactive';
+        content.state  = (App.isEnabled(d[i])) ? 'ACTIVE' : 'DISABLED';
         content.info   = UI.buildKeyInfo(d[i]);
         content.data   = KeyHelper(App.getKey(d[i]), App.getKey(App.getKey(d[i]).peer)).getPublicGpgKey();
 
@@ -287,7 +284,8 @@
 
     addWelcome: function(type) {
       var container = document.getElementById('welcome');
-      while (container.firstChild) container.removeChild(container.firstChild);
+      while (container.firstChild)
+        container.removeChild(container.firstChild);
 
       switch(type) {
       case 'distribute':
@@ -337,10 +335,10 @@
     <li id="alert-{{id}}" class="alert"><div class="time">{{time}}</div><p class="join">{{name}}</p><div class="info">{{info}}<button>Accept</button><button>Reject</button></div></li>
   </script>
   <script type="text/html" id="template-key-info">
-    <p><b>{{sid}}</b><br><small>{{ssize}} | {{sdate}} | SIGNING</small></p><p>{{eid}}<br><small>{{esize}} | {{edate}} | ENCRYPTION</small></p>
+    <p><b>{{sid}}</b><br><small>{{ssize}} BITS | {{sdate}}</small></p>
   </script>
   <script type="text/html" id="template-key-chain">
-    <li id="key-{{id}}"><div class="export hidden"><textarea wrap="off">{{data}}</textarea></div><h3>{{name}}</h3><div class="controls"><span class="{{status}}">ACTIVE</span><span>PUBLIC KEY</span></div><div class="info">{{info}}</div></li>
+    <li id="key-{{id}}"><div class="export hidden"><textarea wrap="off">{{data}}</textarea></div><h3>{{name}}</h3><div class="controls"><span class="{{status}}">{{state}}</span><span>PUBLIC KEY</span></div><div class="info">{{info}}</div></li>
   </script>
 </head>
 <body>
