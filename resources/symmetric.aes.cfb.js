@@ -104,22 +104,20 @@ var Symmetric = {
   },
 
   addRoundKey: function(k, W, S) {
-    for (var i = 0; i < 16; i++) {
-      S[i] ^= W[k+i];
-    }
-    return S;
+    return S.map(function(v, i){return v ^ W[k+i]});
   },
 
   mixColumns: function(S) {
     for (var T, B, i = 0; i < 16;) {
       T = S.slice(i, i+4);
-      B = T.map(function(v){return (v > 127) ? v*2 ^ 0x011b : v*2;});
+      B = T.map(function(v){return (v > 127) ? v*2 ^ 0x011b : v*2});
 
       S[i++] = B[0] ^ B[1] ^ T[1] ^ T[2] ^ T[3];
       S[i++] = T[0] ^ B[1] ^ B[2] ^ T[2] ^ T[3];
       S[i++] = T[0] ^ T[1] ^ B[2] ^ B[3] ^ T[3];
       S[i++] = B[0] ^ T[0] ^ T[1] ^ T[2] ^ B[3];
     }
+
     return S;
   },
 
@@ -148,6 +146,6 @@ var Symmetric = {
   },
 
   subBytes: function(S) {
-    return S.map(function(v){return Symmetric.B[v];});
+    return S.map(function(v){return Symmetric.B[v]});
   }
 };

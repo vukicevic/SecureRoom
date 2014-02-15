@@ -64,7 +64,7 @@ var Asymmetric = {
 
     mgf: function(z, l) {
       for (var t = [], c = [0,0,0,0], s = Math.ceil(l/20)-1, i = 0; i <= s; i++) {
-        c[3] = i; //only implemented for l<5120 (i<256), only using lsb, key size can't be >5120
+        c[3] = i; //only implemented for l<5120 (i<256), key size can't be >5120
         t = t.concat(Hash.digest(z.concat(c)));
       }
       return t.slice(0, l);
@@ -81,23 +81,19 @@ var Asymmetric = {
           dm = this.mgf(sd, data.length-le),
           db = App.calc.xor(md, dm);
 
-      while (le < data.length) {
-        if (db[le++] === 1) break;
-      }
+      //skip checking hash, (App.calc.compare(db.slice(0, 20), Hash('')) === 0)
 
-      //skip checking hash, if incorrect, it won't work anyway
-      //return (App.calc.compare(db.slice(0, 20), Hash(this.a28to8(this.pub.n))) === 0) ? db.slice(le) : [];
-      return db.slice(le);
+      return db.slice(db.indexOf(1, le)+1);
     },
 
     encode: function(data, size) {
       if ((data.length*8) > (size-328)) return [];
 
       var ln = ~~((size-8)/8),
-          ps = App.calc.zero(ln-data.length-41),
-          db = [218, 57, 163, 238, 94, 107, 75, 13, 50, 85, 191, 239, 149, 96, 24, 144, 175, 216, 7, 9].concat(ps.concat([1].concat(data))),
-          sd = Random.generate(160),
-          dm = this.mgf(sd, ln-20),
+          ps = App.calc.zero(ln - data.length - 41),
+          db = [218, 57, 163, 238, 94, 107, 75, 13, 50, 85, 191, 239, 149, 96, 24, 144, 175, 216, 7, 9].concat(ps).concat([1]).concat(data),
+          sd = Random.generate(Hash.length * 8),
+          dm = this.mgf(sd, ln - 20),
           md = App.calc.xor(db, dm),
           sm = this.mgf(md, 20),
           ms = App.calc.xor(sd, sm);
@@ -107,14 +103,15 @@ var Asymmetric = {
   }
 };
 
-function KeyGen(size, callback, mpi) {
+function KeyGen(size, callback, crunch) {
   var w = {}, time, timer;
 
-  if (typeof mpi === "undefined")
-    mpi = Crunch();
+  if (typeof crunch === "undefined")
+    crunch = Crunch();
 
   function createWorker (worker, callback) {
     w[worker] = new Worker("resources/external/crunch.js");
+
     w[worker].onmessage = function (e) {
       this.data = e.data;
       callback();
@@ -127,33 +124,32 @@ function KeyGen(size, callback, mpi) {
   function process() {
     if (w.p.data && w.q.data) {
       timer = null;
-      var data = {},
-          t = [[17], [19], [41], [1,1], [1,0,1]],
-          i = 0;
+      var mpi = {},
+          exp = [[17], [19], [41], [1,1], [1,0,1]].sort(function(){ return 0.5 - Math.random() });
 
-      data.n = mpi.cut(mpi.mul(w.p.data, w.q.data));
-      data.f = mpi.mul(mpi.decrement(w.p.data), mpi.decrement(w.q.data));
+      mpi.n = crunch.cut(crunch.mul(w.p.data, w.q.data));
+      mpi.f = crunch.mul(crunch.decrement(w.p.data), crunch.decrement(w.q.data));
 
       do {
-        data.e = t[Math.floor(Math.random()*t.length)];
-        data.d = mpi.inv(data.e, data.f);
-      } while (data.d.length == 0 && i++ < t.length);
+        mpi.e = exp.pop();
+        mpi.d = crunch.inv(mpi.e, mpi.f);
+      } while (mpi.d.length === 0 && exp.length);
 
-      if (data.d.length == 0) {
+      if (mpi.d.length === 0) {
         createWorker('p', process);
         createWorker('q', process);
 
         return;
       }
 
-      data.u  = mpi.cut(mpi.inv(w.p.data, w.q.data));
-      data.dp = mpi.mod(data.d, mpi.decrement(w.p.data));
-      data.dq = mpi.mod(data.d, mpi.decrement(w.q.data));
+      mpi.u  = crunch.cut(crunch.inv(w.p.data, w.q.data));
+      mpi.dp = crunch.mod(mpi.d, crunch.decrement(w.p.data));
+      mpi.dq = crunch.mod(mpi.d, crunch.decrement(w.q.data));
 
-      data.p = w.p.data.slice();
-      data.q = w.q.data.slice();
+      mpi.p = w.p.data.slice();
+      mpi.q = w.q.data.slice();
 
-      callback(data, Date.now() - time);
+      callback(mpi, Date.now() - time);
     }
   }
 
@@ -169,7 +165,9 @@ function KeyGen(size, callback, mpi) {
         createWorker('q', process);
       }
 
-      if (!w.q.data || !w.p.data) timer = timeout();
+      if (!w.q.data || !w.p.data)
+        timer = timeout();
+
     }, Math.floor((size*size)/100), w);
   }
 
