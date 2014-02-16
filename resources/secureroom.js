@@ -17,7 +17,7 @@ function SecureRoom(onGenerateCallback, onConnectCallback, onDisconnectCallback,
   var chain = {},
       prefs = {},
       comms = Comm(onConnectCallback, onDisconnectCallback, onMessageCallback, onKeyCallback),
-      maths = Crunch();
+      crunch = Crunch();
 
   prefs.room = window.location.pathname.substr(window.location.pathname.lastIndexOf("/")+1);
 
@@ -75,13 +75,13 @@ function SecureRoom(onGenerateCallback, onConnectCallback, onDisconnectCallback,
   }
 
   return {
-    calc: maths,
+    calc: crunch,
     comm: comms,
 
     generateKeys: function(name) {
       prefs.name = name;
-      KeyGen(prefs.key.size, onGenerate, maths)();
-      KeyGen(prefs.key.size, onGenerate, maths)();
+      KeyGen(prefs.key.size, onGenerate, crunch)();
+      KeyGen(prefs.key.size, onGenerate, crunch)();
     },
 
     getKeys: function(type, mode) {
