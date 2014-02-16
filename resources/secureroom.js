@@ -13,11 +13,9 @@
  * GNU General Public License for more details.
  **/
 
-function SecureRoom(onGenerateCallback, onConnectCallback, onDisconnectCallback, onMessageCallback, onKeyCallback) {
+function SecureRoom(crunch, onGenerateCallback) {
   var chain = {},
-      prefs = {},
-      comms = Comm(onConnectCallback, onDisconnectCallback, onMessageCallback, onKeyCallback),
-      crunch = Crunch();
+      prefs = {};
 
   prefs.room = window.location.pathname.substr(window.location.pathname.lastIndexOf("/")+1);
 
@@ -75,9 +73,6 @@ function SecureRoom(onGenerateCallback, onConnectCallback, onDisconnectCallback,
   }
 
   return {
-    calc: crunch,
-    comm: comms,
-
     generateKeys: function(name) {
       prefs.name = name;
       KeyGen(prefs.key.size, onGenerate, crunch)();
@@ -175,7 +170,7 @@ function SecureRoom(onGenerateCallback, onConnectCallback, onDisconnectCallback,
   }
 }
 
-function Comm(onConnectCallback, onDisconnectCallback, onMessageCallback, onKeyCallback) {
+function SecureComm(secureApp, onConnectCallback, onDisconnectCallback, onMessageCallback, onKeyCallback) {
   var socket;
 
   function isConnected() {
@@ -228,13 +223,13 @@ function Comm(onConnectCallback, onDisconnectCallback, onMessageCallback, onKeyC
 
   function encryptSessionKey(recipient, sessionkey) {
     for (var encrypted = {}, i = 0; i < recipient.length; i++)
-      encrypted[recipient[i]] = Asymmetric.encrypt(App.getKey(recipient[i]), sessionkey);
+      encrypted[recipient[i]] = Asymmetric.encrypt(secureApp.getKey(recipient[i]), sessionkey);
 
     return encrypted;
   }
 
   function encryptMessage(message) {
-    var sessionkey = Random.generate(App.getSize("cipher")),
+    var sessionkey = Random.generate(secureApp.getSize("cipher")),
         recipient  = message.getRecipients(),
         encrypted;
 
@@ -248,11 +243,11 @@ function Comm(onConnectCallback, onDisconnectCallback, onMessageCallback, onKeyC
   }
 
   function decryptMessage(encrypted) {
-    var id = App.myId(C.TYPE_EPHEMERAL),
+    var id = secureApp.myId(C.TYPE_EPHEMERAL),
         sessionkey, decrypted;
 
     if (encrypted.keys[id]) {
-      sessionkey = Asymmetric.decrypt(App.getKey(id), encrypted.keys[id]);
+      sessionkey = Asymmetric.decrypt(secureApp.getKey(id), encrypted.keys[id]);
       decrypted = Symmetric.decrypt(sessionkey, encrypted.data).slice(16);
     }
 
@@ -261,10 +256,10 @@ function Comm(onConnectCallback, onDisconnectCallback, onMessageCallback, onKeyC
 
   function sendMessage(plaintext) {
     var message   = Message(),
-        recipient = App.getKeys(C.TYPE_EPHEMERAL, C.STATUS_ENABLED),
+        recipient = secureApp.getKeys(C.TYPE_EPHEMERAL, C.STATUS_ENABLED),
         encrypted;
 
-    message.create(plaintext);
+    message.create(plaintext, secureApp.myId(C.TYPE_MASTER), secureApp.getKey(secureApp.myId(C.TYPE_MASTER)));
     message.setRecipients(recipient);
 
     encrypted = encryptMessage(message);
@@ -281,8 +276,8 @@ function Comm(onConnectCallback, onDisconnectCallback, onMessageCallback, onKeyC
 
     if (typeof decrypted !== "undefined") {
       message.unpack(decrypted);
-      if (App.hasKey(message.getSender()) && !App.isRejected(message.getSender()) && !App.isPending(message.getSender())) {
-        message.verify();
+      if (secureApp.hasKey(message.getSender()) && !secureApp.isRejected(message.getSender()) && !secureApp.isPending(message.getSender())) {
+        message.verify(secureApp.getKey(message.getSender()));
         message.setRecipients(Object.keys(encrypted.keys));
       }
     }
@@ -292,11 +287,11 @@ function Comm(onConnectCallback, onDisconnectCallback, onMessageCallback, onKeyC
 
   function sendKey() {
     if (isConnected())
-      socket.send(JSON.stringify({"type": "key", "data": App.shareKey()}));
+      socket.send(JSON.stringify({"type": "key", "data": secureApp.shareKey()}));
   }
 
   function receiveKey(data) {
-    return App.setKey(data.name, data.master, data.ephemeral);
+    return secureApp.setKey(data.name, data.master, data.ephemeral);
   }
 
   return {
@@ -307,7 +302,7 @@ function Comm(onConnectCallback, onDisconnectCallback, onMessageCallback, onKeyC
       onMessageCallback(sendMessage(plaintext));
     },
     connect: function() {
-      connect(App.getServer());
+      connect(secureApp.getServer());
     }
   }
 }
@@ -320,11 +315,6 @@ function Message() {
       .concat(0)
       .concat(ArrayUtil.fromWord(sendtime))
       .concat(ArrayUtil.fromHex(sender));
-  }
-
-  function sign() {
-    signature = Asymmetric.sign(App.getKey(sender), pack());
-    verified = true;
   }
 
   return {
@@ -343,16 +333,17 @@ function Message() {
       return pack().concat(signature);
     },
 
-    create: function(data) {
+    create: function(data, id, key) {
       sendtime  = recvtime = Math.round(Date.now()/1000);
-      sender    = App.myId(C.TYPE_MASTER);
+      sender    = id;
       plaintext = data;
 
-      sign();
+      signature = Asymmetric.sign(key, pack());
+      verified  = true;
     },
 
-    verify: function() {
-      verified = Asymmetric.verify(App.getKey(sender), pack(), signature);
+    verify: function(key) {
+      verified = Asymmetric.verify(key, pack(), signature);
     },
 
     isVerified: function() {
@@ -379,12 +370,6 @@ function Message() {
       return recipients;
     },
 
-    getRecipientsByName: function() {
-      return recipients.map(function(id) {
-        return (App.hasKey(id)) ? (!App.isRejected(id)) ? PrintUtil.text(App.getKey(id).name) : 'Rejected' : 'Unknown';
-      });
-    },
-
     setRecipients: function(data) {
       recipients = data;
     }
@@ -402,7 +387,7 @@ function KeyHelper(master, ephemeral) {
   }
 
   function makeOrderedMpi(p, q) {
-    return (App.calc.compare(p, q) === -1) ? makeMpi(p).concat(makeMpi(q)) : makeMpi(q).concat(makeMpi(p));
+    return (crunch.compare(p, q) === -1) ? makeMpi(p).concat(makeMpi(q)) : makeMpi(q).concat(makeMpi(p));
   }
 
   function makeTag(t, l) {

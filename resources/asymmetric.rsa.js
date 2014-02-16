@@ -19,24 +19,24 @@ var Asymmetric = {
 
   encrypt: function(key, data) {
     var pad = this.encryptPadding.encode(data, key.size);
-    return App.calc.exp(pad, key.data.e, key.data.n);
+    return crunch.exp(pad, key.data.e, key.data.n);
   },
 
   decrypt: function(key, data) {
-    var pad = App.calc.gar(data, key.data.p, key.data.q, key.data.d, key.data.u, key.data.dp, key.data.dq);
+    var pad = crunch.gar(data, key.data.p, key.data.q, key.data.d, key.data.u, key.data.dp, key.data.dq);
     return this.encryptPadding.decode(pad);
   },
 
   sign: function(key, data, prehashed) {
     var dat = this.signaturePadding.encode(key.size, data, prehashed);
-    return App.calc.gar(dat, key.data.p, key.data.q, key.data.d, key.data.u, key.data.dp, key.data.dq);
+    return crunch.gar(dat, key.data.p, key.data.q, key.data.d, key.data.u, key.data.dp, key.data.dq);
   },
 
   verify: function(key, data, signature, prehashed) {
     var dat = this.signaturePadding.encode(key.size, data, prehashed),
-        sig = App.calc.exp(signature, key.data.e, key.data.n);
+        sig = crunch.exp(signature, key.data.e, key.data.n);
 
-    return (App.calc.compare(dat, sig) === 0);
+    return (crunch.compare(dat, sig) === 0);
   },
 
   signaturePadding: {
@@ -77,11 +77,11 @@ var Asymmetric = {
           ms = data.slice(0, le),
           md = data.slice(le),
           sm = this.mgf(md, le),
-          sd = App.calc.xor(ms, sm),
+          sd = crunch.xor(ms, sm),
           dm = this.mgf(sd, data.length-le),
-          db = App.calc.xor(md, dm);
+          db = crunch.xor(md, dm);
 
-      //skip checking hash, (App.calc.compare(db.slice(0, 20), Hash('')) === 0)
+      //skip checking hash, (crunch.compare(db.slice(0, 20), Hash('')) === 0)
 
       return db.slice(db.indexOf(1, le)+1);
     },
@@ -90,13 +90,13 @@ var Asymmetric = {
       if ((data.length*8) > (size-328)) return [];
 
       var ln = ~~((size-8)/8),
-          ps = App.calc.zero(ln - data.length - 41),
+          ps = crunch.zero(ln - data.length - 41),
           db = [218, 57, 163, 238, 94, 107, 75, 13, 50, 85, 191, 239, 149, 96, 24, 144, 175, 216, 7, 9].concat(ps).concat([1]).concat(data),
           sd = Random.generate(Hash.length * 8),
           dm = this.mgf(sd, ln - 20),
-          md = App.calc.xor(db, dm),
+          md = crunch.xor(db, dm),
           sm = this.mgf(md, 20),
-          ms = App.calc.xor(sd, sm);
+          ms = crunch.xor(sd, sm);
 
       return ms.concat(md);
     }

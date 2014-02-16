@@ -62,14 +62,14 @@ var UI = {
 
   toggleKey: function (id, ctrl) {
     return function () {
-      if (App.isEnabled(id)) {
+      if (app.isEnabled(id)) {
         ctrl.classList.add('inactive');
         ctrl.textContent = 'DISABLED';
-        App.toggleKey(id, C.STATUS_DISABLED);
+        app.toggleKey(id, C.STATUS_DISABLED);
       } else {
         ctrl.classList.remove('inactive');
         ctrl.textContent = 'ACTIVE';
-        App.toggleKey(id, C.STATUS_ENABLED);
+        app.toggleKey(id, C.STATUS_ENABLED);
       }
     };
   },
@@ -100,7 +100,7 @@ var UI = {
   },
 
   toggleRoom: function () {
-    document.getElementById('room').textContent = 'Room: ' + App.getRoom();
+    document.getElementById('room').textContent = 'Room: ' + app.getRoom();
   },
 
   toggleHeight: function (elem) {
@@ -148,7 +148,7 @@ var UI = {
         content = {};
 
       content.time = PrintUtil.time(message.getTime());
-      content.sender = PrintUtil.text(App.getKey(message.getSender()).name);
+      content.sender = PrintUtil.text(app.getKey(message.getSender()).name);
       content.message = PrintUtil.text(message.getText());
       content.info = UI.buildMsgInfo(message);
       content.class = (message.isVerified()) ? "" : " warning";
@@ -172,7 +172,7 @@ var UI = {
 
       content.id = PrintUtil.text(id);
       content.time = PrintUtil.time(Math.round(Date.now() / 1000));
-      content.name = PrintUtil.text(App.getKey(id).name);
+      content.name = PrintUtil.text(app.getKey(id).name);
       content.info = UI.buildKeyInfo(id);
 
       container.insertAdjacentHTML('beforeend', build(content));
@@ -189,8 +189,8 @@ var UI = {
       d = UI.removeContent(a.parentNode);
 
     a.addEventListener('click', function () {
-      App.toggleKey(id, C.STATUS_ENABLED);
-      App.comm.sendKey();
+      app.toggleKey(id, C.STATUS_ENABLED);
+      com.sendKey();
     });
 
     a.addEventListener('click', function () {
@@ -201,7 +201,7 @@ var UI = {
     a.addEventListener('click', d);
 
     r.addEventListener('click', function () {
-      App.toggleKey(id, C.STATUS_REJECTED);
+      app.toggleKey(id, C.STATUS_REJECTED);
     });
 
     r.addEventListener('click', function () {
@@ -212,6 +212,12 @@ var UI = {
     r.addEventListener('click', d);
   },
 
+  buildRecipientList: function(message) {
+    return message.getRecipients().map(function(id) {
+      return (app.hasKey(id)) ? (!app.isRejected(id)) ? PrintUtil.text(app.getKey(id).name) : 'Rejected' : 'Unknown';
+    }).join(', ');
+  },
+
   buildMsgInfo: function (message) {
     var build = TemplateEngine('template-message-info'),
       content = {info: []};
@@ -219,7 +225,7 @@ var UI = {
     content.info.push({term: 'Author', data: PrintUtil.id(message.getSender())});
     //content.info.push({term: 'Cipher', data: Symmetric.name+'-'+(message.sessionkey.length*8)+' ['+Symmetric.mode+']'});
     content.info.push({term: 'Delay', data: message.getTimeDiff() + ' sec'});
-    content.info.push({term: 'Recipients', data: message.getRecipientsByName().join(', ')});
+    content.info.push({term: 'Recipients', data: this.buildRecipientList(message)});
 
     return build(content);
   },
@@ -229,8 +235,8 @@ var UI = {
       content = {};
 
     content.sid = PrintUtil.id(id);
-    content.ssize = PrintUtil.number(App.getKey(id).size);
-    content.sdate = PrintUtil.date(App.getKey(id).time);
+    content.ssize = PrintUtil.number(app.getKey(id).size);
+    content.sdate = PrintUtil.date(app.getKey(id).time);
 
     return build(content);
   },
@@ -243,13 +249,13 @@ var UI = {
     while (container.lastChild != container.firstChild)
       container.removeChild(container.lastChild);
 
-    for (var i = 0, d = App.getKeys(C.TYPE_MASTER, C.STATUS_ENABLED | C.STATUS_DISABLED); i < d.length; i++) {
+    for (var i = 0, d = app.getKeys(C.TYPE_MASTER, C.STATUS_ENABLED | C.STATUS_DISABLED); i < d.length; i++) {
       content.id = PrintUtil.text(d[i]);
-      content.name = PrintUtil.text(App.getKey(d[i]).name);
-      content.status = (App.isEnabled(d[i])) ? '' : 'inactive';
-      content.state = (App.isEnabled(d[i])) ? 'ACTIVE' : 'DISABLED';
+      content.name = PrintUtil.text(app.getKey(d[i]).name);
+      content.status = (app.isEnabled(d[i])) ? '' : 'inactive';
+      content.state = (app.isEnabled(d[i])) ? 'ACTIVE' : 'DISABLED';
       content.info = UI.buildKeyInfo(d[i]);
-      content.data = KeyHelper(App.getKey(d[i]), App.getKey(App.getKey(d[i]).peer)).getPublicGpgKey();
+      content.data = KeyHelper(app.getKey(d[i]), app.getKey(app.getKey(d[i]).peer)).getPublicGpgKey();
 
       container.insertAdjacentHTML('beforeend', build(content));
       UI.addKeychainListeners(container.lastChild, d[i]);
@@ -274,9 +280,9 @@ var UI = {
 
     switch (type) {
       case 'distribute':
-        container.insertAdjacentHTML('beforeend', '<p>Your keys have been generated.</p><div class="info">' + UI.buildKeyInfo(App.myId(C.TYPE_MASTER)) + '</div><button>Connect &amp; Distribute</button>');
+        container.insertAdjacentHTML('beforeend', '<p>Your keys have been generated.</p><div class="info">' + UI.buildKeyInfo(app.myId(C.TYPE_MASTER)) + '</div><button>Connect &amp; Distribute</button>');
         container.querySelector('button').addEventListener('click', function () {
-          App.comm.connect();
+          com.connect();
           UI.addWelcome('progress');
           UI.disableSettings('serverurl')
         });
@@ -295,15 +301,15 @@ var UI = {
   },
 
   addMyKey: function () {
-    document.getElementById('myname').textContent = PrintUtil.text(App.myName());
-    document.getElementById('myinfo').insertAdjacentHTML('beforeend', UI.buildKeyInfo(App.myId(C.TYPE_MASTER)));
+    document.getElementById('myname').textContent = PrintUtil.text(app.myName());
+    document.getElementById('myinfo').insertAdjacentHTML('beforeend', UI.buildKeyInfo(app.myId(C.TYPE_MASTER)));
 
     var my = document.getElementById('mykey'),
       e1 = my.getElementsByTagName('textarea').item(0),
       e2 = my.getElementsByTagName('textarea').item(1),
       b1 = my.getElementsByTagName('span').item(0),
       b2 = my.getElementsByTagName('span').item(1),
-      kh = KeyHelper(App.getKey(App.myId(C.TYPE_MASTER)), App.getKey(App.myId(C.TYPE_EPHEMERAL)));
+      kh = KeyHelper(app.getKey(app.myId(C.TYPE_MASTER)), app.getKey(app.myId(C.TYPE_EPHEMERAL)));
 
     e1.textContent = kh.getSecretGpgKey();
     e2.textContent = kh.getPublicGpgKey();
