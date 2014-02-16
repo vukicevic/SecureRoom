@@ -1,6 +1,7 @@
+<!DOCTYPE html>
 <html>
 <head>
-  <meta charset="utf-8"> 
+  <meta charset="utf-8">
   <title>SecureRoom</title>
   <style>
   @font-face {
@@ -31,7 +32,7 @@
   header {
     width: 640px;
     margin: 8px auto;
-  }  
+  }
   section {
     width: 560px;
     margin: 80px auto 0;
@@ -87,7 +88,7 @@
 
   dd {
     margin-left: 140px;
-  }  
+  }
   </style>
   <script src="resources/random.default.js"></script>
   <script src="resources/symmetric.aes.cfb.js"></script>
@@ -104,10 +105,6 @@
   <h3><a href="https://princip.secureroom.net/">Create a Room</a> | <a href="https://github.com/vukicevic/SecureRoom">View on GitHub</a></h3>
 </section>
 
-<!--section>
-  <h2>Getting Started</h2>
-</section-->
-
 <section>
   <h2>Primitives</h2>
   <p>SecureRoom is built from the following components:</p>
@@ -123,14 +120,16 @@
   </dl>
 </section>
 
-<!--section>
-  <h2>Glossary</h2>
-</section-->
+<section>
+  <h2>Compatibility</h2>
+  <p>Works in Firefox, Chrome and Internet Explorer.*</p>
+  <p style="text-align: right"><small>* Latest versions.</small></p>
+</section>
 
 <script>
 function iterate(count, encrypt, key, elem, max, period) {
   if (encrypt && count === max) encrypt = !encrypt;
-  
+
   var value = elem.textContent.split("").map(function(v){return v.charCodeAt(0)});
 
   if (encrypt) {
@@ -140,7 +139,7 @@ function iterate(count, encrypt, key, elem, max, period) {
     value = Symmetric.decrypt(key, value);
     count--;
   }
-  
+
   elem.textContent = value.map(function(v){return String.fromCharCode(v)}).join("");
 
   if (count)
