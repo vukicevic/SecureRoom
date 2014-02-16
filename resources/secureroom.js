@@ -223,7 +223,7 @@ function SecureComm(secureApp, onConnectCallback, onDisconnectCallback, onMessag
 
   function encryptSessionKey(recipient, sessionkey) {
     for (var encrypted = {}, i = 0; i < recipient.length; i++)
-      encrypted[recipient[i]] = Asymmetric.encrypt(secureApp.getKey(recipient[i]), sessionkey);
+      encrypted[recipient[i]] = Asymmetric(crunch).encrypt(secureApp.getKey(recipient[i]), sessionkey);
 
     return encrypted;
   }
@@ -247,7 +247,7 @@ function SecureComm(secureApp, onConnectCallback, onDisconnectCallback, onMessag
         sessionkey, decrypted;
 
     if (encrypted.keys[id]) {
-      sessionkey = Asymmetric.decrypt(secureApp.getKey(id), encrypted.keys[id]);
+      sessionkey = Asymmetric(crunch).decrypt(secureApp.getKey(id), encrypted.keys[id]);
       decrypted = Symmetric.decrypt(sessionkey, encrypted.data).slice(16);
     }
 
@@ -338,12 +338,12 @@ function Message() {
       sender    = id;
       plaintext = data;
 
-      signature = Asymmetric.sign(key, pack());
+      signature = Asymmetric(crunch).sign(key, pack());
       verified  = true;
     },
 
     verify: function(key) {
-      verified = Asymmetric.verify(key, pack(), signature);
+      verified = Asymmetric(crunch).verify(key, pack(), signature);
     },
 
     isVerified: function() {
@@ -425,7 +425,7 @@ function KeyHelper(master, ephemeral) {
   }
 
   function generateSignature(hash) {
-    return Asymmetric.sign(master, hash, true);
+    return Asymmetric(crunch).sign(master, hash, true);
   }
 
   function generateFingerprint(base) {
@@ -535,8 +535,8 @@ function KeyHelper(master, ephemeral) {
     },
 
     verifySignature: function() {
-      return Asymmetric.verify(master, generateMasterSigHash(), master.sign, true)
-          && Asymmetric.verify(master, generateEphemeralSigHash(), ephemeral.sign, true);
+      return Asymmetric(crunch).verify(master, generateMasterSigHash(), master.sign, true)
+          && Asymmetric(crunch).verify(master, generateEphemeralSigHash(), ephemeral.sign, true);
     }
   }
 }

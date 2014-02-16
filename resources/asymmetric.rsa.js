@@ -13,95 +13,89 @@
  * GNU General Public License for more details.
  **/
 
-var Asymmetric = {
-  algorithm: 1,
-  name: 'RSA',
+function Asymmetric(crunch) {
+  //EMSA-PKCS1-v1_5
+  function emsaEncode(keysize, data, prehashed) {
+    var pad = [],
+        len = ~~((keysize + 7)/8) - (3 + Hash.der.length + Hash.length);
 
-  encrypt: function(key, data) {
-    var pad = this.encryptPadding.encode(data, key.size);
-    return crunch.exp(pad, key.data.e, key.data.n);
-  },
+    while(len--)
+      pad[len] = 255;
 
-  decrypt: function(key, data) {
-    var pad = crunch.gar(data, key.data.p, key.data.q, key.data.d, key.data.u, key.data.dp, key.data.dq);
-    return this.encryptPadding.decode(pad);
-  },
+    if (!prehashed)
+      data = Hash.digest(data);
 
-  sign: function(key, data, prehashed) {
-    var dat = this.signaturePadding.encode(key.size, data, prehashed);
-    return crunch.gar(dat, key.data.p, key.data.q, key.data.d, key.data.u, key.data.dp, key.data.dq);
-  },
+    return [1].concat(pad)
+      .concat([0])
+      .concat(Hash.der)
+      .concat(data);
+  }
 
-  verify: function(key, data, signature, prehashed) {
-    var dat = this.signaturePadding.encode(key.size, data, prehashed),
-        sig = crunch.exp(signature, key.data.e, key.data.n);
-
-    return (crunch.compare(dat, sig) === 0);
-  },
-
-  signaturePadding: {
-    name: 'EMSA-PKCS1-v1_5',
-
-    encode: function(keysize, data, prehashed) {
-      var pad = [],
-          len = ~~((keysize + 7)/8) - (3 + Hash.der.length + Hash.length);
-
-      while(len--)
-        pad[len] = 255;
-
-      if (!prehashed)
-        data = Hash.digest(data);
-
-      return [1].concat(pad)
-                .concat([0])
-                .concat(Hash.der)
-                .concat(data);
+  //RSA-OAEP
+  function oaepMgf(z, l) {
+    for (var t = [], c = [0,0,0,0], s = Math.ceil(l/20)-1, i = 0; i <= s; i++) {
+      c[3] = i; //only implemented for l<5120 (i<256), key size can't be >5120
+      t = t.concat(Hash.digest(z.concat(c)));
     }
-  },
 
-  encryptPadding: {
-    name: 'RSA-OAEP',
+    return t.slice(0, l);
+  }
 
-    mgf: function(z, l) {
-      for (var t = [], c = [0,0,0,0], s = Math.ceil(l/20)-1, i = 0; i <= s; i++) {
-        c[3] = i; //only implemented for l<5120 (i<256), key size can't be >5120
-        t = t.concat(Hash.digest(z.concat(c)));
-      }
-      return t.slice(0, l);
+  function oaepDecode(data) {
+    if (data.length < 41) return [];
+
+    var le = 20,
+        ms = data.slice(0, le),
+        md = data.slice(le),
+        sm = oaepMgf(md, le),
+        sd = crunch.xor(ms, sm),
+        dm = oaepMgf(sd, data.length-le),
+        db = crunch.xor(md, dm);
+
+    //skip checking hash, (crunch.compare(db.slice(0, 20), Hash('')) === 0)
+
+    return db.slice(db.indexOf(1, le)+1);
+  }
+
+  function oaepEncode(data, size) {
+    if ((data.length*8) > (size-328)) return [];
+
+    var ln = ~~((size-8)/8),
+        ps = crunch.zero(ln - data.length - 41),
+        db = [218, 57, 163, 238, 94, 107, 75, 13, 50, 85, 191, 239, 149, 96, 24, 144, 175, 216, 7, 9].concat(ps).concat([1]).concat(data),
+        sd = Random.generate(Hash.length * 8),
+        dm = oaepMgf(sd, ln - 20),
+        md = crunch.xor(db, dm),
+        sm = oaepMgf(md, 20),
+        ms = crunch.xor(sd, sm);
+
+    return ms.concat(md);
+  }
+
+  return {
+    encrypt: function(key, data) {
+      var pad = oaepEncode(data, key.size);
+      return crunch.exp(pad, key.data.e, key.data.n);
     },
 
-    decode: function(data) {
-      if (data.length < 41) return [];
-
-      var le = 20,
-          ms = data.slice(0, le),
-          md = data.slice(le),
-          sm = this.mgf(md, le),
-          sd = crunch.xor(ms, sm),
-          dm = this.mgf(sd, data.length-le),
-          db = crunch.xor(md, dm);
-
-      //skip checking hash, (crunch.compare(db.slice(0, 20), Hash('')) === 0)
-
-      return db.slice(db.indexOf(1, le)+1);
+    decrypt: function(key, data) {
+      var pad = crunch.gar(data, key.data.p, key.data.q, key.data.d, key.data.u, key.data.dp, key.data.dq);
+      return oaepDecode(pad);
     },
 
-    encode: function(data, size) {
-      if ((data.length*8) > (size-328)) return [];
+    sign: function(key, data, prehashed) {
+      var dat = emsaEncode(key.size, data, prehashed);
+      return crunch.gar(dat, key.data.p, key.data.q, key.data.d, key.data.u, key.data.dp, key.data.dq);
+    },
 
-      var ln = ~~((size-8)/8),
-          ps = crunch.zero(ln - data.length - 41),
-          db = [218, 57, 163, 238, 94, 107, 75, 13, 50, 85, 191, 239, 149, 96, 24, 144, 175, 216, 7, 9].concat(ps).concat([1]).concat(data),
-          sd = Random.generate(Hash.length * 8),
-          dm = this.mgf(sd, ln - 20),
-          md = crunch.xor(db, dm),
-          sm = this.mgf(md, 20),
-          ms = crunch.xor(sd, sm);
+    verify: function(key, data, signature, prehashed) {
+      var dat = emsaEncode(key.size, data, prehashed),
+          sig = crunch.exp(signature, key.data.e, key.data.n);
 
-      return ms.concat(md);
+      return (crunch.compare(dat, sig) === 0);
     }
   }
-};
+}
 
 function KeyGen(size, callback, crunch) {
   var w = {}, time, timer;
