@@ -13,13 +13,13 @@
  * GNU General Public License for more details.
  **/
 
-Hash = {
+var Hash = {
   length: 20,
   algorithm: 2,
   name: 'SHA-1',
   der: [48, 33, 48, 9, 6, 5, 43, 14, 3, 2, 26, 5, 0, 4, 20],
 
-  digest: function digest(data) {
+  digest: function(data) {
     var p = 0,
         W, k, f, i, a, b, c, d, e,
         x = this.implode(data),
@@ -75,12 +75,12 @@ Hash = {
     return this.explode(th);
   },
 
-  rotl: function rotl(x, n) {
+  rotl: function(x, n) {
     return ((x << n) | (x >>> 32-n));
   },
-  
+
   //below are a8to32/a32to8 functions with added padding, length, etc
-  implode: function implode(x) {
+  implode: function(x) {
     for (var c, s = [24, 16, 8, 0], r = [], p = 0, o = 0, i = 0, l = x.length; i < l; i++) {
       o |= x[i] << s[p++];
       if (p > 3) {
@@ -113,7 +113,7 @@ Hash = {
   },
 
 	//don't touch the signed shift >>> :)
-  explode: function explode(w) {
+  explode: function(w) {
     for (var i = 0, o = [], l = w.length; i < l; i++) {
       o.push( w[i] >>> 24);
       o.push((w[i] >>> 16) & 0xff);
