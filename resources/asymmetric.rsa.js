@@ -121,8 +121,16 @@ function KeyGen(size, callback, crunch) {
       var mpi = {},
           exp = [[17], [19], [41], [1,1], [1,0,1]].sort(function(){ return 0.5 - Math.random() });
 
-      mpi.n = crunch.cut(crunch.mul(w.p.data, w.q.data));
-      mpi.f = crunch.mul(crunch.decrement(w.p.data), crunch.decrement(w.q.data));
+      if (crunch.compare(w.p.data, w.q.data) <= 0) {
+        mpi.p = w.p.data.slice();
+        mpi.q = w.q.data.slice();
+      } else {
+        mpi.p = w.q.data.slice();
+        mpi.q = w.p.data.slice();
+      }
+
+      mpi.n = crunch.cut(crunch.mul(mpi.p, mpi.q));
+      mpi.f = crunch.mul(crunch.decrement(mpi.p), crunch.decrement(mpi.q));
 
       do {
         mpi.e = exp.pop();
@@ -136,17 +144,9 @@ function KeyGen(size, callback, crunch) {
         return;
       }
 
-      mpi.u  = crunch.cut(crunch.inv(w.p.data, w.q.data));
-      mpi.dp = crunch.mod(mpi.d, crunch.decrement(w.p.data));
-      mpi.dq = crunch.mod(mpi.d, crunch.decrement(w.q.data));
-
-      if (crunch.compare(w.p.data, w.q.data) <= 0) {
-        mpi.p = w.p.data.slice();
-        mpi.q = w.q.data.slice();
-      } else {
-        mpi.p = w.q.data.slice();
-        mpi.q = w.p.data.slice();
-      }
+      mpi.u  = crunch.cut(crunch.inv(mpi.p, mpi.q));
+      mpi.dp = crunch.mod(mpi.d, crunch.decrement(mpi.p));
+      mpi.dq = crunch.mod(mpi.d, crunch.decrement(mpi.q));
 
       callback(mpi, Date.now() - time);
     }
