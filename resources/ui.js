@@ -26,7 +26,7 @@ function TemplateEngine(templ) {
 var UI = {
   toggleKeychain: function() {
     var ctrl = document.getElementById('keychainToggle'),
-      elem = document.getElementById('keychain');
+        elem = document.getElementById('keychain');
 
     return function (close) {
       if (ctrl.classList.contains('open') || close === 'close') {
@@ -45,7 +45,7 @@ var UI = {
 
   toggleSettings: function() {
     var ctrl = document.getElementById('settingsToggle'),
-      elem = document.getElementById('settings');
+        elem = document.getElementById('settings');
 
     return function (close) {
       if (ctrl.classList.contains('open') || close === 'close') {
@@ -85,7 +85,7 @@ var UI = {
       }
 
       elem.style.left = (elem.parentNode.getBoundingClientRect().left - 1) + 'px';
-      elem.style.top = '-' + (elem.offsetHeight - (elem.parentNode.getBoundingClientRect().top - elem.parentNode.parentNode.getBoundingClientRect().top)) + 'px';
+      elem.style.top  = '-' + (elem.offsetHeight - (elem.parentNode.getBoundingClientRect().top - elem.parentNode.parentNode.getBoundingClientRect().top)) + 'px';
     };
   },
 
@@ -144,14 +144,14 @@ var UI = {
   addMessage: function (message) {
     if (message.isVerified()) {
       var container = document.getElementById("content"),
-        build = TemplateEngine("template-message"),
-        content = {};
+          build = TemplateEngine("template-message"),
+          content = {};
 
-      content.time = PrintUtil.time(message.getTime());
-      content.sender = PrintUtil.text(app.getKey(message.getSender()).name);
+      content.time    = PrintUtil.time(message.getTime());
+      content.sender  = PrintUtil.text(app.getKey(message.getSender()).name);
       content.message = PrintUtil.text(message.getText());
-      content.info = UI.buildMsgInfo(message);
-      content.class = (message.isVerified()) ? "" : " warning";
+      content.info    = UI.buildMsgInfo(message);
+      content.class   = (message.isVerified()) ? "" : " warning";
 
       container.insertAdjacentHTML("beforeend", build(content));
 
@@ -184,9 +184,9 @@ var UI = {
 
   addKeyListeners: function (elem, id) {
     var a = elem.getElementsByTagName('button').item(0),
-      r = elem.getElementsByTagName('button').item(1),
-      p = elem.querySelector('.join'),
-      d = UI.removeContent(a.parentNode);
+        r = elem.getElementsByTagName('button').item(1),
+        p = elem.querySelector('.join'),
+        d = UI.removeContent(a.parentNode);
 
     a.addEventListener('click', function () {
       app.toggleKey(id, C.STATUS_ENABLED);
@@ -220,7 +220,7 @@ var UI = {
 
   buildMsgInfo: function (message) {
     var build = TemplateEngine('template-message-info'),
-      content = {info: []};
+        content = {info: []};
 
     content.info.push({term: 'Author', data: PrintUtil.id(message.getSender())});
     //content.info.push({term: 'Cipher', data: Symmetric.name+'-'+(message.sessionkey.length*8)+' ['+Symmetric.mode+']'});
@@ -232,9 +232,9 @@ var UI = {
 
   buildKeyInfo: function (id) {
     var build = TemplateEngine('template-key-info'),
-      content = {};
+        content = {};
 
-    content.sid = PrintUtil.id(id);
+    content.sid   = PrintUtil.id(id);
     content.ssize = PrintUtil.number(app.getKey(id).size);
     content.sdate = PrintUtil.date(app.getKey(id).time);
 
@@ -243,31 +243,31 @@ var UI = {
 
   buildKeychain: function () {
     var container = document.getElementById('keychain'),
-      build = TemplateEngine('template-key-chain'),
-      content = {};
+        build = TemplateEngine('template-key-chain'),
+        content = {};
 
     while (container.lastChild != container.firstChild)
       container.removeChild(container.lastChild);
 
-    for (var i = 0, d = app.getKeys(C.TYPE_MASTER, C.STATUS_ENABLED | C.STATUS_DISABLED); i < d.length; i++) {
-      content.id = PrintUtil.text(d[i]);
-      content.name = PrintUtil.text(app.getKey(d[i]).name);
-      content.status = (app.isEnabled(d[i])) ? '' : 'inactive';
-      content.state = (app.isEnabled(d[i])) ? 'ACTIVE' : 'DISABLED';
-      content.info = UI.buildKeyInfo(d[i]);
-      content.data = KeyHelper(app.getKey(d[i]), app.getKey(app.getKey(d[i]).peer)).getPublicGpgKey();
+    app.getKeys(C.TYPE_MASTER, C.STATUS_ENABLED | C.STATUS_DISABLED).forEach(function(v) {
+      content.id     = PrintUtil.text(v);
+      content.name   = PrintUtil.text(app.getKey(v).name);
+      content.status = (app.isEnabled(v)) ? '' : 'inactive';
+      content.state  = (app.isEnabled(v)) ? 'ACTIVE' : 'DISABLED';
+      content.info   = UI.buildKeyInfo(v);
+      content.data   = KeyHelper(app.getKey(v), app.getKey(app.getKey(v).peer)).getPublicGpgKey();
 
       container.insertAdjacentHTML('beforeend', build(content));
-      UI.addKeychainListeners(container.lastChild, d[i]);
-    }
+      UI.addKeychainListeners(container.lastChild, v);
+    });
 
     UI.toggleKeychain()('close');
   },
 
   addKeychainListeners: function (elem, id) {
     var b1 = elem.getElementsByTagName('span').item(0),
-      b2 = elem.getElementsByTagName('span').item(1),
-      ex = elem.querySelector('.export');
+        b2 = elem.getElementsByTagName('span').item(1),
+        ex = elem.querySelector('.export');
 
     b1.addEventListener('click', UI.toggleKey(id, b1));
     b2.addEventListener('click', UI.toggleExport(ex, b2));
@@ -275,6 +275,7 @@ var UI = {
 
   addWelcome: function (type) {
     var container = document.getElementById('welcome');
+
     while (container.firstChild)
       container.removeChild(container.firstChild);
 
@@ -292,10 +293,8 @@ var UI = {
         container.insertAdjacentHTML('beforeend', '<div class="loading"></div>');
         break;
       case 'connect':
-        container.insertAdjacentHTML('beforeend', '<div class="time">' + PrintUtil.time(Math.round(Date.now() / 1000)) + '</div><p>Connected.</p>');
-        break;
       case 'disconnect':
-        container.insertAdjacentHTML('beforeend', '<div class="time">' + PrintUtil.time(Math.round(Date.now() / 1000)) + '</div><p>Disconnected.</p>');
+        container.insertAdjacentHTML('beforeend', '<div class="time">' + PrintUtil.time(Math.round(Date.now()/1000)) + '</div><p>' + type.charAt(0).toUpperCase() + type.slice(1) + 'ed.</p>');
         break;
     }
   },
@@ -305,11 +304,11 @@ var UI = {
     document.getElementById('myinfo').insertAdjacentHTML('beforeend', UI.buildKeyInfo(app.myId(C.TYPE_MASTER)));
 
     var my = document.getElementById('mykey'),
-      e1 = my.getElementsByTagName('textarea').item(0),
-      e2 = my.getElementsByTagName('textarea').item(1),
-      b1 = my.getElementsByTagName('span').item(0),
-      b2 = my.getElementsByTagName('span').item(1),
-      kh = KeyHelper(app.getKey(app.myId(C.TYPE_MASTER)), app.getKey(app.myId(C.TYPE_EPHEMERAL)));
+        e1 = my.getElementsByTagName('textarea').item(0),
+        e2 = my.getElementsByTagName('textarea').item(1),
+        b1 = my.getElementsByTagName('span').item(0),
+        b2 = my.getElementsByTagName('span').item(1),
+        kh = KeyHelper(app.getKey(app.myId(C.TYPE_MASTER)), app.getKey(app.myId(C.TYPE_EPHEMERAL)));
 
     e1.textContent = kh.getSecretGpgKey();
     e2.textContent = kh.getPublicGpgKey();
