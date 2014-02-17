@@ -13,21 +13,21 @@
  * GNU General Public License for more details.
  **/
 
-function Asymmetric(crunch) {
+function Asymmetric(crunch, hash) {
   //EMSA-PKCS1-v1_5
   function emsaEncode(keysize, data, prehashed) {
     var pad = [],
-        len = ~~((keysize + 7)/8) - (3 + Hash.der.length + Hash.length);
+        len = ~~((keysize + 7)/8) - (3 + hash.der.length + hash.length);
 
     while(len--)
       pad[len] = 255;
 
     if (!prehashed)
-      data = Hash.digest(data);
+      data = hash.digest(data);
 
     return [1].concat(pad)
       .concat([0])
-      .concat(Hash.der)
+      .concat(hash.der)
       .concat(data);
   }
 
@@ -35,7 +35,7 @@ function Asymmetric(crunch) {
   function oaepMgf(z, l) {
     for (var t = [], c = [0,0,0,0], s = Math.ceil(l/20)-1, i = 0; i <= s; i++) {
       c[3] = i; //only implemented for l<5120 (i<256), key size can't be >5120
-      t = t.concat(Hash.digest(z.concat(c)));
+      t = t.concat(hash.digest(z.concat(c)));
     }
 
     return t.slice(0, l);
@@ -63,7 +63,7 @@ function Asymmetric(crunch) {
     var ln = ~~((size-8)/8),
         ps = crunch.zero(ln - data.length - 41),
         db = [218, 57, 163, 238, 94, 107, 75, 13, 50, 85, 191, 239, 149, 96, 24, 144, 175, 216, 7, 9].concat(ps).concat([1]).concat(data),
-        sd = Random.generate(Hash.length * 8),
+        sd = Random.generate(hash.length * 8),
         dm = oaepMgf(sd, ln - 20),
         md = crunch.xor(db, dm),
         sm = oaepMgf(md, 20),

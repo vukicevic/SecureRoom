@@ -86,13 +86,13 @@
 
   <script>
   if (typeof window.WebSocket === 'function' && typeof window.Worker === 'function') {
-    var app, com, crunch = Crunch();
+    var app, com;
 
     window.onload = function() {
       app = SecureRoom(
-              crunch,
               function() { UI.addWelcome('distribute'); UI.toggleSettings()('close'); UI.toggleKeychain()('close'); UI.toggleRoom() }
             );
+
       com = SecureComm(
               app,
               function() { UI.addWelcome('connect'); UI.toggleInput(false) },

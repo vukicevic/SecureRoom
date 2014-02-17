@@ -13,7 +13,7 @@
  * GNU General Public License for more details.
  **/
 
-function SecureRoom(crunch, onGenerateCallback) {
+function SecureRoom(onGenerateCallback) {
   var chain = {},
       prefs = {};
 
@@ -74,7 +74,10 @@ function SecureRoom(crunch, onGenerateCallback) {
 
   return {
     generateKeys: function(name) {
+      var crunch = Crunch();
+
       prefs.name = name;
+
       KeyGen(prefs.key.size, onGenerate, crunch)();
       KeyGen(prefs.key.size, onGenerate, crunch)();
     },
@@ -171,7 +174,8 @@ function SecureRoom(crunch, onGenerateCallback) {
 }
 
 function SecureComm(secureApp, onConnectCallback, onDisconnectCallback, onMessageCallback, onKeyCallback) {
-  var socket;
+  var socket,
+      oracle = Asymmetric(Crunch(), Hash());
 
   function isConnected() {
     return (typeof socket !== "undefined" && socket.readyState < 2);
@@ -223,7 +227,7 @@ function SecureComm(secureApp, onConnectCallback, onDisconnectCallback, onMessag
 
   function encryptSessionKey(recipient, sessionkey) {
     for (var encrypted = {}, i = 0; i < recipient.length; i++)
-      encrypted[recipient[i]] = Asymmetric(crunch).encrypt(secureApp.getKey(recipient[i]), sessionkey);
+      encrypted[recipient[i]] = oracle.encrypt(secureApp.getKey(recipient[i]), sessionkey);
 
     return encrypted;
   }
@@ -247,7 +251,7 @@ function SecureComm(secureApp, onConnectCallback, onDisconnectCallback, onMessag
         sessionkey, decrypted;
 
     if (encrypted.keys[id]) {
-      sessionkey = Asymmetric(crunch).decrypt(secureApp.getKey(id), encrypted.keys[id]);
+      sessionkey = oracle.decrypt(secureApp.getKey(id), encrypted.keys[id]);
       decrypted = Symmetric.decrypt(sessionkey, encrypted.data).slice(16);
     }
 
@@ -255,7 +259,7 @@ function SecureComm(secureApp, onConnectCallback, onDisconnectCallback, onMessag
   }
 
   function sendMessage(plaintext) {
-    var message   = Message(),
+    var message   = Message(oracle),
         recipient = secureApp.getKeys(C.TYPE_EPHEMERAL, C.STATUS_ENABLED),
         encrypted;
 
@@ -271,7 +275,7 @@ function SecureComm(secureApp, onConnectCallback, onDisconnectCallback, onMessag
   }
 
   function receiveMessage(encrypted) {
-    var message   = Message(),
+    var message   = Message(oracle),
         decrypted = decryptMessage(encrypted);
 
     if (typeof decrypted !== "undefined") {
@@ -307,7 +311,7 @@ function SecureComm(secureApp, onConnectCallback, onDisconnectCallback, onMessag
   }
 }
 
-function Message() {
+function Message(oracle) {
   var plaintext, sender, sendtime, recvtime, recipients, signature, verified = false;
 
   function pack() {
@@ -338,12 +342,12 @@ function Message() {
       sender    = id;
       plaintext = data;
 
-      signature = Asymmetric(crunch).sign(key, pack());
+      signature = oracle.sign(key, pack());
       verified  = true;
     },
 
     verify: function(key) {
-      verified = Asymmetric(crunch).verify(key, pack(), signature);
+      verified = oracle.verify(key, pack(), signature);
     },
 
     isVerified: function() {
@@ -376,7 +380,10 @@ function Message() {
   };
 }
 
+//TODO: examine if keyhelper can be invoked in more efficient way
 function KeyHelper(master, ephemeral) {
+  var crunch = Crunch(),
+      oracle = Asymmetric(crunch, Hash());
 
   function makeMpi(a) {
     return ArrayUtil.fromHalf(ArrayUtil.bitLength(a)).concat(a);
@@ -395,7 +402,7 @@ function KeyHelper(master, ephemeral) {
   }
 
   function generateSigHash(head, tail) {
-    return Hash.digest(
+    return Hash().digest(
       [153].concat(ArrayUtil.fromHalf(head.length)).concat(head).concat(tail)
     );
   }
@@ -425,11 +432,11 @@ function KeyHelper(master, ephemeral) {
   }
 
   function generateSignature(hash) {
-    return Asymmetric(crunch).sign(master, hash, true);
+    return oracle.sign(master, hash, true);
   }
 
   function generateFingerprint(base) {
-    return ArrayUtil.toHex(Hash.digest([153].concat(ArrayUtil.fromHalf(base.length)).concat(base)));
+    return ArrayUtil.toHex(Hash().digest([153].concat(ArrayUtil.fromHalf(base.length)).concat(base)));
   }
 
   function generateChecksum(array) {
@@ -535,8 +542,8 @@ function KeyHelper(master, ephemeral) {
     },
 
     verifySignature: function() {
-      return Asymmetric(crunch).verify(master, generateMasterSigHash(), master.sign, true)
-          && Asymmetric(crunch).verify(master, generateEphemeralSigHash(), ephemeral.sign, true);
+      return oracle.verify(master, generateMasterSigHash(), master.sign, true)
+          && oracle.verify(master, generateEphemeralSigHash(), ephemeral.sign, true);
     }
   }
 }
