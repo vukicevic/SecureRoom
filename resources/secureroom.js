@@ -231,9 +231,12 @@ function SecureComm(secureApp, onConnectCallback, onDisconnectCallback, onMessag
     }
   }
 
-  function encryptSessionKey(recipient, sessionkey) {
-    for (var encrypted = {}, i = 0; i < recipient.length; i++)
-      encrypted[recipient[i]] = oracle.encrypt(secureApp.getKey(recipient[i]), sessionkey);
+  function encryptSessionKey(recipients, sessionkey) {
+    var encrypted = {};
+
+    recipients.forEach(function(v) {
+      encrypted[v] = oracle.encrypt(secureApp.getKey(v), sessionkey);
+    });
 
     return encrypted;
   }
