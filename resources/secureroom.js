@@ -14,8 +14,9 @@
  **/
 
 function SecureRoom(onGenerateCallback) {
-  var chain = {},
-      prefs = {};
+  var oracle = Asymmetric(Crunch(), Hash()),
+      chain  = {},
+      prefs  = {};
 
   prefs.room = window.location.pathname.substr(window.location.pathname.lastIndexOf("/")+1);
 
@@ -60,9 +61,11 @@ function SecureRoom(onGenerateCallback) {
           kh = KeyHelper(chain[prefs.myid], chain[id]);
 
       chain[prefs.myid].peer = id;
-      chain[prefs.myid].sign = kh.getMasterSignature();
+//      chain[prefs.myid].sign = kh.getMasterSignature();
+      chain[prefs.myid].sign = oracle.sign(chain[prefs.myid], kh.getMasterSignatureHash(), true);
       chain[id].peer = prefs.myid;
-      chain[id].sign = kh.getEphemeralSignature();
+//      chain[id].sign = kh.getEphemeralSignature();
+      chain[id].sign = oracle.sign(chain[prefs.myid], kh.getEphemeralSignatureHash(), true);
 
       makeRoom(prefs.myid.substr(-5));
 
@@ -113,15 +116,18 @@ function SecureRoom(onGenerateCallback) {
 
     setKey: function(name, master, ephemeral) {
       var idm = makeKey(name, C.TYPE_MASTER, master.data, master.time, C.STATUS_PENDING, master.sign),
-          ide = makeKey(name, C.TYPE_EPHEMERAL, ephemeral.data, ephemeral.time, C.STATUS_PENDING, ephemeral.sign);
+          ide = makeKey(name, C.TYPE_EPHEMERAL, ephemeral.data, ephemeral.time, C.STATUS_PENDING, ephemeral.sign),
+          kh  = KeyHelper(chain[idm], chain[ide]);
 
-      if (KeyHelper(chain[idm], chain[ide]).verifySignature()) {
+      if (oracle.verify(chain[idm], kh.getMasterSignatureHash(), chain[idm].sign, true)
+        && oracle.verify(chain[idm], kh.getEphemeralSignatureHash(), chain[ide].sign, true)) {
         chain[idm].peer = ide;
         chain[ide].peer = idm;
       } else {
         delete chain[idm];
         delete chain[ide];
         idm = undefined;
+        console.log('Key signature verification failed.');
       }
 
       return idm;
@@ -292,6 +298,8 @@ function SecureComm(secureApp, onConnectCallback, onDisconnectCallback, onMessag
   function sendKey() {
     if (isConnected())
       socket.send(JSON.stringify({"type": "key", "data": secureApp.shareKey()}));
+
+    console.log('Sending key ', secureApp.shareKey());
   }
 
   function receiveKey(data) {
@@ -382,19 +390,12 @@ function Message(oracle) {
 
 //TODO: examine if keyhelper can be invoked in more efficient way
 function KeyHelper(master, ephemeral) {
-  var crunch = Crunch(),
-      oracle = Asymmetric(crunch, Hash());
-
   function makeMpi(a) {
     return ArrayUtil.fromHalf(ArrayUtil.bitLength(a)).concat(a);
   }
 
   function makeLength(l) {
     return (l < 256) ? [l] : (l < 65536) ? ArrayUtil.fromHalf(l) : ArrayUtil.fromWord(l);
-  }
-
-  function makeOrderedMpi(p, q) {
-    return (crunch.compare(p, q) === -1) ? makeMpi(p).concat(makeMpi(q)) : makeMpi(q).concat(makeMpi(p));
   }
 
   function makeTag(t, l) {
@@ -429,10 +430,6 @@ function KeyHelper(master, ephemeral) {
     suffix  = [4,255].concat(ArrayUtil.fromWord(sigHead.length));
 
     return generateSigHash(makeBase(master), keyHead.concat(sigHead).concat(suffix));
-  }
-
-  function generateSignature(hash) {
-    return oracle.sign(master, hash, true);
   }
 
   function generateFingerprint(base) {
@@ -497,7 +494,8 @@ function KeyHelper(master, ephemeral) {
     var len = 21 + key.data.n.length + key.data.e.length + key.data.d.length + key.data.p.length + key.data.q.length + key.data.u.length,
         tag = (key.type === C.TYPE_MASTER) ? 5 : 7,
         tmp = [0].concat(makeMpi(key.data.d))
-                 .concat(makeOrderedMpi(key.data.p, key.data.q))
+                 .concat(makeMpi(key.data.p))
+                 .concat(makeMpi(key.data.q))
                  .concat(makeMpi(key.data.u));
 
     return makeTag(tag, len).concat(makeLength(len)).concat(makeBase(key)).concat(tmp).concat(generateChecksum(tmp));
@@ -533,17 +531,12 @@ function KeyHelper(master, ephemeral) {
       return generateFingerprint(makeBase(key));
     },
 
-    getMasterSignature: function() {
-      return generateSignature(generateMasterSigHash());
+    getMasterSignatureHash: function() {
+      return generateMasterSigHash();
     },
 
-    getEphemeralSignature: function() {
-      return generateSignature(generateEphemeralSigHash());
-    },
-
-    verifySignature: function() {
-      return oracle.verify(master, generateMasterSigHash(), master.sign, true)
-          && oracle.verify(master, generateEphemeralSigHash(), ephemeral.sign, true);
+    getEphemeralSignatureHash: function() {
+      return generateEphemeralSigHash();
     }
   }
 }

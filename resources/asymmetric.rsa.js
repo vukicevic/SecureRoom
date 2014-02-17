@@ -140,8 +140,13 @@ function KeyGen(size, callback, crunch) {
       mpi.dp = crunch.mod(mpi.d, crunch.decrement(w.p.data));
       mpi.dq = crunch.mod(mpi.d, crunch.decrement(w.q.data));
 
-      mpi.p = w.p.data.slice();
-      mpi.q = w.q.data.slice();
+      if (crunch.compare(w.p.data, w.q.data) <= 0) {
+        mpi.p = w.p.data.slice();
+        mpi.q = w.q.data.slice();
+      } else {
+        mpi.p = w.q.data.slice();
+        mpi.q = w.p.data.slice();
+      }
 
       callback(mpi, Date.now() - time);
     }

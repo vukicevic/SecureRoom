@@ -167,10 +167,10 @@ var UI = {
   addKey: function (id) {
     if (!document.getElementById('alert-' + id)) {
       var container = document.getElementById('content'),
-        build = TemplateEngine('template-key-alert'),
-        content = {};
+          build     = TemplateEngine('template-key-alert'),
+          content   = {};
 
-      content.id = PrintUtil.text(id);
+      content.id   = PrintUtil.text(id);
       content.time = PrintUtil.time(Math.round(Date.now() / 1000));
       content.name = PrintUtil.text(app.getKey(id).name);
       content.info = UI.buildKeyInfo(id);
