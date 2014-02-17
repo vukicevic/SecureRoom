@@ -137,18 +137,16 @@ function KeyGen(size, callback, crunch) {
         mpi.d = crunch.inv(mpi.e, mpi.f);
       } while (mpi.d.length === 0 && exp.length);
 
-      if (mpi.d.length === 0) {
+      if (mpi.d.length > 0) {
+        mpi.u  = crunch.cut(crunch.inv(mpi.p, mpi.q));
+        mpi.dp = crunch.mod(mpi.d, crunch.decrement(mpi.p));
+        mpi.dq = crunch.mod(mpi.d, crunch.decrement(mpi.q));
+
+        callback(mpi, Date.now() - time);
+      } else {
         createWorker('p', process);
         createWorker('q', process);
-
-        return;
       }
-
-      mpi.u  = crunch.cut(crunch.inv(mpi.p, mpi.q));
-      mpi.dp = crunch.mod(mpi.d, crunch.decrement(mpi.p));
-      mpi.dq = crunch.mod(mpi.d, crunch.decrement(mpi.q));
-
-      callback(mpi, Date.now() - time);
     }
   }
 

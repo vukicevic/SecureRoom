@@ -298,8 +298,6 @@ function SecureComm(secureApp, onConnectCallback, onDisconnectCallback, onMessag
   function sendKey() {
     if (isConnected())
       socket.send(JSON.stringify({"type": "key", "data": secureApp.shareKey()}));
-
-    console.log('Sending key ', secureApp.shareKey());
   }
 
   function receiveKey(data) {
@@ -388,7 +386,6 @@ function Message(oracle) {
   };
 }
 
-//TODO: examine if keyhelper can be invoked in more efficient way
 function KeyHelper(master, ephemeral) {
   function makeMpi(a) {
     return ArrayUtil.fromHalf(ArrayUtil.bitLength(a)).concat(a);
