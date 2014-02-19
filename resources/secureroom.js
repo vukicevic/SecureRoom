@@ -61,10 +61,8 @@ function SecureRoom(onGenerateCallback) {
           kh = KeyHelper(chain[prefs.myid], chain[id]);
 
       chain[prefs.myid].peer = id;
-//      chain[prefs.myid].sign = kh.getMasterSignature();
       chain[prefs.myid].sign = oracle.sign(chain[prefs.myid], kh.getMasterSignatureHash(), true);
       chain[id].peer = prefs.myid;
-//      chain[id].sign = kh.getEphemeralSignature();
       chain[id].sign = oracle.sign(chain[prefs.myid], kh.getEphemeralSignatureHash(), true);
 
       makeRoom(prefs.myid.substr(-5));
@@ -514,7 +512,7 @@ function KeyHelper(master, ephemeral) {
         .concat(makePublicKeyPacket(ephemeral))
         .concat(makeEphemeralSigPacket());
 
-      return ArmorUtil.dress({"type": "PUBLIC KEY BLOCK", "headers": {"Version": "SecureRoom 1.0"}, "packets": packets});
+      return ArmorUtil.dress({"type": "PUBLIC KEY BLOCK", "headers": {"Version": "SecureRoom"}, "packets": packets});
     },
 
     getSecretGpgKey: function() {
@@ -524,7 +522,7 @@ function KeyHelper(master, ephemeral) {
         .concat(makeSecretKeyPacket(ephemeral))
         .concat(makeEphemeralSigPacket());
 
-      return ArmorUtil.dress({"type": "PRIVATE KEY BLOCK", "headers": {"Version": "SecureRoom 1.0"}, "packets": packets});
+      return ArmorUtil.dress({"type": "PRIVATE KEY BLOCK", "headers": {"Version": "SecureRoom"}, "packets": packets});
     },
 
     getFingerprint: function(key) {
