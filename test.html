@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+  <title>Test</title>
+
+  <script src="resources/external/crunch.js"></script>
+  <script src="resources/utils.js"></script>
+  <script src="resources/random.default.js"></script>
+  <script src="resources/hash.sha1.js"></script>
+  <script src="resources/asymmetric.rsa.js"></script>
+  <script src="key.js"></script>
+</head>
+<body>
+<script>
+  var crunch = Crunch();
+  var hash = Hash();
+  var oracle = Asymmetric(crunch, hash);
+  var key1, key2;
+  
+  KeyGen(1024, function(d, t) { 
+    key1 = Key(d, ~~(Date.now()/1000), "Test");
+    console.log(t);
+  }, crunch)();
+
+  KeyGen(1024, function(d, t) { 
+    key2 = Key(d, ~~(Date.now()/1000));
+    console.log(t);
+  }, crunch)();
+
+</script>
+</body>
+</html>
