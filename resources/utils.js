@@ -196,7 +196,7 @@ var ArrayUtil = {
   },
 
   fromHex: function(s) {
-    return s.match(/.{2}/g).map(function(v){return parseInt(v, 16);});
+    return s.match(/.{2}/g).map(function(v){return parseInt(v, 16)});
   },
 
   toWord: function(a) {
@@ -216,6 +216,10 @@ var ArrayUtil = {
       if (a[0] >= i) break;
 
     return l;
+  },
+
+  makeMpi: function(a) {
+    return ArrayUtil.fromHalf(ArrayUtil.bitLength(a)).concat(a);
   }
 };
 

@@ -14,20 +14,24 @@
 </head>
 <body>
 <script>
-  var crunch = Crunch();
-  var hash = Hash();
-  var oracle = Asymmetric(crunch, hash);
-  var key1, key2;
-  
-  KeyGen(1024, function(d, t) { 
-    key1 = Key(d, ~~(Date.now()/1000), "Test");
-    console.log(t);
-  }, crunch)();
+  var user;
+  var exporter = ExportUtil();
 
-  KeyGen(1024, function(d, t) { 
-    key2 = Key(d, ~~(Date.now()/1000));
+  function onGen(d,t) { 
+    if (typeof user === "undefined") {
+      user = User(Key(d, ~~(Date.now()/1000), "Test"));
+    } else {
+      user.ephemeral = Key(d, ~~(Date.now()/1000));
+
+      user.master.sign(user.master);
+      user.ephemeral.sign(user.master);
+    }
+
     console.log(t);
-  }, crunch)();
+  }
+  
+  KeyGen(1024, onGen, crunch)();
+  KeyGen(1024, onGen, crunch)();
 
 </script>
 </body>
