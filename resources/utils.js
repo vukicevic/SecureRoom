@@ -229,3 +229,76 @@ var UrlUtil = {
     return (match) ? decodeURIComponent(match[1].replace(/\+/g, ' ')) : '';
   }
 };
+
+function ExportUtil() {
+  function makeLength(l) {
+    return (l < 256) ? [l] : (l < 65536) ? ArrayUtil.fromHalf(l) : ArrayUtil.fromWord(l);
+  }
+
+  function makeTag(t, l) {
+    return (l > 65535) ? [t*4 + 130] : (l > 255) ? [t*4 + 129] : [t*4 + 128];
+  }
+
+  function makeNamePacket(name) {
+    var packet = ArrayUtil.fromString(name);
+    
+    return makeTag(13, packet.length).concat(makeLength(packet.length)).concat(packet);
+  }
+
+  function makePublicKeyPacket(key) {
+    var len = 10 + key.material.n.length + key.material.e.length,
+      tag = (key.type === 3) ? 6 : 14;
+
+    return makeTag(tag, len).concat(makeLength(len)).concat(key.base);
+  }
+
+  function makeSecretKeyPacket(key) {
+    var len = 21 + key.material.n.length + key.material.e.length + key.material.d.length + key.material.p.length + key.material.q.length + key.material.u.length,
+      tag = (key.type === 3) ? 5 : 7,
+      tmp = [0].concat(ArrayUtil.makeMpi(key.material.d))
+           .concat(ArrayUtil.makeMpi(key.material.p))
+           .concat(ArrayUtil.makeMpi(key.material.q))
+           .concat(ArrayUtil.makeMpi(key.material.u));
+
+    return makeTag(tag, len).concat(makeLength(len)).concat(key.base).concat(tmp).concat(ArrayUtil.fromHalf(tmp.reduce(function(a, b) { return a + b }) % 65536));
+  }
+
+  function makeSignaturePacket(key) {
+    var head = key.signatureBase,
+      list = [],
+      pack, id;
+      
+    for (id in key.signatures) {
+      pack = head.concat([0, 10, 9, 16])
+          .concat(ArrayUtil.fromHex(key.id))
+          .concat(key.signatures[id].hashcheck)
+          .concat(ArrayUtil.makeMpi(key.signatures[id].signature));
+    
+      list = list.concat(makeTag(2, pack.length)).concat(makeLength(pack.length)).concat(pack);
+    }
+
+    return list;
+  }
+
+  return {
+    publicGpg: function(user) {
+      var p = makePublicKeyPacket(user.master)
+          .concat(makeNamePacket(user.name))
+          .concat(makeSignaturePacket(user.master))
+          .concat(makePublicKeyPacket(user.ephemeral))
+          .concat(makeSignaturePacket(user.ephemeral));
+
+      return ArmorUtil.dress({"type": "PUBLIC KEY BLOCK", "headers": {"Version": "SecureRoom"}, "packets": p});
+    },
+
+    privateGpg: function(user) {
+      var p = makeSecretKeyPacket(user.master)
+          .concat(makeNamePacket(user.name))
+          .concat(makeSignaturePacket(user.master))
+          .concat(makeSecretKeyPacket(user.ephemeral))
+          .concat(makeSignaturePacket(user.ephemeral));
+
+      return ArmorUtil.dress({"type": "PRIVATE KEY BLOCK", "headers": {"Version": "SecureRoom"}, "packets": p});
+    }
+  }
+}

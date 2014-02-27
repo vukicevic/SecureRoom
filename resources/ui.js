@@ -65,11 +65,11 @@ var UI = {
       if (app.isEnabled(id)) {
         ctrl.classList.add('inactive');
         ctrl.textContent = 'DISABLED';
-        app.toggleKey(id, C.STATUS_DISABLED);
+        app.toggleKey(id, "disabled");
       } else {
         ctrl.classList.remove('inactive');
         ctrl.textContent = 'ACTIVE';
-        app.toggleKey(id, C.STATUS_ENABLED);
+        app.toggleKey(id, "active");
       }
     };
   },
@@ -164,20 +164,20 @@ var UI = {
     elem.addEventListener('click', UI.toggleHeight(elem.querySelector('.info')));
   },
 
-  addKey: function (id) {
-    if (!document.getElementById('alert-' + id)) {
+  addKey: function (user) {
+    if (!document.getElementById('alert-' + user.id)) {
       var container = document.getElementById('content'),
           build     = TemplateEngine('template-key-alert'),
           content   = {};
 
-      content.id   = PrintUtil.text(id);
+      content.id   = PrintUtil.text(user.id);
       content.time = PrintUtil.time(Math.round(Date.now() / 1000));
-      content.name = PrintUtil.text(app.getKey(id).name);
-      content.info = UI.buildKeyInfo(id);
+      content.name = PrintUtil.text(user.name);
+      content.info = UI.buildKeyInfo(user);
 
       container.insertAdjacentHTML('beforeend', build(content));
 
-      UI.addKeyListeners(document.getElementById('alert-' + id), id);
+      UI.addKeyListeners(document.getElementById('alert-' + user.id), user.id);
       window.scrollTo(0, document.body.offsetHeight);
     }
   },
@@ -189,7 +189,7 @@ var UI = {
         d = UI.removeContent(a.parentNode);
 
     a.addEventListener('click', function () {
-      app.toggleKey(id, C.STATUS_ENABLED);
+      app.toggleKey(id, "active");
       com.sendKey();
     });
 
@@ -201,7 +201,7 @@ var UI = {
     a.addEventListener('click', d);
 
     r.addEventListener('click', function () {
-      app.toggleKey(id, C.STATUS_REJECTED);
+      app.toggleKey(id, "rejected");
     });
 
     r.addEventListener('click', function () {
@@ -214,7 +214,8 @@ var UI = {
 
   buildRecipientList: function(message) {
     return message.getRecipients().map(function(id) {
-      return (app.hasKey(id)) ? (!app.isRejected(id)) ? PrintUtil.text(app.getKey(id).name) : 'Rejected' : 'Unknown';
+      var recipient = app.getKey(id);
+      return (typeof recipient !== "undefined") ? (recipient.status !== "rejected") ? PrintUtil.text(recipient.name) : 'Rejected' : 'Unknown';
     }).join(', ');
   },
 
@@ -230,13 +231,13 @@ var UI = {
     return build(content);
   },
 
-  buildKeyInfo: function (id) {
+  buildKeyInfo: function (user) {
     var build = TemplateEngine('template-key-info'),
         content = {};
 
-    content.sid   = PrintUtil.id(id);
-    content.ssize = PrintUtil.number(app.getKey(id).size);
-    content.sdate = PrintUtil.date(app.getKey(id).time);
+    content.sid   = PrintUtil.id(user.id);
+    content.ssize = PrintUtil.number(user.master.size);
+    content.sdate = PrintUtil.date(user.master.created);
 
     return build(content);
   },
@@ -249,13 +250,13 @@ var UI = {
     while (container.lastChild != container.firstChild)
       container.removeChild(container.lastChild);
 
-    app.getKeys(C.TYPE_MASTER, C.STATUS_ENABLED | C.STATUS_DISABLED).forEach(function(v) {
-      content.id     = PrintUtil.text(v);
-      content.name   = PrintUtil.text(app.getKey(v).name);
-      content.status = (app.isEnabled(v)) ? '' : 'inactive';
-      content.state  = (app.isEnabled(v)) ? 'ACTIVE' : 'DISABLED';
+    app.getKeys("active", "disabled").forEach(function(v) {
+      content.id     = PrintUtil.text(v.master.id);
+      content.name   = PrintUtil.text(v.name);
+      content.status = (v.status === "active") ? '' : 'inactive';
+      content.state  = (v.status === "active") ? 'ACTIVE' : 'DISABLED';
       content.info   = UI.buildKeyInfo(v);
-      content.data   = KeyHelper(app.getKey(v), app.getKey(app.getKey(v).peer)).getPublicGpgKey();
+      //content.data   = KeyHelper(app.getKey(v), app.getKey(app.getKey(v).peer)).getPublicGpgKey();
 
       container.insertAdjacentHTML('beforeend', build(content));
       UI.addKeychainListeners(container.lastChild, v);
@@ -281,7 +282,7 @@ var UI = {
 
     switch (type) {
       case 'distribute':
-        container.insertAdjacentHTML('beforeend', '<p>Your keys have been generated.</p><div class="info">' + UI.buildKeyInfo(app.myId(C.TYPE_MASTER)) + '</div><button>Connect &amp; Distribute</button>');
+        container.insertAdjacentHTML('beforeend', '<p>Your keys have been generated.</p><div class="info">' + UI.buildKeyInfo(app.myUser()) + '</div><button>Connect &amp; Distribute</button>');
         container.querySelector('button').addEventListener('click', function () {
           com.connect();
           UI.addWelcome('progress');
@@ -301,17 +302,17 @@ var UI = {
 
   addMyKey: function () {
     document.getElementById('myname').textContent = PrintUtil.text(app.myName());
-    document.getElementById('myinfo').insertAdjacentHTML('beforeend', UI.buildKeyInfo(app.myId(C.TYPE_MASTER)));
+    document.getElementById('myinfo').insertAdjacentHTML('beforeend', UI.buildKeyInfo(app.myUser()));
 
     var my = document.getElementById('mykey'),
         e1 = my.getElementsByTagName('textarea').item(0),
         e2 = my.getElementsByTagName('textarea').item(1),
         b1 = my.getElementsByTagName('span').item(0),
-        b2 = my.getElementsByTagName('span').item(1),
-        kh = KeyHelper(app.getKey(app.myId(C.TYPE_MASTER)), app.getKey(app.myId(C.TYPE_EPHEMERAL)));
+        b2 = my.getElementsByTagName('span').item(1);
+        //kh = KeyHelper(app.getKey(app.myId(C.TYPE_MASTER)), app.getKey(app.myId(C.TYPE_EPHEMERAL)));
 
-    e1.textContent = kh.getSecretGpgKey();
-    e2.textContent = kh.getPublicGpgKey();
+    //e1.textContent = kh.getSecretGpgKey();
+    //e2.textContent = kh.getPublicGpgKey();
 
     b1.addEventListener('click', UI.toggleExport(e1.parentNode, b1));
     b2.addEventListener('click', UI.toggleExport(e2.parentNode, b2));
