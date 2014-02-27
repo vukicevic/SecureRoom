@@ -147,6 +147,8 @@ var UI = {
           build = TemplateEngine("template-message"),
           content = {};
 
+      console.log(message.getSender());
+
       content.time    = PrintUtil.time(message.getTime());
       content.sender  = PrintUtil.text(app.getKey(message.getSender()).name);
       content.message = PrintUtil.text(message.getText());
@@ -250,16 +252,16 @@ var UI = {
     while (container.lastChild != container.firstChild)
       container.removeChild(container.lastChild);
 
-    app.getKeys("active", "disabled").forEach(function(v) {
-      content.id     = PrintUtil.text(v.master.id);
-      content.name   = PrintUtil.text(v.name);
-      content.status = (v.status === "active") ? '' : 'inactive';
-      content.state  = (v.status === "active") ? 'ACTIVE' : 'DISABLED';
-      content.info   = UI.buildKeyInfo(v);
+    app.getKeys("active").concat(app.getKeys("disabled")).forEach(function(user) {
+      content.id     = PrintUtil.text(user.id);
+      content.name   = PrintUtil.text(user.name);
+      content.status = (user.status === "active") ? '' : 'inactive';
+      content.state  = (user.status === "active") ? 'ACTIVE' : 'DISABLED';
+      content.info   = UI.buildKeyInfo(user);
       //content.data   = KeyHelper(app.getKey(v), app.getKey(app.getKey(v).peer)).getPublicGpgKey();
 
       container.insertAdjacentHTML('beforeend', build(content));
-      UI.addKeychainListeners(container.lastChild, v);
+      UI.addKeychainListeners(container.lastChild, user);
     });
 
     UI.toggleKeychain()('close');
