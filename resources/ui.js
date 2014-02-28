@@ -60,16 +60,16 @@ var UI = {
     };
   },
 
-  toggleKey: function (id, ctrl) {
+  toggleKey: function (user, ctrl) {
     return function () {
-      if (app.isEnabled(id)) {
+      if (user.status === "active") {
         ctrl.classList.add('inactive');
         ctrl.textContent = 'DISABLED';
-        app.toggleKey(id, "disabled");
+        user.status = "disabled";
       } else {
         ctrl.classList.remove('inactive');
         ctrl.textContent = 'ACTIVE';
-        app.toggleKey(id, "active");
+        user.status = "active";
       }
     };
   },
@@ -147,8 +147,6 @@ var UI = {
           build = TemplateEngine("template-message"),
           content = {};
 
-      console.log(message.getSender());
-
       content.time    = PrintUtil.time(message.getTime());
       content.sender  = PrintUtil.text(app.getKey(message.getSender()).name);
       content.message = PrintUtil.text(message.getText());
@@ -179,36 +177,33 @@ var UI = {
 
       container.insertAdjacentHTML('beforeend', build(content));
 
-      UI.addKeyListeners(document.getElementById('alert-' + user.id), user.id);
+      UI.addKeyListeners(document.getElementById('alert-' + user.id), user);
       window.scrollTo(0, document.body.offsetHeight);
     }
   },
 
-  addKeyListeners: function (elem, id) {
+  addKeyListeners: function (elem, user) {
     var a = elem.getElementsByTagName('button').item(0),
         r = elem.getElementsByTagName('button').item(1),
         p = elem.querySelector('.join'),
         d = UI.removeContent(a.parentNode);
 
     a.addEventListener('click', function () {
-      app.toggleKey(id, "active");
-      com.sendKey();
-    });
-
-    a.addEventListener('click', function () {
       p.classList.add('accept');
+
+      user.status = "active";
+
       UI.buildKeychain();
+      com.sendKey();
     });
 
     a.addEventListener('click', d);
 
     r.addEventListener('click', function () {
-      app.toggleKey(id, "rejected");
-    });
-
-    r.addEventListener('click', function () {
       elem.classList.add('warning');
       p.classList.add('reject');
+
+      user.status = "rejected";
     });
 
     r.addEventListener('click', d);
@@ -267,12 +262,12 @@ var UI = {
     UI.toggleKeychain()('close');
   },
 
-  addKeychainListeners: function (elem, id) {
+  addKeychainListeners: function (elem, user) {
     var b1 = elem.getElementsByTagName('span').item(0),
         b2 = elem.getElementsByTagName('span').item(1),
         ex = elem.querySelector('.export');
 
-    b1.addEventListener('click', UI.toggleKey(id, b1));
+    b1.addEventListener('click', UI.toggleKey(user, b1));
     b2.addEventListener('click', UI.toggleExport(ex, b2));
   },
 
@@ -303,7 +298,7 @@ var UI = {
   },
 
   addMyKey: function () {
-    document.getElementById('myname').textContent = PrintUtil.text(app.myName());
+    document.getElementById('myname').textContent = PrintUtil.text(app.myUser().name);
     document.getElementById('myinfo').insertAdjacentHTML('beforeend', UI.buildKeyInfo(app.myUser()));
 
     var my = document.getElementById('mykey'),

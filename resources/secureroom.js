@@ -95,28 +95,15 @@ function SecureRoom(onGenerateCallback) {
       user = new User(m);
       user.ephemeral = e;
 
-      if (m.verify(m) && e.verify(m)) {
+      if (typeof findUserById(user.id) === "undefined" && m.verify(m) && e.verify(m)) {
         chain.push(user);
-      } else {
-        console.log("Key not verified");
       }
-      
+
       return user;
-    },
-
-    toggleKey: function(id, status) {
-      var user = findUserById(id);
-
-      if (typeof user !== "undefined")
-        user.status = status;
     },
 
     myUser: function() {
       return prefs.user;
-    },
-
-    myName: function() {
-      return prefs.name;
     },
 
     getRoom: function() {
@@ -124,7 +111,7 @@ function SecureRoom(onGenerateCallback) {
     },
 
     getServer: function() {
-      return prefs.server+prefs.room;
+      return prefs.server + prefs.room;
     },
 
     setServer: function(server) {
@@ -196,8 +183,8 @@ function SecureComm(secureApp, onConnectCallback, onDisconnectCallback, onMessag
   function encryptSessionKey(recipients, sessionkey) {
     var encrypted = {};
 
-    recipients.forEach(function(user) {
-      encrypted[user.ephemeral.id] = oracle.encrypt(user.ephemeral, sessionkey);
+    recipients.forEach(function(id) {
+      encrypted[id] = oracle.encrypt(secureApp.getKey(id).ephemeral, sessionkey);
     });
 
     return encrypted;
@@ -231,7 +218,7 @@ function SecureComm(secureApp, onConnectCallback, onDisconnectCallback, onMessag
 
   function sendMessage(plaintext) {
     var message    = Message(oracle),
-        recipients = secureApp.getKeys("active"),
+        recipients = secureApp.getKeys("active").map(function(user) { console.log(user); return user.ephemeral.id }),
         encrypted;
 
     message.create(plaintext, secureApp.myUser().master);
@@ -399,23 +386,13 @@ Key.prototype = {
 }
 
 Key.prototype.makeBase = function() {
-  return [4].concat(ArrayUtil.fromWord(this.created))
-         .concat([this.type])
-         .concat(ArrayUtil.makeMpi(this.material.n))
-         .concat(ArrayUtil.makeMpi(this.material.e));
+  return [4].concat(ArrayUtil.fromWord(this.created)).concat([this.type]).concat(ArrayUtil.makeMpi(this.material.n)).concat(ArrayUtil.makeMpi(this.material.e));
 }
 
 Key.prototype.makeSignatureBase = function() {
   return (this.type === 3)
-  ? [4,19,3,2,0,26,5,2]
-    .concat(ArrayUtil.fromWord(this.created))
-    .concat([2,27,3,5,9])
-    .concat(ArrayUtil.fromWord(86400))
-    .concat([4,11,7,8,9,2,21,2,2,22,0])
-  : [4,24,2,2,0,15,5,2]
-    .concat(ArrayUtil.fromWord(this.created))
-    .concat([2,27,4,5,9])
-    .concat(ArrayUtil.fromWord(86400));
+    ? [4,19,3,2,0,26,5,2].concat(ArrayUtil.fromWord(this.created)).concat([2,27,3,5,9]).concat(ArrayUtil.fromWord(86400)).concat([4,11,7,8,9,2,21,2,2,22,0])
+    : [4,24,2,2,0,15,5,2].concat(ArrayUtil.fromWord(this.created)).concat([2,27,4,5,9]).concat(ArrayUtil.fromWord(86400));
 }
 
 Key.prototype.generateFingerprint = function() {
