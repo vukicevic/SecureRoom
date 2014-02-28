@@ -249,7 +249,7 @@ function ExportUtil() {
     var len = 10 + key.material.n.length + key.material.e.length,
       tag = (key.type === 3) ? 6 : 14;
 
-    return makeTag(tag, len).concat(makeLength(len)).concat(key.base);
+    return makeTag(tag, len).concat(makeLength(len)).concat(key.makeBase());
   }
 
   function makeSecretKeyPacket(key) {
@@ -260,11 +260,11 @@ function ExportUtil() {
            .concat(ArrayUtil.makeMpi(key.material.q))
            .concat(ArrayUtil.makeMpi(key.material.u));
 
-    return makeTag(tag, len).concat(makeLength(len)).concat(key.base).concat(tmp).concat(ArrayUtil.fromHalf(tmp.reduce(function(a, b) { return a + b }) % 65536));
+    return makeTag(tag, len).concat(makeLength(len)).concat(key.makeBase()).concat(tmp).concat(ArrayUtil.fromHalf(tmp.reduce(function(a, b) { return a + b }) % 65536));
   }
 
   function makeSignaturePacket(key) {
-    var head = key.signatureBase,
+    var head = key.makeSignatureBase(),
       list = [],
       pack, id;
       

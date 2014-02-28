@@ -142,16 +142,16 @@ var UI = {
   },
 
   addMessage: function (message) {
-    if (message.isVerified()) {
+    if (message.verified) {
       var container = document.getElementById("content"),
           build = TemplateEngine("template-message"),
           content = {};
 
-      content.time    = PrintUtil.time(message.getTime());
-      content.sender  = PrintUtil.text(app.getKey(message.getSender()).name);
-      content.message = PrintUtil.text(message.getText());
+      content.time    = PrintUtil.time(message.sendtime+message.timediff);
+      content.sender  = PrintUtil.text(app.getKey(message.sender).name);
+      content.message = PrintUtil.text(message.plaintext);
       content.info    = UI.buildMsgInfo(message);
-      content.class   = (message.isVerified()) ? "" : " warning";
+      content.class   = (message.verified) ? "" : " warning";
 
       container.insertAdjacentHTML("beforeend", build(content));
 
@@ -210,7 +210,7 @@ var UI = {
   },
 
   buildRecipientList: function(message) {
-    return message.getRecipients().map(function(id) {
+    return message.recipients.map(function(id) {
       var recipient = app.getKey(id);
       return (typeof recipient !== "undefined") ? (recipient.status !== "rejected") ? PrintUtil.text(recipient.name) : 'Rejected' : 'Unknown';
     }).join(', ');
@@ -220,9 +220,9 @@ var UI = {
     var build = TemplateEngine('template-message-info'),
         content = {info: []};
 
-    content.info.push({term: 'Author', data: PrintUtil.id(message.getSender())});
+    content.info.push({term: 'Author', data: PrintUtil.id(message.sender)});
     //content.info.push({term: 'Cipher', data: Symmetric.name+'-'+(message.sessionkey.length*8)+' ['+Symmetric.mode+']'});
-    content.info.push({term: 'Delay', data: message.getTimeDiff() + ' sec'});
+    content.info.push({term: 'Delay', data: message.timediff + ' sec'});
     content.info.push({term: 'Recipients', data: this.buildRecipientList(message)});
 
     return build(content);
@@ -253,7 +253,7 @@ var UI = {
       content.status = (user.status === "active") ? '' : 'inactive';
       content.state  = (user.status === "active") ? 'ACTIVE' : 'DISABLED';
       content.info   = UI.buildKeyInfo(user);
-      //content.data   = KeyHelper(app.getKey(v), app.getKey(app.getKey(v).peer)).getPublicGpgKey();
+      content.data   = ExportUtil().publicGpg(user);
 
       container.insertAdjacentHTML('beforeend', build(content));
       UI.addKeychainListeners(container.lastChild, user);
@@ -305,11 +305,11 @@ var UI = {
         e1 = my.getElementsByTagName('textarea').item(0),
         e2 = my.getElementsByTagName('textarea').item(1),
         b1 = my.getElementsByTagName('span').item(0),
-        b2 = my.getElementsByTagName('span').item(1);
-        //kh = KeyHelper(app.getKey(app.myId(C.TYPE_MASTER)), app.getKey(app.myId(C.TYPE_EPHEMERAL)));
+        b2 = my.getElementsByTagName('span').item(1),
+        kh = ExportUtil();
 
-    //e1.textContent = kh.getSecretGpgKey();
-    //e2.textContent = kh.getPublicGpgKey();
+    e1.textContent = kh.privateGpg(app.myUser());
+    e2.textContent = kh.publicGpg(app.myUser());
 
     b1.addEventListener('click', UI.toggleExport(e1.parentNode, b1));
     b2.addEventListener('click', UI.toggleExport(e2.parentNode, b2));

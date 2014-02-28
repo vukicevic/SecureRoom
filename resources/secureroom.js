@@ -56,6 +56,8 @@ function SecureRoom(onGenerateCallback) {
     } else {
       prefs.user = new User(new Key(data, Math.round(Date.now()/1000), prefs.name));
     }
+
+    console.log("Key generation time (ms): " + time);
   }
 
   function findUserById(id) {
@@ -192,13 +194,12 @@ function SecureComm(secureApp, onConnectCallback, onDisconnectCallback, onMessag
 
   function encryptMessage(message) {
     var sessionkey = Random.generate(secureApp.getSize("cipher")),
-        recipients = message.getRecipients(),
         encrypted;
 
-    if (recipients.length) {
+    if (message.recipients.length) {
       encrypted = {};
-      encrypted.keys = encryptSessionKey(recipients, sessionkey);
-      encrypted.data = Symmetric.encrypt(sessionkey, Random.generate(128).concat(message.pack()));
+      encrypted.keys = encryptSessionKey(message.recipients, sessionkey);
+      encrypted.data = Symmetric.encrypt(sessionkey, Random.generate(secureApp.getSize("cipher")).concat(message.pack()).concat(message.signature));
     }
 
     return encrypted;
@@ -217,12 +218,12 @@ function SecureComm(secureApp, onConnectCallback, onDisconnectCallback, onMessag
   }
 
   function sendMessage(plaintext) {
-    var message    = Message(oracle),
-        recipients = secureApp.getKeys("active").map(function(user) { console.log(user); return user.ephemeral.id }),
+    var message    = new Message(),
+        recipients = secureApp.getKeys("active").map(function(user) { return user.ephemeral.id }),
         encrypted;
 
     message.create(plaintext, secureApp.myUser().master);
-    message.setRecipients(recipients);
+    message.recipients = recipients;
 
     encrypted = encryptMessage(message);
 
@@ -233,15 +234,15 @@ function SecureComm(secureApp, onConnectCallback, onDisconnectCallback, onMessag
   }
 
   function receiveMessage(encrypted) {
-    var message   = Message(oracle),
+    var message   = new Message(),
         decrypted = decryptMessage(encrypted);
 
     if (typeof decrypted !== "undefined") {
-      message.unpack(decrypted);
-      var sender = secureApp.getKey(message.getSender());
+      message.receive(decrypted);
+      var sender = secureApp.getKey(message.sender);
       if (sender.status !== "rejected" && sender.status !== "pending") {
         message.verify(sender.master);
-        message.setRecipients(Object.keys(encrypted.keys));
+        message.recipients = Object.keys(encrypted.keys);
       }
     }
 
@@ -270,73 +271,45 @@ function SecureComm(secureApp, onConnectCallback, onDisconnectCallback, onMessag
   }
 }
 
-function Message(oracle) {
-  var plaintext, sender, sendtime, recvtime, recipients, signature, verified = false;
+function Message() {
+  this.plaintext;
+  this.sender;
+  this.sendtime;
+  this.timediff;
+  this.recipients;
+  this.signature;
+  this.verified = false;
+}
 
-  function pack() {
-    return ArrayUtil.fromString(plaintext)
-      .concat(0)
-      .concat(ArrayUtil.fromWord(sendtime))
-      .concat(ArrayUtil.fromHex(sender));
-  }
+Message.oracle = Asymmetric(Crunch(), Hash());
 
-  return {
-    unpack: function(data) {
-      var i = data.indexOf(0);
+Message.prototype.pack = function() {
+  return ArrayUtil.fromString(this.plaintext).concat(0).concat(ArrayUtil.fromWord(this.sendtime)).concat(ArrayUtil.fromHex(this.sender));
+}
 
-      recvtime  = Math.round(Date.now()/1000);
+Message.prototype.receive = function(data, key) {
+  var i = data.indexOf(0);
 
-      plaintext = ArrayUtil.toString(data.slice(0, i));
-      sendtime  = ArrayUtil.toWord(data.slice(i+1, i+5));
-      sender    = ArrayUtil.toHex(data.slice(i+5, i+13));
-      signature = data.slice(i+13);
-    },
+  this.plaintext = ArrayUtil.toString(data.slice(0, i));
+  this.sendtime  = ArrayUtil.toWord(data.slice(i+1, i+5));
+  this.sender    = ArrayUtil.toHex(data.slice(i+5, i+13));
+  this.signature = data.slice(i+13);
 
-    pack: function() {
-      return pack().concat(signature);
-    },
+  this.timediff = Math.round(Date.now()/1000) - this.sendtime;
+}
 
-    create: function(data, key) {
-      sendtime  = recvtime = Math.round(Date.now()/1000);
-      sender    = key.id;
-      plaintext = data;
+Message.prototype.verify = function(key) {
+  this.verified = Message.oracle.verify(key, this.pack(), this.signature);
+}
 
-      signature = oracle.sign(key, pack());
-      verified  = true;
-    },
+Message.prototype.create = function(data, key) {
+  this.sendtime  = Math.round(Date.now()/1000);
+  this.timediff  = 0;
+  this.sender    = key.id;
+  this.plaintext = data;
 
-    verify: function(key) {
-      verified = oracle.verify(key, pack(), signature);
-    },
-
-    isVerified: function() {
-      return verified;
-    },
-
-    getText: function() {
-      return plaintext;
-    },
-
-    getSender: function() {
-      return sender;
-    },
-
-    getTime: function() {
-      return recvtime;
-    },
-
-    getTimeDiff: function() {
-      return recvtime - sendtime;
-    },
-
-    getRecipients: function() {
-      return recipients;
-    },
-
-    setRecipients: function(data) {
-      recipients = data;
-    }
-  };
+  this.signature = Message.oracle.sign(key, this.pack());
+  this.verified  = true;
 }
 
 function Key(material, created, name) {
