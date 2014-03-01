@@ -289,7 +289,7 @@ Message.prototype.receive = function(data, key) {
 }
 
 Message.prototype.verify = function(key) {
-  this.verified = primitives.asymmetric.verify(key, this.pack(), this.signature);
+  this.verified = primitives.asymmetric.verify(key, primitives.hash.digest(this.pack()), this.signature);
 }
 
 Message.prototype.create = function(data, key) {
@@ -298,7 +298,7 @@ Message.prototype.create = function(data, key) {
   this.sender    = key.id;
   this.plaintext = data;
 
-  this.signature = primitives.asymmetric.sign(key, this.pack());
+  this.signature = primitives.asymmetric.sign(key, primitives.hash.digest(this.pack()));
   this.verified  = true;
 }
 
@@ -378,7 +378,7 @@ Key.prototype.sign = function(signer) {
       var signatureHash = this.generateSignatureHash(signer),
           sigdata = {};
 
-       sigdata.signature = primitives.asymmetric.sign(signer, signatureHash, true);
+       sigdata.signature = primitives.asymmetric.sign(signer, signatureHash);
        sigdata.hashcheck = signatureHash.slice(0, 2);
       this.signatures[signer.id] = sigdata;
   }
@@ -386,7 +386,7 @@ Key.prototype.sign = function(signer) {
 
 Key.prototype.verify = function(signer) {
   if (typeof this.signatures[signer.id] !== "undefined") {
-     return primitives.asymmetric.verify(signer, this.generateSignatureHash(signer), this.signatures[signer.id].signature, true);
+     return primitives.asymmetric.verify(signer, this.generateSignatureHash(signer), this.signatures[signer.id].signature);
   }
 }
 

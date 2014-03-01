@@ -15,15 +15,12 @@
 
 function Asymmetric(crunch, hash, random) {
   //EMSA-PKCS1-v1_5
-  function emsaEncode(keysize, data, prehashed) {
+  function emsaEncode(keysize, data) {
     var pad = [],
         len = ~~((keysize + 7)/8) - (3 + hash.der.length + hash.length);
 
     while(len--)
       pad[len] = 255;
-
-    if (!prehashed)
-      data = hash.digest(data);
 
     return [1].concat(pad)
       .concat([0])
@@ -83,13 +80,13 @@ function Asymmetric(crunch, hash, random) {
       return oaepDecode(decrypted);
     },
 
-    sign: function(key, data, prehashed) {
-      var encoded = emsaEncode(key.size, data, prehashed);
+    sign: function(key, data) {
+      var encoded = emsaEncode(key.size, data);
       return crunch.gar(encoded, key.material.p, key.material.q, key.material.d, key.material.u, key.material.dp, key.material.dq);
     },
 
-    verify: function(key, data, signature, prehashed) {
-      var encoded = emsaEncode(key.size, data, prehashed),
+    verify: function(key, data, signature) {
+      var encoded = emsaEncode(key.size, data),
           signature = crunch.exp(signature, key.material.e, key.material.n);
 
       return (crunch.compare(encoded, signature) === 0);
