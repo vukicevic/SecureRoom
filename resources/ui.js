@@ -148,7 +148,7 @@ var UI = {
           content = {};
 
       content.time    = PrintUtil.time(message.sendtime+message.timediff);
-      content.sender  = PrintUtil.text(app.getKey(message.sender).name);
+      content.sender  = PrintUtil.text(app.getUser(message.sender).name);
       content.message = PrintUtil.text(message.plaintext);
       content.info    = UI.buildMsgInfo(message);
       content.class   = (message.verified) ? "" : " warning";
@@ -211,7 +211,7 @@ var UI = {
 
   buildRecipientList: function(message) {
     return message.recipients.map(function(id) {
-      var recipient = app.getKey(id);
+      var recipient = app.getUser(id);
       return (typeof recipient !== "undefined") ? (recipient.status !== "rejected") ? PrintUtil.text(recipient.name) : 'Rejected' : 'Unknown';
     }).join(', ');
   },
@@ -247,7 +247,7 @@ var UI = {
     while (container.lastChild != container.firstChild)
       container.removeChild(container.lastChild);
 
-    app.getKeys("active").concat(app.getKeys("disabled")).forEach(function(user) {
+    app.getUsers("active", "disabled").forEach(function(user) {
       content.id     = PrintUtil.text(user.id);
       content.name   = PrintUtil.text(user.name);
       content.status = (user.status === "active") ? '' : 'inactive';

@@ -13,17 +13,20 @@
  * GNU General Public License for more details.
  **/
 
-var Random = {
-  /*
-  Generates an octet array with random values, with specified total size in bits
-  s - Size to generate, in bits
-  */
-  generate: function(size) {
-    var c = window.crypto || window.msCrypto,
-        t = new Uint8Array(Math.ceil(size/8));
+function Random() {
+  var crypto = window.crypto || window.msCrypto;
 
-    c.getRandomValues(t);
+  return {
+    /*
+    Generates an octet array with random values, with specified total size in bits
+    s - Size to generate, in bits
+    */
+    generate: function(size) {
+      var t = new Uint8Array(Math.ceil(size/8));
 
-    return Array.prototype.slice.call(t);
+      crypto.getRandomValues(t);
+
+      return Array.prototype.slice.call(t);
+    }
   }
 };

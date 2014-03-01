@@ -85,10 +85,20 @@
   </li></ul>
 
   <script>
+  function Primitives() {
+    this.symmetric  = Symmetric();
+    this.random     = Random();
+    this.hash       = Hash();
+    this.crunch     = Crunch();
+    this.asymmetric = Asymmetric(this.crunch, this.hash, this.random);
+  }
+
   if (typeof window.WebSocket === 'function' && typeof window.Worker === 'function') {
-    var app, com;
+    var primitives, app, com;
 
     window.onload = function() {
+      primitives = new Primitives();
+
       app = SecureRoom(
               function() { UI.addWelcome('distribute'); UI.toggleSettings()('close'); UI.toggleKeychain()('close'); UI.toggleRoom() }
             );

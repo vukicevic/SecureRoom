@@ -14,9 +14,7 @@
  **/
 
 function SecureRoom(onGenerateCallback) {
-  var crunch = Crunch(),
-      oracle = Asymmetric(crunch, Hash()),
-      chain  = [],
+  var chain  = [],
       prefs  = {};
 
   prefs.room = window.location.pathname.substr(window.location.pathname.lastIndexOf("/")+1);
@@ -68,25 +66,20 @@ function SecureRoom(onGenerateCallback) {
     generateKeys: function(name) {
       prefs.name = name;
 
-      KeyGen(prefs.key.size, onGenerate, crunch)();
-      KeyGen(prefs.key.size, onGenerate, crunch)();
+      KeyGen(primitives.crunch, primitives.random)(prefs.key.size, onGenerate);
+      KeyGen(primitives.crunch, primitives.random)(prefs.key.size, onGenerate);
     },
 
-    getKeys: function(mode) {
-      return chain.filter(function(user) {
-        return user.status === mode;
-      });
+    getUsers: function() {
+      var args = Array.prototype.slice.call(arguments);
+      return chain.filter(function(user) { return args.indexOf(user.status) >= 0 });
     },
 
-    getKey: function(id) {
+    getUser: function(id) {
       return findUserById(id);
     },
 
-    shareKey: function() {
-      return prefs.user.json;
-    },
-
-    setKey: function(mkey, ekey) {
+    addUser: function(mkey, ekey) {
       var m = new Key(mkey.material, mkey.created, mkey.name),
           e = new Key(ekey.material, ekey.created),
           user;
@@ -131,8 +124,7 @@ function SecureRoom(onGenerateCallback) {
 }
 
 function SecureComm(secureApp, onConnectCallback, onDisconnectCallback, onMessageCallback, onKeyCallback) {
-  var socket,
-      oracle = Asymmetric(Crunch(), Hash());
+  var socket;
 
   function isConnected() {
     return (typeof socket !== "undefined" && socket.readyState < 2);
@@ -186,20 +178,20 @@ function SecureComm(secureApp, onConnectCallback, onDisconnectCallback, onMessag
     var encrypted = {};
 
     recipients.forEach(function(id) {
-      encrypted[id] = oracle.encrypt(secureApp.getKey(id).ephemeral, sessionkey);
+      encrypted[id] = primitives.asymmetric.encrypt(secureApp.getUser(id).ephemeral, sessionkey);
     });
 
     return encrypted;
   }
 
   function encryptMessage(message) {
-    var sessionkey = Random.generate(secureApp.getSize("cipher")),
+    var sessionkey = primitives.random.generate(secureApp.getSize("cipher")),
         encrypted;
 
     if (message.recipients.length) {
       encrypted = {};
       encrypted.keys = encryptSessionKey(message.recipients, sessionkey);
-      encrypted.data = Symmetric.encrypt(sessionkey, Random.generate(secureApp.getSize("cipher")).concat(message.pack()).concat(message.signature));
+      encrypted.data = primitives.symmetric.encrypt(sessionkey, primitives.random.generate(128).concat(message.pack()).concat(message.signature));
     }
 
     return encrypted;
@@ -210,8 +202,8 @@ function SecureComm(secureApp, onConnectCallback, onDisconnectCallback, onMessag
         sessionkey, decrypted;
 
     if (encrypted.keys[id]) {
-      sessionkey = oracle.decrypt(secureApp.myUser().ephemeral, encrypted.keys[id]);
-      decrypted  = Symmetric.decrypt(sessionkey, encrypted.data).slice(16);
+      sessionkey = primitives.asymmetric.decrypt(secureApp.myUser().ephemeral, encrypted.keys[id]);
+      decrypted  = primitives.symmetric.decrypt(sessionkey, encrypted.data).slice(16);
     }
 
     return decrypted;
@@ -219,7 +211,7 @@ function SecureComm(secureApp, onConnectCallback, onDisconnectCallback, onMessag
 
   function sendMessage(plaintext) {
     var message    = new Message(),
-        recipients = secureApp.getKeys("active").map(function(user) { return user.ephemeral.id }),
+        recipients = secureApp.getUsers("active").map(function(user) { return user.ephemeral.id }),
         encrypted;
 
     message.create(plaintext, secureApp.myUser().master);
@@ -239,7 +231,7 @@ function SecureComm(secureApp, onConnectCallback, onDisconnectCallback, onMessag
 
     if (typeof decrypted !== "undefined") {
       message.receive(decrypted);
-      var sender = secureApp.getKey(message.sender);
+      var sender = secureApp.getUser(message.sender);
       if (sender.status !== "rejected" && sender.status !== "pending") {
         message.verify(sender.master);
         message.recipients = Object.keys(encrypted.keys);
@@ -251,11 +243,11 @@ function SecureComm(secureApp, onConnectCallback, onDisconnectCallback, onMessag
 
   function sendKey() {
     if (isConnected())
-      socket.send(JSON.stringify({"type": "key", "data": secureApp.shareKey()}));
+      socket.send(JSON.stringify({"type": "key", "data": secureApp.myUser().json}));
   }
 
   function receiveKey(data) {
-    return secureApp.setKey(data.master, data.ephemeral);
+    return secureApp.addUser(data.master, data.ephemeral);
   }
 
   return {
@@ -281,8 +273,6 @@ function Message() {
   this.verified = false;
 }
 
-Message.oracle = Asymmetric(Crunch(), Hash());
-
 Message.prototype.pack = function() {
   return ArrayUtil.fromString(this.plaintext).concat(0).concat(ArrayUtil.fromWord(this.sendtime)).concat(ArrayUtil.fromHex(this.sender));
 }
@@ -299,7 +289,7 @@ Message.prototype.receive = function(data, key) {
 }
 
 Message.prototype.verify = function(key) {
-  this.verified = Message.oracle.verify(key, this.pack(), this.signature);
+  this.verified = primitives.asymmetric.verify(key, this.pack(), this.signature);
 }
 
 Message.prototype.create = function(data, key) {
@@ -308,9 +298,10 @@ Message.prototype.create = function(data, key) {
   this.sender    = key.id;
   this.plaintext = data;
 
-  this.signature = Message.oracle.sign(key, this.pack());
+  this.signature = primitives.asymmetric.sign(key, this.pack());
   this.verified  = true;
 }
+
 
 function Key(material, created, name) {
   this.material    = material;
@@ -322,11 +313,7 @@ function Key(material, created, name) {
   this.fingerprint = this.generateFingerprint();
 }
 
-Key.hash   = Hash();
-Key.oracle = Asymmetric(Crunch(), Key.hash);
-
 Key.prototype = {
-
   get id () {
     return this.fingerprint.substr(-16);
   },
@@ -347,12 +334,6 @@ Key.prototype = {
     return json;
   },
 
-  //TEMP WORKAROUNG
-  get data () {
-    return this.material;
-  },
-  //TEMP WORKAROUNG
-
   get size () {
     return ArrayUtil.bitLength(this.material.n);
   }
@@ -370,7 +351,7 @@ Key.prototype.makeSignatureBase = function() {
 
 Key.prototype.generateFingerprint = function() {
   var base = this.makeBase();
-  return ArrayUtil.toHex(Key.hash.digest([153].concat(ArrayUtil.fromHalf(base.length)).concat(base)));
+  return ArrayUtil.toHex(primitives.hash.digest([153].concat(ArrayUtil.fromHalf(base.length)).concat(base)));
 }
 
 Key.prototype.generateSignatureHash = function(signer) {
@@ -387,7 +368,7 @@ Key.prototype.generateSignatureHash = function(signer) {
   sigHead = this.makeSignatureBase();
   suffix  = [4,255].concat(ArrayUtil.fromWord(sigHead.length));
 
-  return Key.hash.digest(
+  return primitives.hash.digest(
     [153].concat(ArrayUtil.fromHalf(base.length)).concat(base).concat(keyHead).concat(sigHead).concat(suffix)
   );
 }
@@ -397,7 +378,7 @@ Key.prototype.sign = function(signer) {
       var signatureHash = this.generateSignatureHash(signer),
           sigdata = {};
 
-       sigdata.signature = Key.oracle.sign(signer, signatureHash, true);
+       sigdata.signature = primitives.asymmetric.sign(signer, signatureHash, true);
        sigdata.hashcheck = signatureHash.slice(0, 2);
       this.signatures[signer.id] = sigdata;
   }
@@ -405,7 +386,7 @@ Key.prototype.sign = function(signer) {
 
 Key.prototype.verify = function(signer) {
   if (typeof this.signatures[signer.id] !== "undefined") {
-     return Key.oracle.verify(signer, this.generateSignatureHash(signer), this.signatures[signer.id].signature, true);
+     return primitives.asymmetric.verify(signer, this.generateSignatureHash(signer), this.signatures[signer.id].signature, true);
   }
 }
 
@@ -416,6 +397,7 @@ Key.prototype.isMaster = function() {
 Key.prototype.isPrivate = function() {
   return typeof this.material.d !== "undefined";
 }
+
 
 function User(key) {
   this.master    = key;

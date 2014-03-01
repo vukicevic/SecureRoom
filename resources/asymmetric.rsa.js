@@ -13,7 +13,7 @@
  * GNU General Public License for more details.
  **/
 
-function Asymmetric(crunch, hash) {
+function Asymmetric(crunch, hash, random) {
   //EMSA-PKCS1-v1_5
   function emsaEncode(keysize, data, prehashed) {
     var pad = [],
@@ -63,7 +63,7 @@ function Asymmetric(crunch, hash) {
     var ln = ~~((size-8)/8),
         ps = crunch.zero(ln - data.length - 41),
         db = [218, 57, 163, 238, 94, 107, 75, 13, 50, 85, 191, 239, 149, 96, 24, 144, 175, 216, 7, 9].concat(ps).concat([1]).concat(data),
-        sd = Random.generate(hash.length * 8),
+        sd = random.generate(hash.length * 8),
         dm = oaepMgf(sd, ln - 20),
         md = crunch.xor(db, dm),
         sm = oaepMgf(md, 20),
@@ -74,34 +74,31 @@ function Asymmetric(crunch, hash) {
 
   return {
     encrypt: function(key, data) {
-      var pad = oaepEncode(data, key.size);
-      return crunch.exp(pad, key.data.e, key.data.n);
+      var encoded = oaepEncode(data, key.size);
+      return crunch.exp(encoded, key.material.e, key.material.n);
     },
 
     decrypt: function(key, data) {
-      var pad = crunch.gar(data, key.data.p, key.data.q, key.data.d, key.data.u, key.data.dp, key.data.dq);
-      return oaepDecode(pad);
+      var decrypted = crunch.gar(data, key.material.p, key.material.q, key.material.d, key.material.u, key.material.dp, key.material.dq);
+      return oaepDecode(decrypted);
     },
 
     sign: function(key, data, prehashed) {
-      var dat = emsaEncode(key.size, data, prehashed);
-      return crunch.gar(dat, key.data.p, key.data.q, key.data.d, key.data.u, key.data.dp, key.data.dq);
+      var encoded = emsaEncode(key.size, data, prehashed);
+      return crunch.gar(encoded, key.material.p, key.material.q, key.material.d, key.material.u, key.material.dp, key.material.dq);
     },
 
     verify: function(key, data, signature, prehashed) {
-      var dat = emsaEncode(key.size, data, prehashed),
-          sig = crunch.exp(signature, key.data.e, key.data.n);
+      var encoded = emsaEncode(key.size, data, prehashed),
+          signature = crunch.exp(signature, key.material.e, key.material.n);
 
-      return (crunch.compare(dat, sig) === 0);
+      return (crunch.compare(encoded, signature) === 0);
     }
   }
 }
 
-function KeyGen(size, callback, crunch) {
-  var w = {}, time, timer;
-
-  if (typeof crunch === "undefined")
-    crunch = Crunch();
+function KeyGen(crunch, random) {
+  var w = {}, time, timer, size, callback;
 
   function createWorker (worker, callback) {
     w[worker] = new Worker("resources/external/crunch.js");
@@ -112,7 +109,7 @@ function KeyGen(size, callback, crunch) {
     };
 
     w[worker].postMessage({"func": "nextPrime",
-                           "args": [Random.generate(size/2)]});
+                           "args": [random.generate(size/2)]});
   }
 
   function process() {
@@ -168,7 +165,9 @@ function KeyGen(size, callback, crunch) {
     }, Math.floor((size*size)/100), w);
   }
 
-  return function() {
+  return function(s, c) {
+    size = s;
+    callback = c;
     time = Date.now();
 
     createWorker('p', process);
