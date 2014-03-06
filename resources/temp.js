@@ -35,19 +35,22 @@ SecureComm.prototype.sendUser = function (user) {
 
 
 
-function Message(data) {
-  this.plaintext = data;
+function Message(data, encrypted) {
+  this.data = data;
+  this.encrypted = encrypted;
+ 
   this.sendtime = Math.round(Date.now()/1000);
   this.timediff = 0;
   this.sender;
   this.recipients;
   this.signature;
   this.verified = false;
-  this.encrypted;
 }
 
 Message.prototype.pack = function() {
-  return ArrayUtil.fromString(this.plaintext).concat(0).concat(ArrayUtil.fromWord(this.sendtime)).concat(ArrayUtil.fromHex(this.sender));
+  if (!this.encrypted) {
+    return ArrayUtil.fromString(this.data).concat(0).concat(ArrayUtil.fromWord(this.sendtime)).concat(ArrayUtil.fromHex(this.sender));
+  }
 }
 
 Message.prototype.unpack = function(data) {
