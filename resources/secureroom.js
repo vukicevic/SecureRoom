@@ -340,13 +340,13 @@ Key.prototype = {
 }
 
 Key.prototype.makeBase = function() {
-  return [4].concat(ArrayUtil.fromWord(this.created)).concat([this.type]).concat(ArrayUtil.makeMpi(this.material.n)).concat(ArrayUtil.makeMpi(this.material.e));
+  return [4].concat(ArrayUtil.fromWord(this.created)).concat(this.type).concat(ArrayUtil.makeMpi(this.material.n)).concat(ArrayUtil.makeMpi(this.material.e));
 }
 
 Key.prototype.makeSignatureBase = function() {
   return (this.type === 3)
-    ? [4,19,3,2,0,26,5,2].concat(ArrayUtil.fromWord(this.created)).concat([2,27,3,5,9]).concat(ArrayUtil.fromWord(86400)).concat([4,11,7,8,9,2,21,2,2,22,0])
-    : [4,24,2,2,0,15,5,2].concat(ArrayUtil.fromWord(this.created)).concat([2,27,4,5,9]).concat(ArrayUtil.fromWord(86400));
+    ? [4,19,3,2,0,26,5,2].concat(ArrayUtil.fromWord(this.created)).concat(2,27,3,5,9).concat(ArrayUtil.fromWord(86400)).concat(4,11,7,8,9,2,21,2,2,22,0)
+    : [4,24,2,2,0,15,5,2].concat(ArrayUtil.fromWord(this.created)).concat(2,27,4,5,9).concat(ArrayUtil.fromWord(86400));
 }
 
 Key.prototype.generateFingerprint = function() {

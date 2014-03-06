@@ -269,7 +269,7 @@ function ExportUtil() {
       pack, id;
       
     for (id in key.signatures) {
-      pack = head.concat([0, 10, 9, 16])
+      pack = head.concat(0,10,9,16)
           .concat(ArrayUtil.fromHex(key.id))
           .concat(key.signatures[id].hashcheck)
           .concat(ArrayUtil.makeMpi(key.signatures[id].signature));
