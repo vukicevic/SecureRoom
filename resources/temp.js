@@ -16,6 +16,26 @@ function SecureRoom(onGenerateCallback, onConnectCallback, onDisconnectCallback,
   this.config.cipher = {"size": 128,  "type": "AES"};
   this.config.key    = {"size": 1024, "type": "RSA"};
 
+  this.onConnect = function() {
+    onConnectCallback();
+  };
+
+  this.onDisconnect = function() {
+    onDisconnectCallback();
+  };
+
+  this.onMessage = function(data) {
+    var message = new Message(data);
+
+    message.decrypt(this.user);
+    message.verify(this.vault.getUser(message.sender));
+
+    if (message.verified) {
+      onMessageCallback(message);
+    }
+  };
+
+  /* Key algo specific */
   this.onGenerate = function(data, time) {
     if (typeof this.user !== "undefined") {
       this.user.ephemeral = new Key(data, Math.round(Date.now()/1000));
@@ -37,24 +57,24 @@ function SecureRoom(onGenerateCallback, onConnectCallback, onDisconnectCallback,
     console.log("Key generation time (ms): " + time);
   };
 
-  this.onConnect = function() {
-    onConnectCallback();
-  };
-
-  this.onDisconnect = function() {
-    onDisconnectCallback();
-  };
-
-  this.onMessage = function(data) {
-
-
-    onMessageCallback(message);
-  };
-
   this.onUser = function(data) {
+    var mkey = new Key(data.master.material, data.master.created, data.master.name),
+        ekey = new Key(data.ephemeral.material, data.ephemeral.created), 
+        user;
 
-    onUserCallback(user);
+    mkey.signatures = data.master.signatures;
+    ekey.signatures = data.ephemeral.signatures;
+
+    if (!this.vault.hasUser(mkey.id) && mkey.verify(mkey) && ekey.verify(mkey)) {
+      user = new User(mkey);
+      user.ephemeral = ekey;
+
+      this.vault.addUser(user);
+
+      onUserCallback(user);
+    }
   };
+  /* Key algo specific */
 }
 
 SecureRoom.prototype.createRoom = function() {
@@ -68,15 +88,55 @@ SecureRoom.prototype.createRoom = function() {
   }
 }
 
-SecureRoom.prototype.generate = function(name) {
+SecureRoom.prototype.generateUser = function(name) {
   this.config.name = name;
 
   KeyGen(primitives.crunch, primitives.random)(this.config.key.size, this.onGenerate);
   KeyGen(primitives.crunch, primitives.random)(this.config.key.size, this.onGenerate);
 }
 
-SecureRoom.prototype.connect = function() {
+SecureRoom.prototype.connectToServer = function() {
   this.channel = new CommChannel(this.config.server + this.config.room, this.onConnect, this.onDisconnect, this.onMessage, this.onUser);
+}
+
+
+function User(data) {
+  this.status = "pending";
+
+  this.master;
+  this.ephemeral;
+
+  if (typeof data.master !== "undefined") {
+    
+  } else {
+    this.master = data;
+    this.master.sign(this.master);
+  }
+}
+
+User.prototype = {
+    get name () {
+      return this.master.name;
+    },
+
+    get id () {
+      return this.master.id;
+    },
+
+    get json () {
+      return {"master": this.master.json, "ephemeral": this.ephemeral.json};
+    },
+
+    get verified () {
+      return this.master.verified && this.ephemeral.verified;
+    }
+}
+
+User.prototype.addEphemeralKey = function(key) {
+  if (this.master.isPrivate()) {
+    this.ephemeral = key;
+    this.ephemeral.sign(this.master);
+  }
 }
 
 
@@ -174,7 +234,9 @@ Message.prototype.unpack = function(data) {
 }
 
 Message.prototype.verify = function(user) {
-  this.verified = primitives.asymmetric.verify(user.master, primitives.hash.digest(this.pack()), this.signature);
+  if (typeof user !== "undefined") {
+    this.verified = primitives.asymmetric.verify(user.master, primitives.hash.digest(this.pack()), this.signature);
+  }
 }
 
 Message.prototype.sign = function(user) {
