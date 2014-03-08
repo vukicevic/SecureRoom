@@ -100,7 +100,7 @@ var UI = {
   },
 
   toggleRoom: function () {
-    document.getElementById('room').textContent = 'Room: ' + app.getRoom();
+    document.getElementById('room').textContent = 'Room: ' + app.config.room;
   },
 
   toggleHeight: function (elem) {
@@ -279,9 +279,9 @@ var UI = {
 
     switch (type) {
       case 'distribute':
-        container.insertAdjacentHTML('beforeend', '<p>Your keys have been generated.</p><div class="info">' + UI.buildKeyInfo(app.myUser()) + '</div><button>Connect &amp; Distribute</button>');
+        container.insertAdjacentHTML('beforeend', '<p>Your keys have been generated.</p><div class="info">' + UI.buildKeyInfo(app.user) + '</div><button>Connect &amp; Distribute</button>');
         container.querySelector('button').addEventListener('click', function () {
-          com.connect();
+          app.connectToServer();
           UI.addWelcome('progress');
           UI.disableSettings('serverurl')
         });
@@ -298,8 +298,8 @@ var UI = {
   },
 
   addMyKey: function () {
-    document.getElementById('myname').textContent = PrintUtil.text(app.myUser().name);
-    document.getElementById('myinfo').insertAdjacentHTML('beforeend', UI.buildKeyInfo(app.myUser()));
+    document.getElementById('myname').textContent = PrintUtil.text(app.user.name);
+    document.getElementById('myinfo').insertAdjacentHTML('beforeend', UI.buildKeyInfo(app.user));
 
     var my = document.getElementById('mykey'),
         e1 = my.getElementsByTagName('textarea').item(0),
@@ -308,8 +308,8 @@ var UI = {
         b2 = my.getElementsByTagName('span').item(1),
         kh = ExportUtil();
 
-    e1.textContent = kh.privateGpg(app.myUser());
-    e2.textContent = kh.publicGpg(app.myUser());
+    e1.textContent = kh.privateGpg(app.user);
+    e2.textContent = kh.publicGpg(app.user);
 
     b1.addEventListener('click', UI.toggleExport(e1.parentNode, b1));
     b2.addEventListener('click', UI.toggleExport(e2.parentNode, b2));

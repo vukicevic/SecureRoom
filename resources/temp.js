@@ -1,3 +1,18 @@
+/**
+ * SecureRoom - Encrypted web browser based text communication software
+ * Copyright (C) 2013 Nenad Vukicevic
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ **/
+ 
 function SecureRoom(onGenerateCallback, onConnectCallback, onDisconnectCallback, onMessageCallback, onUserCallback) {
   this.vault  = new Vault();
   this.config = {};
@@ -17,6 +32,8 @@ function SecureRoom(onGenerateCallback, onConnectCallback, onDisconnectCallback,
   this.config.key    = {"size": 1024, "type": "RSA"};
 
   this.onConnect = function() {
+    //broken - this not bound on call
+    //this.channel.sendUser(this.user);
     onConnectCallback();
   };
 
@@ -35,46 +52,23 @@ function SecureRoom(onGenerateCallback, onConnectCallback, onDisconnectCallback,
     }
   };
 
-  /* Key algo specific */
-  this.onGenerate = function(data, time) {
-    if (typeof this.user !== "undefined") {
-      this.user.ephemeral = new Key(data, Math.round(Date.now()/1000));
-
-      this.user.master.sign(this.user.master);
-      this.user.ephemeral.sign(this.user.master);
-
-      this.user.status = "active";
-
-      this.room = this.user.id.substr(-5);
-
-      this.vault.addUser(this.user);
-        
-      onGenerateCallback();
-    } else {
-      this.user = new User(new Key(data, Math.round(Date.now()/1000), this.config.name));
-    }
-
-    console.log("Key generation time (ms): " + time);
+  this.onGenerate = function() {
+    this.user.status = "active";
+    this.room = this.user.id.substr(-5);
+    this.vault.addUser(this.user);
+    onGenerateCallback();
   };
 
   this.onUser = function(data) {
-    var mkey = new Key(data.master.material, data.master.created, data.master.name),
-        ekey = new Key(data.ephemeral.material, data.ephemeral.created), 
-        user;
+    user = new User(data);
 
-    mkey.signatures = data.master.signatures;
-    ekey.signatures = data.ephemeral.signatures;
-
-    if (!this.vault.hasUser(mkey.id) && mkey.verify(mkey) && ekey.verify(mkey)) {
-      user = new User(mkey);
-      user.ephemeral = ekey;
-
+    if (!this.vault.hasKey(user.id) && user.verified) {
+      //broken - this not bound on call
       this.vault.addUser(user);
-
       onUserCallback(user);
     }
   };
-  /* Key algo specific */
+
 }
 
 SecureRoom.prototype.createRoom = function() {
@@ -89,10 +83,8 @@ SecureRoom.prototype.createRoom = function() {
 }
 
 SecureRoom.prototype.generateUser = function(name) {
-  this.config.name = name;
-
-  KeyGen(primitives.crunch, primitives.random)(this.config.key.size, this.onGenerate);
-  KeyGen(primitives.crunch, primitives.random)(this.config.key.size, this.onGenerate);
+  this.user = new User(name);
+  this.user.generateKeys(this.config.key.size);
 }
 
 SecureRoom.prototype.connectToServer = function() {
@@ -103,22 +95,19 @@ SecureRoom.prototype.connectToServer = function() {
 function User(data) {
   this.status = "pending";
 
-  this.master;
-  this.ephemeral;
-
-  if (typeof data.master !== "undefined") {
-    
+  if (typeof data === "string") {
+    this.name = data;
   } else {
-    this.master = data;
-    this.master.sign(this.master);
+    this.name = data.master.name;
+    this.master = new Key(data.master.material, data.master.created, this.name);
+    this.ephemeral = new Key(data.ephemeral.material, data.ephemeral.created);
+
+    this.master.signatures = data.master.signatures;
+    this.ephemeral.signatures = data.ephemeral.signatures;
   }
 }
 
 User.prototype = {
-    get name () {
-      return this.master.name;
-    },
-
     get id () {
       return this.master.id;
     },
@@ -128,15 +117,30 @@ User.prototype = {
     },
 
     get verified () {
-      return this.master.verified && this.ephemeral.verified;
+      return this.master.verify(this.master) && this.ephemeral.verify(this.master);
+    },
+
+    get ready () {
+      return typeof this.master !== "undefined" && typeof this.ephemeral !== "undefined";
     }
 }
 
-User.prototype.addEphemeralKey = function(key) {
-  if (this.master.isPrivate()) {
-    this.ephemeral = key;
+User.prototype.addKey = function(material) {
+  if (typeof this.master === "undefined") {
+    this.master = new Key(material, Math.round(Date.now()/1000), this.name);
+    this.master.sign(this.master);
+  } else {
+    this.ephemeral = new Key(material, Math.round(Date.now()/1000));
     this.ephemeral.sign(this.master);
+    //BAAAD
+    app.onGenerate();
+    //BAAAD
   }
+}
+
+User.prototype.generateKeys = function(size) {
+  KeyGen(primitives.crunch, primitives.random)(size, this);
+  KeyGen(primitives.crunch, primitives.random)(size, this);
 }
 
 
@@ -201,7 +205,6 @@ CommChannel.prototype.sendUser = function (user) {
 CommChannel.prototype.isConnected = function () {
   return (typeof this.socket !== "undefined" && this.socket.readyState < 2);
 }
-
 
 function Message(data) {
   if (typeof data === "string") {
@@ -270,4 +273,99 @@ Message.prototype.decrypt = function (receiver) {
   if (typeof decrypted !== "undefined") {
     this.unpack(decrypted);
   }
+}
+
+function Key(material, created, name) {
+  this.material    = material;
+  this.created     = created;
+  this.name        = name;
+  this.signatures  = {};
+
+  this.type        = (typeof name !== "undefined") ? 3 : 2;
+  this.fingerprint = this.generateFingerprint();
+}
+
+Key.prototype = {
+  get id () {
+    return this.fingerprint.substr(-16);
+  },
+
+  get json () {
+    var json = {};
+    
+    json.created    = this.created;
+    json.signatures = this.signatures;
+    
+    json.material   = {};
+    json.material.e = this.material.e;
+    json.material.n = this.material.n;
+
+    if (typeof name !== "undefined")
+      json.name = this.name;
+
+    return json;
+  },
+
+  get size () {
+    return ArrayUtil.bitLength(this.material.n);
+  }
+}
+
+Key.prototype.makeBase = function() {
+  return [4].concat(ArrayUtil.fromWord(this.created)).concat(this.type).concat(ArrayUtil.makeMpi(this.material.n)).concat(ArrayUtil.makeMpi(this.material.e));
+}
+
+Key.prototype.makeSignatureBase = function() {
+  return (this.type === 3)
+    ? [4,19,3,2,0,26,5,2].concat(ArrayUtil.fromWord(this.created)).concat(2,27,3,5,9).concat(ArrayUtil.fromWord(86400)).concat(4,11,7,8,9,2,21,2,2,22,0)
+    : [4,24,2,2,0,15,5,2].concat(ArrayUtil.fromWord(this.created)).concat(2,27,4,5,9).concat(ArrayUtil.fromWord(86400));
+}
+
+Key.prototype.generateFingerprint = function() {
+  var base = this.makeBase();
+  return ArrayUtil.toHex(primitives.hash.digest([153].concat(ArrayUtil.fromHalf(base.length)).concat(base)));
+}
+
+Key.prototype.generateSignatureHash = function(signer) {
+  var keyHead, sigHead, suffix, 
+      base = signer.makeBase();
+
+  if (this.type === 3) {
+    keyHead = [180].concat(ArrayUtil.fromWord(this.name.length)).concat(ArrayUtil.fromString(this.name));
+  } else {
+    keyHead = this.makeBase();
+    keyHead = [153].concat(ArrayUtil.fromHalf(keyHead.length)).concat(keyHead);
+  }
+
+  sigHead = this.makeSignatureBase();
+  suffix  = [4,255].concat(ArrayUtil.fromWord(sigHead.length));
+
+  return primitives.hash.digest(
+    [153].concat(ArrayUtil.fromHalf(base.length)).concat(base).concat(keyHead).concat(sigHead).concat(suffix)
+  );
+}
+
+Key.prototype.sign = function(signer) {
+  if (signer.isPrivate() && signer.isMaster()) {
+      var signatureHash = this.generateSignatureHash(signer),
+          sigdata = {};
+
+       sigdata.signature = primitives.asymmetric.sign(signer, signatureHash);
+       sigdata.hashcheck = signatureHash.slice(0, 2);
+      this.signatures[signer.id] = sigdata;
+  }
+}
+
+Key.prototype.verify = function(signer) {
+  if (typeof this.signatures[signer.id] !== "undefined") {
+     return primitives.asymmetric.verify(signer, this.generateSignatureHash(signer), this.signatures[signer.id].signature);
+  }
+}
+
+Key.prototype.isMaster = function() {
+  return this.type === 3;
+}
+
+Key.prototype.isPrivate = function() {
+  return typeof this.material.d !== "undefined";
 }
