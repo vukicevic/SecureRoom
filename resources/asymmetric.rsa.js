@@ -95,7 +95,7 @@ function Asymmetric(crunch, hash, random) {
 }
 
 function KeyGen(crunch, random) {
-  var w = {}, time, timer, size, user;
+  var w = {}, time, timer, size, callback;
 
   function createWorker (worker, callback) {
     w[worker] = new Worker("resources/external/crunch.js");
@@ -136,8 +136,7 @@ function KeyGen(crunch, random) {
         mpi.dp = crunch.mod(mpi.d, crunch.decrement(mpi.p));
         mpi.dq = crunch.mod(mpi.d, crunch.decrement(mpi.q));
 
-        //Date.now() - time
-        user.addKey(mpi);
+        callback(mpi, Date.now() - time);
       } else {
         createWorker('p', process);
         createWorker('q', process);
@@ -165,7 +164,7 @@ function KeyGen(crunch, random) {
 
   return function(s, c) {
     size = s;
-    user = c;
+    callback = c;
     time = Date.now();
 
     createWorker('p', process);

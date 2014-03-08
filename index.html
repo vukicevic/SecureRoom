@@ -72,7 +72,7 @@
         <rect y="15" width="4" height="3"></rect>
       </svg>
     </div>
-    <button id="send" onclick="var e = document.getElementById('message'); if (e.value) com.sendMessage(e.value); e.value = '';">Send</button>
+    <button id="send">Send</button>
     <span><input type="text" id="message" autocomplete="off" onkeyup="(event.keyCode === 13) && document.getElementById('send').click()"></span>
   </div>
 
@@ -114,6 +114,16 @@
 
       document.getElementById("symcsize").addEventListener('click', function (e) { if (e.target.tagName.toLowerCase() === "span") app.config.cipher.size = UI.toggleSize(e.target) });
       document.getElementById("asymsize").addEventListener('click', function (e) { if (e.target.tagName.toLowerCase() === "span") app.config.key.size = UI.toggleSize(e.target) });
+
+      document.getElementById("send").addEventListener('click', function (e) { 
+        var m, d = document.getElementById('message'); 
+        if (d.value) {
+          //missing entire message encryption stage
+          app.channel.sendMessage(d.value); 
+        }
+
+        d.value = '';
+      });
 
       document.getElementById("serverurl").textContent = app.config.server + app.config.room;
       document.getElementById("nickname").focus();

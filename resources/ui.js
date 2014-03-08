@@ -194,7 +194,7 @@ var UI = {
       user.status = "active";
 
       UI.buildKeychain();
-      com.sendKey();
+      app.channel.sendUser(app.user);
     });
 
     a.addEventListener('click', d);
@@ -247,7 +247,7 @@ var UI = {
     while (container.lastChild != container.firstChild)
       container.removeChild(container.lastChild);
 
-    app.getUsers("active", "disabled").forEach(function(user) {
+    app.vault.getUsers("active", "disabled").forEach(function(user) {
       content.id     = PrintUtil.text(user.id);
       content.name   = PrintUtil.text(user.name);
       content.status = (user.status === "active") ? '' : 'inactive';

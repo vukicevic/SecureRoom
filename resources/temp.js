@@ -32,8 +32,7 @@ function SecureRoom(onGenerateCallback, onConnectCallback, onDisconnectCallback,
   this.config.key    = {"size": 1024, "type": "RSA"};
 
   this.onConnect = function() {
-    //broken - this not bound on call
-    //this.channel.sendUser(this.user);
+    this.channel.sendUser(this.user);
     onConnectCallback();
   };
 
@@ -62,8 +61,7 @@ function SecureRoom(onGenerateCallback, onConnectCallback, onDisconnectCallback,
   this.onUser = function(data) {
     user = new User(data);
 
-    if (!this.vault.hasKey(user.id) && user.verified) {
-      //broken - this not bound on call
+    if (!this.vault.hasUser(user.id) && user.verified) {
       this.vault.addUser(user);
       onUserCallback(user);
     }
@@ -84,11 +82,11 @@ SecureRoom.prototype.createRoom = function() {
 
 SecureRoom.prototype.generateUser = function(name) {
   this.user = new User(name);
-  this.user.generateKeys(this.config.key.size);
+  this.user.generateKeys(this.config.key.size, this.onGenerate.bind(this));
 }
 
 SecureRoom.prototype.connectToServer = function() {
-  this.channel = new CommChannel(this.config.server + this.config.room, this.onConnect, this.onDisconnect, this.onMessage, this.onUser);
+  this.channel = new CommChannel(this.config.server + this.config.room, this.onConnect.bind(this), this.onDisconnect.bind(this), this.onMessage.bind(this), this.onUser.bind(this));
 }
 
 
@@ -108,39 +106,35 @@ function User(data) {
 }
 
 User.prototype = {
-    get id () {
-      return this.master.id;
-    },
+  get id () {
+    return this.master.id;
+  },
 
-    get json () {
-      return {"master": this.master.json, "ephemeral": this.ephemeral.json};
-    },
+  get json () {
+    return {"master": this.master.json, "ephemeral": this.ephemeral.json};
+  },
 
-    get verified () {
-      return this.master.verify(this.master) && this.ephemeral.verify(this.master);
-    },
-
-    get ready () {
-      return typeof this.master !== "undefined" && typeof this.ephemeral !== "undefined";
-    }
+  get verified () {
+    return this.master.verify(this.master) && this.ephemeral.verify(this.master);
+  }
 }
 
-User.prototype.addKey = function(material) {
+User.prototype.addKey = function(callback, material) {
   if (typeof this.master === "undefined") {
     this.master = new Key(material, Math.round(Date.now()/1000), this.name);
     this.master.sign(this.master);
   } else {
     this.ephemeral = new Key(material, Math.round(Date.now()/1000));
     this.ephemeral.sign(this.master);
-    //BAAAD
-    app.onGenerate();
-    //BAAAD
+    
+    callback();
   }
 }
 
-User.prototype.generateKeys = function(size) {
-  KeyGen(primitives.crunch, primitives.random)(size, this);
-  KeyGen(primitives.crunch, primitives.random)(size, this);
+User.prototype.generateKeys = function(size, callback) {
+  var cb = this.addKey.bind(this, callback);
+  KeyGen(primitives.crunch, primitives.random)(size, cb);
+  KeyGen(primitives.crunch, primitives.random)(size, cb);
 }
 
 
