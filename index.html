@@ -12,7 +12,7 @@
   <script src="resources/hash.sha1.js"></script>
   <script src="resources/symmetric.aes.cfb.js"></script>
   <script src="resources/asymmetric.rsa.js"></script>
-  <script src="resources/temp.js"></script>
+  <script src="resources/secureroom.js"></script>
   <script src="resources/ui.js"></script>
 
   <script type="text/html" id="template-message">
@@ -28,7 +28,7 @@
     <p><b>{{sid}}</b><br><small>{{ssize}} BITS | {{sdate}}</small></p>
   </script>
   <script type="text/html" id="template-key-chain">
-    <li id="key-{{id}}"><div class="export hidden"><textarea wrap="off">{{data}}</textarea></div><h3>{{name}}</h3><div class="controls"><span class="{{status}}">{{state}}</span><span>PUBLIC KEY</span></div><div class="info">{{info}}</div></li>
+    <li id="key-{{id}}"><div class="export hidden"><textarea wrap="off">{{data}}</textarea></div><h3>{{name}}</h3><div class="controls"><span>ACTIVE</span><span>PUBLIC KEY</span></div><div class="info">{{info}}</div></li>
   </script>
 </head>
 <body>
@@ -54,13 +54,13 @@
     </li>
     <li>
       <h3>WebSocket Connection</h3>
-      <div class="controls">URL: <span id="serverurl" contenteditable="true" onkeydown="if(event.keyCode === 13)event.preventDefault();" onkeyup="app.setServer(this.textContent);"></span></div>
+      <div class="controls">URL: <span id="serverurl" contenteditable="true" onkeydown="if(event.keyCode === 13)event.preventDefault();" onkeyup="secureroom.setServer(this.textContent);"></span></div>
     </li>
   </ul>
 
   <ul id="content">
     <li class="alert" id="welcome">
-      <input type="text" id="nickname" autocomplete="off" placeholder="Enter a name..." onkeyup="this.nextSibling.disabled = (this.value.length<3);" onkeypress="(event.keyCode===13) && this.nextSibling.onclick();"><button id="generate" onclick="if (!this.disabled) { app.generateUser(this.previousSibling.value); UI.addWelcome('progress'); UI.disableSettings('asymsize'); }" disabled>Generate</button>
+      <input type="text" id="nickname" autocomplete="off" placeholder="Enter a name..." onkeyup="this.nextSibling.disabled = (this.value.length<3);" onkeypress="(event.keyCode===13) && this.nextSibling.onclick();"><button id="generate" onclick="if (!this.disabled) { secureroom.generateUser(this.previousSibling.value); UI.addWelcome('progress'); UI.disableSettings('asymsize'); }" disabled>Generate</button>
     </li>
   </ul>
 
@@ -73,68 +73,54 @@
       </svg>
     </div>
     <button id="send">Send</button>
-    <span><input type="text" id="message" autocomplete="off" onkeyup="(event.keyCode === 13) && document.getElementById('send').click()"></span>
+    <span><input type="text" id="message" autocomplete="off"></span>
   </div>
 
-  <ul id="keychain"><li id="mykey">
+  <ul id="keychain">
+    <li id="mykey">
       <div class="export hidden"><textarea wrap="off"></textarea></div>
       <div class="export hidden"><textarea wrap="off"></textarea></div>
       <h3 id="myname"></h3>
       <div id="mycontrols" class="controls"><span>PRIVATE KEY</span><span>PUBLIC KEY</span></div>
       <div id="myinfo" class="info"></div>
-  </li></ul>
+    </li>
+  </ul>
 
   <script>
-  function Primitives() {
-    this.symmetric  = Symmetric();
-    this.random     = Random();
-    this.hash       = Hash();
-    this.crunch     = Crunch();
-    this.asymmetric = Asymmetric(this.crunch, this.hash, this.random);
-  }
-
-  if (typeof window.WebSocket === 'function' && typeof window.Worker === 'function') {
-    var primitives, app, com;
+  if (typeof window.WebSocket === "function" && typeof window.Worker === "function") {
+    var primitives, secureroom;
 
     window.onload = function() {
-      primitives = new Primitives();
-
-      app = new SecureRoom(
-              function() { UI.addWelcome('distribute'); UI.toggleSettings()('close'); UI.toggleKeychain()('close'); UI.toggleRoom() },
-              function() { UI.addWelcome('connect'); UI.toggleInput(false) },
-              function() { UI.addWelcome('disconnect'); UI.toggleInput(true) },
-              UI.addMessage,
-              UI.addKey
-            );
+      primitives = new Primitives(),
+      secureroom = new SecureRoom(
+        function() { UI.addWelcome("distribute"); UI.toggleSettings()("close"); UI.toggleKeychain()("close"); UI.toggleRoom() },
+        function() { UI.addWelcome("connect"); UI.toggleInput(false) },
+        function() { UI.addWelcome("disconnect"); UI.toggleInput(true) },
+        UI.addMessage,
+        UI.addKey
+      );
 
       UI.toggleRoom();
 
-      document.getElementById("keychainToggle").addEventListener('click', UI.toggleKeychain());
-      document.getElementById("settingsToggle").addEventListener('click', UI.toggleSettings());
+      document.getElementById("keychainToggle").addEventListener("click", UI.toggleKeychain());
+      document.getElementById("settingsToggle").addEventListener("click", UI.toggleSettings());
 
-      document.getElementById("symcsize").addEventListener('click', function (e) { if (e.target.tagName.toLowerCase() === "span") app.config.cipher.size = UI.toggleSize(e.target) });
-      document.getElementById("asymsize").addEventListener('click', function (e) { if (e.target.tagName.toLowerCase() === "span") app.config.key.size = UI.toggleSize(e.target) });
+      document.getElementById("symcsize").addEventListener("click", function (e) { if (e.target.tagName.toLowerCase() === "span") secureroom.config.cipher.size = UI.toggleSize(e.target) });
+      document.getElementById("asymsize").addEventListener("click", function (e) { if (e.target.tagName.toLowerCase() === "span") secureroom.config.key.size = UI.toggleSize(e.target) });
 
-      document.getElementById("send").addEventListener('click', function (e) { 
-        var m, d = document.getElementById('message'); 
-        if (d.value) {
-          //missing entire message encryption stage
-          app.channel.sendMessage(d.value); 
-        }
+      document.getElementById("message").addEventListener("keyup", function (e) { e.keyCode === 13 && document.getElementById('send').click() });
+      document.getElementById("send").addEventListener("click", function (e) { var d = document.getElementById("message"); if (d.value) secureroom.sendMessage(d.value); d.value = "" });
 
-        d.value = '';
-      });
-
-      document.getElementById("serverurl").textContent = app.config.server + app.config.room;
+      document.getElementById("serverurl").textContent = secureroom.config.server + secureroom.config.room;
       document.getElementById("nickname").focus();
     };
 
     window.onresize = function() {
-      UI.toggleKeychain()('close');
-      UI.toggleSettings()('close');
+      UI.toggleKeychain()("close");
+      UI.toggleSettings()("close");
     }
   } else {
-    alert('Your browser does not have the necessary features to run this application. Please try the latest Firefox, Chrome or Internet Explorer.');
+    alert("Your browser does not have the necessary features to run this application. Please try the latest Firefox, Chrome or Internet Explorer.");
   }
   </script>
 </body>

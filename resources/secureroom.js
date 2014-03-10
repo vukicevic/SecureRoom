@@ -1,6 +1,6 @@
 /**
  * SecureRoom - Encrypted web browser based text communication software
- * Copyright (C) 2013 Nenad Vukicevic
+ * Copyright (C) 2014 Nenad Vukicevic
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -13,271 +13,178 @@
  * GNU General Public License for more details.
  **/
 
-function SecureRoom(onGenerateCallback) {
-  var chain  = [],
-      prefs  = {};
+function Primitives() {
+  this.symmetric  = Symmetric();
+  this.random     = Random();
+  this.hash       = Hash();
+  this.crunch     = Crunch();
+  this.asymmetric = Asymmetric(this.crunch, this.hash, this.random);
+} 
 
-  prefs.room = window.location.pathname.substr(window.location.pathname.lastIndexOf("/")+1);
+function SecureRoom(onGenerateCallback, onConnectCallback, onDisconnectCallback, onMessageCallback, onUserCallback) {
+  this.vault  = new Vault();
+  this.config = {};
 
-  if (prefs.room === "index.html")
-    prefs.room = UrlUtil.getParameter("room");
+  this.config.room = window.location.pathname.substr(window.location.pathname.lastIndexOf("/")+1);
 
-  prefs.server = UrlUtil.getParameter("server") ? "wss://"+UrlUtil.getParameter("server")+":443/ws/"
-                                                : "wss://"+document.location.host+":443/ws/";
-
-  prefs.cipher = {size: 128,  type: "AES"};
-  prefs.key    = {size: 1024, type: "RSA"};
-
-  function makeRoom(room) {
-    if (!prefs.room) {
-      prefs.room = room;
-      var opts = (window.location.search) ? window.location.search+"&room=" : "?room=",
-          path = (window.location.pathname.indexOf("index.html") > -1) ? window.location.pathname+opts+prefs.room
-                                                                       : window.location.pathname+prefs.room;
-
-      window.history.replaceState({} , "SecureRoom", path);
-    }
+  if (this.config.room === "index.html") {
+    this.config.room = UrlUtil.getParameter("room");
   }
 
-  function onGenerate(data, time) {
-    if (prefs.user) {
-      prefs.user.ephemeral = new Key(data, Math.round(Date.now()/1000));
+  this.config.server = UrlUtil.getParameter("server") ? "wss://"+UrlUtil.getParameter("server")+":443/ws/" : "wss://"+document.location.host+":443/ws/";
 
-      prefs.user.master.sign(prefs.user.master);
-      prefs.user.ephemeral.sign(prefs.user.master);
+  this.config.cipher = {"size": 128,  "type": "AES"};
+  this.config.key    = {"size": 1024, "type": "RSA"};
 
-      prefs.user.status = "active";
-
-      makeRoom(prefs.user.id.substr(-5));
-      
-      onGenerateCallback();
-    } else {
-      prefs.user = new User(new Key(data, Math.round(Date.now()/1000), prefs.name));
-    }
-
-    console.log("Key generation time (ms): " + time);
-  }
-
-  function findUserById(id) {
-    return (prefs.user.id === id || prefs.user.ephemeral.id === id) ? prefs.user : chain.filter(function(user){ return user.master.id === id || user.ephemeral.id === id }).pop();
-  }
-
-  return {
-    generateKeys: function(name) {
-      prefs.name = name;
-
-      KeyGen(primitives.crunch, primitives.random)(prefs.key.size, onGenerate);
-      KeyGen(primitives.crunch, primitives.random)(prefs.key.size, onGenerate);
-    },
-
-    getUsers: function() {
-      var args = Array.prototype.slice.call(arguments);
-      return chain.filter(function(user) { return args.indexOf(user.status) >= 0 });
-    },
-
-    getUser: function(id) {
-      return findUserById(id);
-    },
-
-    addUser: function(mkey, ekey) {
-      var m = new Key(mkey.material, mkey.created, mkey.name),
-          e = new Key(ekey.material, ekey.created),
-          user;
-
-      m.signatures = mkey.signatures;
-      e.signatures = ekey.signatures;
-
-      user = new User(m);
-      user.ephemeral = e;
-
-      if (typeof findUserById(user.id) === "undefined" && m.verify(m) && e.verify(m)) {
-        chain.push(user);
-      }
-
-      return user;
-    },
-
-    myUser: function() {
-      return prefs.user;
-    },
-
-    getRoom: function() {
-      return prefs.room;
-    },
-
-    getServer: function() {
-      return prefs.server + prefs.room;
-    },
-
-    setServer: function(server) {
-      prefs.server = server;
-    },
-
-    getSize: function(type) {
-      return prefs[type].size;
-    },
-    //key/cipher
-    setSize: function(type, size) {
-      prefs[type].size = size;
-    }
-  }
-}
-
-function SecureComm(secureApp, onConnectCallback, onDisconnectCallback, onMessageCallback, onKeyCallback) {
-  var socket;
-
-  function isConnected() {
-    return (typeof socket !== "undefined" && socket.readyState < 2);
-  }
-
-  function onConnectEvent() {
-    sendKey();
+  this.onConnect = function() {
+    this.channel.send("user", this.user.json);
     onConnectCallback();
-  }
+  };
 
-  function onDisconnectEvent() {
+  this.onDisconnect = function() {
     onDisconnectCallback();
-  }
+  };
 
-  function onDataEvent(event) {
-    var receivedJSON = JSON.parse(event.data);
+  this.onMessage = function(message) {
+    if (typeof message.data !== "undefined") {
+      message = new Message(message);
 
-    switch (receivedJSON.type) {
-      case 'key':
-        onKeyCallback(receiveKey(receivedJSON.data));
-        break;
-      case 'message':
-        onMessageCallback(receiveMessage(receivedJSON.data));
-        break;
+      message.decrypt(this.user);
+      message.verify(this.vault.findUser(message.sender));
     }
 
-    console.log(receivedJSON);
-  }
-
-  function onErrorEvent(error) {
-    console.log(error);
-  }
-
-  function connect(server) {
-    if (isConnected())
-      socket.close();
-
-    try {
-      socket = new WebSocket(server);
-
-      socket.addEventListener("open", onConnectEvent);
-      socket.addEventListener("message", onDataEvent);
-      socket.addEventListener("error", onErrorEvent);
-      socket.addEventListener("close", onDisconnectEvent);
-    } catch (e) {
-      console.log(e);
+    if (message.verified) {
+      onMessageCallback(message);
     }
-  }
+  };
 
-  function encryptSessionKey(recipients, sessionkey) {
-    var encrypted = {};
+  this.onGenerate = function() {
+    this.user.status = "active";
+    this.createRoom();
+    onGenerateCallback();
+  };
 
-    recipients.forEach(function(id) {
-      encrypted[id] = primitives.asymmetric.encrypt(secureApp.getUser(id).ephemeral, sessionkey);
-    });
+  this.onUser = function(data) {
+    user = new User(data);
 
-    return encrypted;
-  }
-
-  function encryptMessage(message) {
-    var sessionkey = primitives.random.generate(secureApp.getSize("cipher")),
-        encrypted;
-
-    if (message.recipients.length) {
-      encrypted = {};
-      encrypted.keys = encryptSessionKey(message.recipients, sessionkey);
-      encrypted.data = primitives.symmetric.encrypt(sessionkey, primitives.random.generate(128).concat(message.pack()).concat(message.signature));
+    if (!this.vault.hasUser(user.id) && user.verified) {
+      this.vault.addUser(user);
+      onUserCallback(user);
     }
+  };
 
-    return encrypted;
-  }
+}
 
-  function decryptMessage(encrypted) {
-    var id = secureApp.myUser().ephemeral.id,
-        sessionkey, decrypted;
+SecureRoom.prototype.createRoom = function() {
+  if (this.config.room === "") {
+    this.config.room = this.user.id.substr(-5);
 
-    if (encrypted.keys[id]) {
-      sessionkey = primitives.asymmetric.decrypt(secureApp.myUser().ephemeral, encrypted.keys[id]);
-      decrypted  = primitives.symmetric.decrypt(sessionkey, encrypted.data).slice(16);
-    }
+    var opts = (window.location.search) ? window.location.search+"&room=" : "?room=",
+        path = (window.location.pathname.indexOf("index.html") > -1) ? window.location.pathname+opts+this.config.room : window.location.pathname+this.config.room;
 
-    return decrypted;
-  }
-
-  function sendMessage(plaintext) {
-    var message    = new Message(),
-        recipients = secureApp.getUsers("active").map(function(user) { return user.ephemeral.id }),
-        encrypted;
-
-    message.create(plaintext, secureApp.myUser().master);
-    message.recipients = recipients;
-
-    encrypted = encryptMessage(message);
-
-    if (typeof encrypted !== "undefined" && isConnected())
-      socket.send(JSON.stringify({"type": "message", "data": encrypted}));
-
-    return message;
-  }
-
-  function receiveMessage(encrypted) {
-    var message   = new Message(),
-        decrypted = decryptMessage(encrypted);
-
-    if (typeof decrypted !== "undefined") {
-      message.receive(decrypted);
-      var sender = secureApp.getUser(message.sender);
-      if (sender.status !== "rejected" && sender.status !== "pending") {
-        message.verify(sender.master);
-        message.recipients = Object.keys(encrypted.keys);
-      }
-    }
-
-    return message;
-  }
-
-  function sendKey() {
-    if (isConnected())
-      socket.send(JSON.stringify({"type": "key", "data": secureApp.myUser().json}));
-  }
-
-  function receiveKey(data) {
-    return secureApp.addUser(data.master, data.ephemeral);
-  }
-
-  return {
-    sendKey: function() {
-      sendKey();
-    },
-    sendMessage: function(plaintext) {
-      onMessageCallback(sendMessage(plaintext));
-    },
-    connect: function() {
-      connect(secureApp.getServer());
-    }
+    window.history.replaceState({} , "SecureRoom", path);
   }
 }
 
-function Message() {
-  this.plaintext;
+SecureRoom.prototype.generateUser = function(name) {
+  this.user = new User(name);
+  this.user.generateKeys(this.config.key.size, this.onGenerate.bind(this));
+}
+
+SecureRoom.prototype.connectToServer = function() {
+  this.channel = new CommChannel(this.config.server + this.config.room, this.onConnect.bind(this), this.onDisconnect.bind(this), this.onMessage.bind(this), this.onUser.bind(this));
+}
+
+SecureRoom.prototype.sendMessage = function(text) {
+  var message = new Message(text);
+  message.sign(this.user);
+  message.encrypt(this.user, this.vault.findUsers("active"), primitives.random.generate(this.config.cipher.size));
+
+  this.channel.send("message", message.encrypted);
+  this.onMessage(message);
+}
+
+function Vault() {
+  this.users = [];
+}
+
+Vault.prototype.addUser = function(user) {
+  this.users.push(user);
+}
+
+Vault.prototype.findUser = function(id) {
+  return this.users.filter(function(user) { return user.master.id === id || user.ephemeral.id === id }).pop();
+}
+
+Vault.prototype.findUsers = function(/* Call with desired user status - multiple accepted */) {
+  var args = Array.prototype.slice.call(arguments);
+  
+  return this.users.filter(function(user) { return args.indexOf(user.status) >= 0 });
+}
+
+Vault.prototype.hasUser = function(id) {
+  return this.users.some(function(user) { return user.master.id === id || user.ephemeral.id === id });
+}
+
+function CommChannel(server, onConnectCallback, onDisconnectCallback, onMessageCallback, onUserCallback) {
+  try {
+    this.socket = new WebSocket(server);
+
+    this.socket.addEventListener("open", onConnectCallback);
+    this.socket.addEventListener("close", onDisconnectCallback);
+    this.socket.addEventListener("message", function (event) {
+      var receivedJSON = JSON.parse(event.data);
+
+      switch (receivedJSON.type) {
+        case 'user':
+          onUserCallback(receivedJSON.data); break;
+        case 'message':
+          onMessageCallback(receivedJSON.data); break;
+      }
+
+      console.log(receivedJSON);
+    });
+  } catch (e) {
+    console.log(e);
+  }
+}
+
+CommChannel.prototype.send = function (type, data) {
+  if (this.isConnected()) {
+    this.socket.send(JSON.stringify({"type": type, "data": data}));
+  }
+}
+
+CommChannel.prototype.isConnected = function () {
+  return (typeof this.socket !== "undefined" && this.socket.readyState < 2);
+}
+
+function Message(data) {
+  if (typeof data === "string") {
+    this.plaintext = data;
+    this.encrypted = {"keys": {}, "data": null};
+  } else {
+    this.encrypted = data;
+  }
+ 
+  this.sendtime = Math.round(Date.now()/1000);
+  this.timediff = 0;
   this.sender;
-  this.sendtime;
-  this.timediff;
-  this.recipients;
   this.signature;
   this.verified = false;
+}
+
+Message.prototype = {
+  get recipients () {
+    return Object.keys(this.encrypted.keys);
+  }
 }
 
 Message.prototype.pack = function() {
   return ArrayUtil.fromString(this.plaintext).concat(0).concat(ArrayUtil.fromWord(this.sendtime)).concat(ArrayUtil.fromHex(this.sender));
 }
 
-Message.prototype.receive = function(data, key) {
+Message.prototype.unpack = function(data) {
   var i = data.indexOf(0);
 
   this.plaintext = ArrayUtil.toString(data.slice(0, i));
@@ -288,20 +195,87 @@ Message.prototype.receive = function(data, key) {
   this.timediff = Math.round(Date.now()/1000) - this.sendtime;
 }
 
-Message.prototype.verify = function(key) {
-  this.verified = primitives.asymmetric.verify(key, primitives.hash.digest(this.pack()), this.signature);
+Message.prototype.verify = function(user) {
+  if (typeof user !== "undefined") {
+    this.verified = primitives.asymmetric.verify(user.master, primitives.hash.digest(this.pack()), this.signature);
+  }
 }
 
-Message.prototype.create = function(data, key) {
-  this.sendtime  = Math.round(Date.now()/1000);
-  this.timediff  = 0;
-  this.sender    = key.id;
-  this.plaintext = data;
-
-  this.signature = primitives.asymmetric.sign(key, primitives.hash.digest(this.pack()));
+Message.prototype.sign = function(user) {
+  this.sender    = user.id;
+  this.signature = primitives.asymmetric.sign(user.master, primitives.hash.digest(this.pack()));
   this.verified  = true;
 }
 
+Message.prototype.encrypt = function (sender, recipients, sessionkey) {
+  if (recipients.length) {
+    recipients.forEach(function(user) {
+      this.encrypted.keys[user.ephemeral.id] = primitives.asymmetric.encrypt(user.ephemeral, sessionkey);
+    }, this);
+
+    this.encrypted.data = primitives.symmetric.encrypt(sessionkey, primitives.random.generate(128).concat(this.pack()).concat(this.signature));
+  }
+}
+
+Message.prototype.decrypt = function (receiver) {
+  var sessionkey, decrypted;
+
+  if (this.recipients.indexOf(receiver.ephemeral.id) >= 0 && receiver.ephemeral.isPrivate()) {
+    sessionkey = primitives.asymmetric.decrypt(receiver.ephemeral, this.encrypted.keys[receiver.ephemeral.id]);
+    decrypted  = primitives.symmetric.decrypt(sessionkey, this.encrypted.data).slice(16);
+  }
+
+  if (typeof decrypted !== "undefined") {
+    this.unpack(decrypted);
+  }
+}
+
+function User(data) {
+  this.status = "pending";
+
+  if (typeof data === "string") {
+    this.name = data;
+  } else {
+    this.name = data.master.name;
+    this.master = new Key(data.master.material, data.master.created, this.name);
+    this.ephemeral = new Key(data.ephemeral.material, data.ephemeral.created);
+
+    this.master.signatures = data.master.signatures;
+    this.ephemeral.signatures = data.ephemeral.signatures;
+  }
+}
+
+User.prototype = {
+  get id () {
+    return this.master.id;
+  },
+
+  get json () {
+    return {"master": this.master.json, "ephemeral": this.ephemeral.json};
+  },
+
+  get verified () {
+    return this.master.verify(this.master) && this.ephemeral.verify(this.master);
+  }
+}
+
+User.prototype.addKey = function(callback, material) {
+  if (typeof this.master === "undefined") {
+    this.master = new Key(material, Math.round(Date.now()/1000), this.name);
+    this.master.sign(this.master);
+  } else {
+    this.ephemeral = new Key(material, Math.round(Date.now()/1000));
+    this.ephemeral.sign(this.master);
+    
+    callback();
+  }
+}
+
+User.prototype.generateKeys = function(size, callback) {
+  var cb = this.addKey.bind(this, callback);
+  KeyGen(primitives.crunch, primitives.random)(size, cb);
+  KeyGen(primitives.crunch, primitives.random)(size, cb);
+}
 
 function Key(material, created, name) {
   this.material    = material;
@@ -396,25 +370,4 @@ Key.prototype.isMaster = function() {
 
 Key.prototype.isPrivate = function() {
   return typeof this.material.d !== "undefined";
-}
-
-
-function User(key) {
-  this.master    = key;
-  this.ephemeral = null; 
-  this.status    = "pending"; //active, disabled, rejected
-}
-
-User.prototype = {
-    get name () {
-      return this.master.name;
-    },
-
-    get id () {
-      return this.master.id;
-    },
-
-    get json () {
-      return {"master": this.master.json, "ephemeral": this.ephemeral.json};
-    }
 }

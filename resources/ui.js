@@ -100,7 +100,7 @@ var UI = {
   },
 
   toggleRoom: function () {
-    document.getElementById('room').textContent = 'Room: ' + app.config.room;
+    document.getElementById('room').textContent = 'Room: ' + secureroom.config.room;
   },
 
   toggleHeight: function (elem) {
@@ -148,7 +148,7 @@ var UI = {
           content = {};
 
       content.time    = PrintUtil.time(message.sendtime+message.timediff);
-      content.sender  = PrintUtil.text(app.getUser(message.sender).name);
+      content.sender  = PrintUtil.text((message.sender !== secureroom.user.id) ? secureroom.vault.findUser(message.sender).name : secureroom.user.name);
       content.message = PrintUtil.text(message.plaintext);
       content.info    = UI.buildMsgInfo(message);
       content.class   = (message.verified) ? "" : " warning";
@@ -193,8 +193,8 @@ var UI = {
 
       user.status = "active";
 
-      UI.buildKeychain();
-      app.channel.sendUser(app.user);
+      UI.addToChain(user);
+      secureroom.channel.send("user", secureroom.user.json);
     });
 
     a.addEventListener('click', d);
@@ -211,7 +211,7 @@ var UI = {
 
   buildRecipientList: function(message) {
     return message.recipients.map(function(id) {
-      var recipient = app.getUser(id);
+      var recipient = (secureroom.user.ephemeral.id === id) ? secureroom.user : secureroom.vault.findUser(id);
       return (typeof recipient !== "undefined") ? (recipient.status !== "rejected") ? PrintUtil.text(recipient.name) : 'Rejected' : 'Unknown';
     }).join(', ');
   },
@@ -239,36 +239,28 @@ var UI = {
     return build(content);
   },
 
-  buildKeychain: function () {
+  addToChain: function (user) {
     var container = document.getElementById('keychain'),
         build = TemplateEngine('template-key-chain'),
         content = {};
 
-    while (container.lastChild != container.firstChild)
-      container.removeChild(container.lastChild);
+    content.id     = PrintUtil.text(user.id);
+    content.name   = PrintUtil.text(user.name);
+    content.info   = UI.buildKeyInfo(user);
+    content.data   = ExportUtil().publicGpg(user);
 
-    app.vault.getUsers("active", "disabled").forEach(function(user) {
-      content.id     = PrintUtil.text(user.id);
-      content.name   = PrintUtil.text(user.name);
-      content.status = (user.status === "active") ? '' : 'inactive';
-      content.state  = (user.status === "active") ? 'ACTIVE' : 'DISABLED';
-      content.info   = UI.buildKeyInfo(user);
-      content.data   = ExportUtil().publicGpg(user);
-
-      container.insertAdjacentHTML('beforeend', build(content));
-      UI.addKeychainListeners(container.lastChild, user);
-    });
+    container.insertAdjacentHTML('beforeend', build(content));
+    UI.addKeychainListeners(container.lastChild, user);
 
     UI.toggleKeychain()('close');
   },
 
   addKeychainListeners: function (elem, user) {
     var b1 = elem.getElementsByTagName('span').item(0),
-        b2 = elem.getElementsByTagName('span').item(1),
-        ex = elem.querySelector('.export');
+        b2 = elem.getElementsByTagName('span').item(1);
 
     b1.addEventListener('click', UI.toggleKey(user, b1));
-    b2.addEventListener('click', UI.toggleExport(ex, b2));
+    b2.addEventListener('click', UI.toggleExport(elem.querySelector('.export'), b2));
   },
 
   addWelcome: function (type) {
@@ -279,9 +271,9 @@ var UI = {
 
     switch (type) {
       case 'distribute':
-        container.insertAdjacentHTML('beforeend', '<p>Your keys have been generated.</p><div class="info">' + UI.buildKeyInfo(app.user) + '</div><button>Connect &amp; Distribute</button>');
+        container.insertAdjacentHTML('beforeend', '<p>Your keys have been generated.</p><div class="info">' + UI.buildKeyInfo(secureroom.user) + '</div><button>Connect &amp; Distribute</button>');
         container.querySelector('button').addEventListener('click', function () {
-          app.connectToServer();
+          secureroom.connectToServer();
           UI.addWelcome('progress');
           UI.disableSettings('serverurl')
         });
@@ -298,8 +290,8 @@ var UI = {
   },
 
   addMyKey: function () {
-    document.getElementById('myname').textContent = PrintUtil.text(app.user.name);
-    document.getElementById('myinfo').insertAdjacentHTML('beforeend', UI.buildKeyInfo(app.user));
+    document.getElementById('myname').textContent = PrintUtil.text(secureroom.user.name);
+    document.getElementById('myinfo').insertAdjacentHTML('beforeend', UI.buildKeyInfo(secureroom.user));
 
     var my = document.getElementById('mykey'),
         e1 = my.getElementsByTagName('textarea').item(0),
@@ -308,8 +300,8 @@ var UI = {
         b2 = my.getElementsByTagName('span').item(1),
         kh = ExportUtil();
 
-    e1.textContent = kh.privateGpg(app.user);
-    e2.textContent = kh.publicGpg(app.user);
+    e1.textContent = kh.privateGpg(secureroom.user);
+    e2.textContent = kh.publicGpg(secureroom.user);
 
     b1.addEventListener('click', UI.toggleExport(e1.parentNode, b1));
     b2.addEventListener('click', UI.toggleExport(e2.parentNode, b2));
