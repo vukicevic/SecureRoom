@@ -25,25 +25,12 @@ function SecureRoom(onGenerateCallback, onConnectCallback, onDisconnectCallback,
   this.vault  = new Vault();
   this.config = {};
 
-  this.config.room = window.location.pathname.substr(window.location.pathname.lastIndexOf("/")+1);
-
-  if (this.config.room === "index.html") {
-    this.config.room = UrlUtil.getParameter("room");
-  }
-
-  this.config.server = UrlUtil.getParameter("server") ? "wss://"+UrlUtil.getParameter("server")+":443/ws/" : "wss://"+document.location.host+":443/ws/";
-
   this.config.cipher = {"size": 128,  "type": "AES"};
   this.config.key    = {"size": 1024, "type": "RSA"};
 
-  this.onConnect = function() {
-    this.channel.send("user", this.user.json);
-    onConnectCallback();
-  };
-
-  this.onDisconnect = function() {
-    onDisconnectCallback();
-  };
+  this.onConnect = onConnectCallback;
+  this.onDisconnect = onDisconnectCallback;
+  this.onGenerate = onGenerateCallback;
 
   this.onMessage = function(message) {
     if (typeof message.data !== "undefined") {
@@ -58,12 +45,6 @@ function SecureRoom(onGenerateCallback, onConnectCallback, onDisconnectCallback,
     }
   };
 
-  this.onGenerate = function() {
-    this.user.status = "active";
-    this.createRoom();
-    onGenerateCallback();
-  };
-
   this.onUser = function(data) {
     user = new User(data);
 
@@ -72,22 +53,11 @@ function SecureRoom(onGenerateCallback, onConnectCallback, onDisconnectCallback,
       onUserCallback(user);
     }
   };
-
-}
-
-SecureRoom.prototype.createRoom = function() {
-  if (this.config.room === "") {
-    this.config.room = this.user.id.substr(-5);
-
-    var opts = (window.location.search) ? window.location.search+"&room=" : "?room=",
-        path = (window.location.pathname.indexOf("index.html") > -1) ? window.location.pathname+opts+this.config.room : window.location.pathname+this.config.room;
-
-    window.history.replaceState({} , "SecureRoom", path);
-  }
 }
 
 SecureRoom.prototype.generateUser = function(name) {
   this.user = new User(name);
+  this.user.status = "active";
   this.user.generateKeys(this.config.key.size, this.onGenerate.bind(this));
 }
 
@@ -100,7 +70,7 @@ SecureRoom.prototype.sendMessage = function(text) {
   message.sign(this.user);
   message.encrypt(this.user, this.vault.findUsers("active"), primitives.random.generate(this.config.cipher.size));
 
-  this.channel.send("message", message.encrypted);
+  this.channel.sendMessage(message);
   this.onMessage(message);
 }
 
@@ -118,7 +88,6 @@ Vault.prototype.findUser = function(id) {
 
 Vault.prototype.findUsers = function(/* Call with desired user status - multiple accepted */) {
   var args = Array.prototype.slice.call(arguments);
-  
   return this.users.filter(function(user) { return args.indexOf(user.status) >= 0 });
 }
 
@@ -155,6 +124,14 @@ CommChannel.prototype.send = function (type, data) {
   }
 }
 
+CommChannel.prototype.sendMessage = function (message) {
+  this.send("message", message.toJson());
+}
+
+CommChannel.prototype.sendUser = function (user) {
+  this.send("user", user.toJson());
+}
+
 CommChannel.prototype.isConnected = function () {
   return (typeof this.socket !== "undefined" && this.socket.readyState < 2);
 }
@@ -178,6 +155,10 @@ Message.prototype = {
   get recipients () {
     return Object.keys(this.encrypted.keys);
   }
+}
+
+Message.prototype.toJson = function() {
+  return this.encrypted;
 }
 
 Message.prototype.pack = function() {
@@ -250,13 +231,13 @@ User.prototype = {
     return this.master.id;
   },
 
-  get json () {
-    return {"master": this.master.json, "ephemeral": this.ephemeral.json};
-  },
-
   get verified () {
     return this.master.verify(this.master) && this.ephemeral.verify(this.master);
   }
+}
+
+User.prototype.toJson = function() {
+  return {"master": this.master.json, "ephemeral": this.ephemeral.json};
 }
 
 User.prototype.addKey = function(callback, material) {

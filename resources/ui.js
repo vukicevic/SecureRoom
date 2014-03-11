@@ -194,7 +194,7 @@ var UI = {
       user.status = "active";
 
       UI.addToChain(user);
-      secureroom.channel.send("user", secureroom.user.json);
+      secureroom.channel.sendUser(secureroom.user);
     });
 
     a.addEventListener('click', d);
@@ -283,6 +283,7 @@ var UI = {
         container.insertAdjacentHTML('beforeend', '<div class="loading"></div>');
         break;
       case 'connect':
+        secureroom.channel.sendUser(secureroom.user);
       case 'disconnect':
         container.insertAdjacentHTML('beforeend', '<div class="time">' + PrintUtil.time(Math.round(Date.now()/1000)) + '</div><p>' + type.charAt(0).toUpperCase() + type.slice(1) + 'ed.</p>');
         break;
@@ -305,5 +306,18 @@ var UI = {
 
     b1.addEventListener('click', UI.toggleExport(e1.parentNode, b1));
     b2.addEventListener('click', UI.toggleExport(e2.parentNode, b2));
+  },
+
+  createRoom: function () {
+    var opts, path;
+    
+    if (secureroom.config.room === "") {
+      secureroom.config.room = secureroom.user.id.substr(-5);
+      
+      opts = window.location.search ? window.location.search + "&room=" : "?room=";
+      path = (window.location.pathname.indexOf("index.html") < 0) ? window.location.pathname + secureroom.config.room : window.location.pathname + opts + secureroom.config.room;
+      
+      window.history.replaceState({}, "SecureRoom", path);
+    }
   }
 }
