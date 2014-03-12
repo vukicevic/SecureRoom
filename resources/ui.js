@@ -25,12 +25,17 @@ function TemplateEngine(templ) {
 
 var UI = {
   init: function() {
-    secureroom.config.room = window.location.pathname.substr(window.location.pathname.lastIndexOf("/")+1);
-    if (secureroom.config.room === "index.html") {
-      secureroom.config.room = UrlUtil.getParameter("room");
+    var getUrlParam = function(name) {
+      var match = new RegExp("[?&]" + name + "=([^&]*)").exec(window.location.search);
+      return (match) ? decodeURIComponent(match[1].replace(/\+/g, " ")) : "";
     }
 
-    secureroom.config.server = UrlUtil.getParameter("server") ? "wss://"+UrlUtil.getParameter("server")+":443/ws/" : "wss://"+document.location.host+":443/ws/";
+    secureroom.config.room = window.location.pathname.substr(window.location.pathname.lastIndexOf("/")+1);
+    if (secureroom.config.room === "index.html") {
+      secureroom.config.room = getUrlParam("room");
+    }
+
+    secureroom.config.server = getUrlParam("server") ? "wss://"+getUrlParam("server")+":443/ws/" : "wss://"+document.location.host+":443/ws/";
 
     UI.toggleRoom();
 

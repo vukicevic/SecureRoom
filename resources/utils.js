@@ -223,13 +223,6 @@ var ArrayUtil = {
   }
 };
 
-var UrlUtil = {
-  getParameter: function(name) {
-    var match = new RegExp('[?&]' + name + '=([^&]*)').exec(window.location.search);
-    return (match) ? decodeURIComponent(match[1].replace(/\+/g, ' ')) : '';
-  }
-};
-
 function ExportUtil() {
   function makeLength(l) {
     return (l < 256) ? [l] : (l < 65536) ? ArrayUtil.fromHalf(l) : ArrayUtil.fromWord(l);
