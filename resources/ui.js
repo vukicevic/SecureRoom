@@ -24,6 +24,29 @@ function TemplateEngine(templ) {
 }
 
 var UI = {
+  init: function() {
+    secureroom.config.room = window.location.pathname.substr(window.location.pathname.lastIndexOf("/")+1);
+    if (secureroom.config.room === "index.html") {
+      secureroom.config.room = UrlUtil.getParameter("room");
+    }
+
+    secureroom.config.server = UrlUtil.getParameter("server") ? "wss://"+UrlUtil.getParameter("server")+":443/ws/" : "wss://"+document.location.host+":443/ws/";
+
+    UI.toggleRoom();
+
+    document.getElementById("keychainToggle").addEventListener("click", UI.toggleKeychain());
+    document.getElementById("settingsToggle").addEventListener("click", UI.toggleSettings());
+
+    document.getElementById("symcsize").addEventListener("click", function (e) { if (e.target.tagName.toLowerCase() === "span") secureroom.config.cipher.size = UI.toggleSize(e.target) });
+    document.getElementById("asymsize").addEventListener("click", function (e) { if (e.target.tagName.toLowerCase() === "span") secureroom.config.key.size = UI.toggleSize(e.target) });
+
+    document.getElementById("message").addEventListener("keyup", function (e) { e.keyCode === 13 && document.getElementById('send').click() });
+    document.getElementById("send").addEventListener("click", function (e) { var d = document.getElementById("message"); if (d.value) secureroom.sendMessage(d.value); d.value = "" });
+
+    document.getElementById("serverurl").textContent = secureroom.config.server + secureroom.config.room;
+    document.getElementById("nickname").focus();
+  },
+
   toggleKeychain: function() {
     var ctrl = document.getElementById('keychainToggle'),
         elem = document.getElementById('keychain');
@@ -309,9 +332,9 @@ var UI = {
   },
 
   createRoom: function () {
-    var opts, path;
-    
     if (secureroom.config.room === "") {
+      var opts, path;
+
       secureroom.config.room = secureroom.user.id.substr(-5);
       
       opts = window.location.search ? window.location.search + "&room=" : "?room=";

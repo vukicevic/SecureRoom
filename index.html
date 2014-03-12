@@ -54,7 +54,7 @@
     </li>
     <li>
       <h3>WebSocket Connection</h3>
-      <div class="controls">URL: <span id="serverurl" contenteditable="true" onkeydown="if(event.keyCode === 13)event.preventDefault();" onkeyup="secureroom.setServer(this.textContent);"></span></div>
+      <div class="controls">URL: <span id="serverurl" contenteditable="true" onkeydown="if (event.keyCode === 13) event.preventDefault()" onkeyup="secureroom.config.server = this.textContent"></span></div>
     </li>
   </ul>
 
@@ -100,28 +100,7 @@
         UI.addKey
       );
 
-      /* Detect predefined room and server */
-      secureroom.config.room = window.location.pathname.substr(window.location.pathname.lastIndexOf("/")+1);
-      if (secureroom.config.room === "index.html") {
-        secureroom.config.room = UrlUtil.getParameter("room");
-      }
-
-      secureroom.config.server = UrlUtil.getParameter("server") ? "wss://"+UrlUtil.getParameter("server")+":443/ws/" : "wss://"+document.location.host+":443/ws/";
-      /* Detect predefined room and server */
-
-      UI.toggleRoom();
-
-      document.getElementById("keychainToggle").addEventListener("click", UI.toggleKeychain());
-      document.getElementById("settingsToggle").addEventListener("click", UI.toggleSettings());
-
-      document.getElementById("symcsize").addEventListener("click", function (e) { if (e.target.tagName.toLowerCase() === "span") secureroom.config.cipher.size = UI.toggleSize(e.target) });
-      document.getElementById("asymsize").addEventListener("click", function (e) { if (e.target.tagName.toLowerCase() === "span") secureroom.config.key.size = UI.toggleSize(e.target) });
-
-      document.getElementById("message").addEventListener("keyup", function (e) { e.keyCode === 13 && document.getElementById('send').click() });
-      document.getElementById("send").addEventListener("click", function (e) { var d = document.getElementById("message"); if (d.value) secureroom.sendMessage(d.value); d.value = "" });
-
-      document.getElementById("serverurl").textContent = secureroom.config.server + secureroom.config.room;
-      document.getElementById("nickname").focus();
+      UI.init();
     });
 
     window.addEventListener("resize", function() {
@@ -129,7 +108,7 @@
       UI.toggleSettings()("close");
     });
   } else {
-    alert("Your browser does not have the necessary features to run this application. Please try the latest Firefox, Chrome or Internet Explorer.");
+    alert("Your browser does not have the necessary features to run this application. Please try using the latest version of Firefox, Chrome or Internet Explorer.");
   }
   </script>
 </body>
