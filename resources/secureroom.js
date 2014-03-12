@@ -25,7 +25,6 @@ function SecureRoom(onGenerateCallback, onConnectCallback, onDisconnectCallback,
   this.vault  = new Vault();
   this.config = {};
 
-  this.config.cipher = {"size": 128,  "type": "AES"};
   this.config.key    = {"size": 1024, "type": "RSA"};
 
   this.onConnect = onConnectCallback;
@@ -68,7 +67,7 @@ SecureRoom.prototype.connectToServer = function() {
 SecureRoom.prototype.sendMessage = function(text) {
   var message = new Message(text);
   message.sign(this.user);
-  message.encrypt(this.user, this.vault.findUsers("active"), primitives.random.generate(this.config.cipher.size));
+  message.encrypt(this.user, this.vault.findUsers("active"), primitives.random.generate(128));
 
   this.channel.sendMessage(message);
   this.onMessage(message);

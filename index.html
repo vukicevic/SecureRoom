@@ -45,15 +45,11 @@
 
   <ul id="settings">
     <li>
-      <h3>Symmetric Cipher (AES)</h3>
-      <div class="controls" id="symcsize">Size (bits): <span class="selected">128</span><span>192</span><span>256</span></div>
+      <h3>RSA Key Size</h3>
+      <div class="controls" id="asymsize">Bits: <span class="selected">1024</span><span>1536</span><span>2048</span><span>4096</span></div>
     </li>
     <li>
-      <h3>Asymmetric Key (RSA)</h3>
-      <div class="controls" id="asymsize">Size (bits): <span class="selected">1024</span><span>1536</span><span>2048</span><span>4096</span></div>
-    </li>
-    <li>
-      <h3>WebSocket Connection</h3>
+      <h3>WebSocket Server</h3>
       <div class="controls">URL: <span id="serverurl" contenteditable="true" onkeydown="if (event.keyCode === 13) event.preventDefault()" onkeyup="secureroom.config.server = this.textContent"></span></div>
     </li>
   </ul>
