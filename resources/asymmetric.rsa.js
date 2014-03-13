@@ -68,25 +68,19 @@ function Asymmetric(crunch, hash, random) {
 
   return {
     encrypt: function(key, data) {
-      var encoded = oaepEncode(data, key.size);
-      return crunch.exp(encoded, key.material.e, key.material.n);
+      return crunch.exp(oaepEncode(data, key.size), key.material.e, key.material.n);
     },
 
     decrypt: function(key, data) {
-      var decrypted = crunch.gar(data, key.material.p, key.material.q, key.material.d, key.material.u, key.material.dp, key.material.dq);
-      return oaepDecode(decrypted);
+      return oaepDecode(crunch.gar(data, key.material.p, key.material.q, key.material.d, key.material.u, key.material.dp, key.material.dq));
     },
 
     sign: function(key, data) {
-      var encoded = emsaEncode(key.size, data);
-      return crunch.gar(encoded, key.material.p, key.material.q, key.material.d, key.material.u, key.material.dp, key.material.dq);
+      return crunch.gar(emsaEncode(key.size, data), key.material.p, key.material.q, key.material.d, key.material.u, key.material.dp, key.material.dq);
     },
 
     verify: function(key, data, signature) {
-      var encoded = emsaEncode(key.size, data),
-          signature = crunch.exp(signature, key.material.e, key.material.n);
-
-      return (crunch.compare(encoded, signature) === 0);
+      return (crunch.compare(emsaEncode(key.size, data), crunch.exp(signature, key.material.e, key.material.n)) === 0);
     }
   }
 }

@@ -125,24 +125,20 @@ function ExportUtil() {
           var pair = item.split(": ");
           output.headers[pair[0]] = pair[1];
         });
-        temp[3] = Base64Util.decode(temp[3]);
 
         output.type     = temp[0];
         output.packets  = ArrayUtil.fromBase64(temp[2].split("\n").join(""));
-        output.checksum = temp[3][0]*65536 + temp[3][1]*256 + temp[3][2];
-        output.valid    = (ArmorUtil.crc(output.packets) == output.checksum);
+        output.checksum = ArrayUtil.toWord(ArrayUtil.fromBase64(temp[3]).unshift(0));
+        output.valid    = (this.crc(output.packets) == output.checksum);
       }
 
       return output;
     },
 
     dress: function(input) {
-      var output;
+      var output = "-----BEGIN PGP " + input.type + "-----\n";
 
-      input.checksum = ArmorUtil.crc(input.packets);
-      input.valid    = true;
-
-      output  = "-----BEGIN PGP " + input.type + "-----\n";
+      input.checksum = this.crc(input.packets);
 
       for (var header in input.headers) {
         output += header + ": " + input.headers[header] + "\n";

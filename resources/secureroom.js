@@ -25,7 +25,7 @@ function SecureRoom(onGenerateCallback, onConnectCallback, onDisconnectCallback,
   this.vault  = new Vault();
   this.config = {};
 
-  this.config.key    = {"size": 1024, "type": "RSA"};
+  this.config.key = {"size": 1024, "type": "RSA"};
 
   this.onConnect = onConnectCallback;
   this.onDisconnect = onDisconnectCallback;
@@ -45,7 +45,7 @@ function SecureRoom(onGenerateCallback, onConnectCallback, onDisconnectCallback,
   };
 
   this.onUser = function(data) {
-    user = new User(data);
+    var user = new User(data);
 
     if (!this.vault.hasUser(user.id) && user.verified) {
       this.vault.addUser(user);
@@ -67,7 +67,7 @@ SecureRoom.prototype.connectToServer = function() {
 SecureRoom.prototype.sendMessage = function(text) {
   var message = new Message(text);
   message.sign(this.user);
-  message.encrypt(this.user, this.vault.findUsers("active"), primitives.random.generate(128));
+  message.encrypt(this.vault.findUsers("active"), primitives.random.generate(128));
 
   this.channel.sendMessage(message);
   this.onMessage(message);
@@ -187,7 +187,7 @@ Message.prototype.sign = function(user) {
   this.verified  = true;
 }
 
-Message.prototype.encrypt = function (sender, recipients, sessionkey) {
+Message.prototype.encrypt = function (recipients, sessionkey) {
   if (recipients.length) {
     recipients.forEach(function(user) {
       this.encrypted.keys[user.ephemeral.id] = primitives.asymmetric.encrypt(user.ephemeral, sessionkey);
