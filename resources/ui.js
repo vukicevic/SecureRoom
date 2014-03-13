@@ -87,7 +87,7 @@ var UI = {
     };
   },
 
-  toggleKey: function (user, ctrl) {
+  toggleUser: function (user, ctrl) {
     return function () {
       if (user.status === "active") {
         ctrl.classList.add("inactive");
@@ -191,7 +191,7 @@ var UI = {
     elem.addEventListener("click", UI.toggleHeight(elem.querySelector(".info")));
   },
 
-  addKey: function (user) {
+  addUser: function (user) {
     if (!document.getElementById("alert-" + user.id)) {
       var container = document.getElementById("content"),
           build     = TemplateEngine("template-key-alert"),
@@ -204,12 +204,12 @@ var UI = {
 
       container.insertAdjacentHTML("beforeend", build(content));
 
-      UI.addKeyListeners(document.getElementById("alert-" + user.id), user);
+      UI.addUserListeners(document.getElementById("alert-" + user.id), user);
       window.scrollTo(0, document.body.offsetHeight);
     }
   },
 
-  addKeyListeners: function (elem, user) {
+  addUserListeners: function (elem, user) {
     var a = elem.getElementsByTagName("button").item(0),
         r = elem.getElementsByTagName("button").item(1),
         p = elem.querySelector(".join"),
@@ -286,7 +286,7 @@ var UI = {
     var b1 = elem.getElementsByTagName("span").item(0),
         b2 = elem.getElementsByTagName("span").item(1);
 
-    b1.addEventListener("click", UI.toggleKey(user, b1));
+    b1.addEventListener("click", UI.toggleUser(user, b1));
     b2.addEventListener("click", UI.toggleExport(elem.querySelector(".export"), b2));
   },
 
@@ -304,7 +304,7 @@ var UI = {
           UI.addWelcome("progress");
           UI.disableSettings("serverurl")
         });
-        UI.addMyKey();
+        UI.addMyUser();
         break;
       case "progress":
         container.insertAdjacentHTML("beforeend", "<div class='loading'></div>");
@@ -317,7 +317,7 @@ var UI = {
     }
   },
 
-  addMyKey: function () {
+  addMyUser: function () {
     document.getElementById("myname").textContent = PrintUtil.text(secureroom.user.name);
     document.getElementById("myinfo").insertAdjacentHTML("beforeend", UI.buildKeyInfo(secureroom.user));
 

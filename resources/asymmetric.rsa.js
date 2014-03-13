@@ -22,15 +22,12 @@ function Asymmetric(crunch, hash, random) {
     while(len--)
       pad[len] = 255;
 
-    return [1].concat(pad)
-      .concat([0])
-      .concat(hash.der)
-      .concat(data);
+    return [1].concat(pad).concat(0).concat(hash.der).concat(data);
   }
 
   //RSA-OAEP
   function oaepMgf(z, l) {
-    for (var t = [], c = [0,0,0,0], s = Math.ceil(l/20)-1, i = 0; i <= s; i++) {
+    for (var t = [], c = [0,0,0,0], s = Math.ceil(l/20) - 1, i = 0; i <= s; i++) {
       c[3] = i; //only implemented for l<5120 (i<256), key size can't be >5120
       t = t.concat(hash.digest(z.concat(c)));
     }
@@ -57,9 +54,9 @@ function Asymmetric(crunch, hash, random) {
   function oaepEncode(data, size) {
     if ((data.length*8) > (size-328)) return [];
 
-    var ln = ~~((size-8)/8),
+    var ln = Math.floor((size-8)/8),
         ps = crunch.zero(ln - data.length - 41),
-        db = [218, 57, 163, 238, 94, 107, 75, 13, 50, 85, 191, 239, 149, 96, 24, 144, 175, 216, 7, 9].concat(ps).concat([1]).concat(data),
+        db = [218, 57, 163, 238, 94, 107, 75, 13, 50, 85, 191, 239, 149, 96, 24, 144, 175, 216, 7, 9].concat(ps).concat(1).concat(data),
         sd = random.generate(hash.length * 8),
         dm = oaepMgf(sd, ln - 20),
         md = crunch.xor(db, dm),
@@ -105,8 +102,7 @@ function KeyGen(crunch, random) {
       callback();
     };
 
-    w[worker].postMessage({"func": "nextPrime",
-                           "args": [random.generate(size/2)]});
+    w[worker].postMessage({"func": "nextPrime", "args": [random.generate(size/2)]});
   }
 
   function process() {

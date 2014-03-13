@@ -294,7 +294,7 @@ Key.prototype = {
 }
 
 Key.prototype.makeBase = function() {
-  return [4].concat(ArrayUtil.fromWord(this.created)).concat(this.type).concat(ArrayUtil.makeMpi(this.material.n)).concat(ArrayUtil.makeMpi(this.material.e));
+  return [4].concat(ArrayUtil.fromWord(this.created)).concat(this.type).concat(ArrayUtil.toMpi(this.material.n)).concat(ArrayUtil.toMpi(this.material.e));
 }
 
 Key.prototype.makeSignatureBase = function() {
