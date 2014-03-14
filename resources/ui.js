@@ -43,11 +43,17 @@ var UI = {
     document.getElementById("settingsToggle").addEventListener("click", UI.toggleSettings());
 
     document.getElementById("asymsize").addEventListener("click", function (e) { if (e.target.tagName.toLowerCase() === "span") secureroom.config.key.size = UI.toggleSize(e.target) });
-
-    document.getElementById("message").addEventListener("keyup", function (e) { e.keyCode === 13 && document.getElementById("send").click() });
-    document.getElementById("send").addEventListener("click", function (e) { var d = document.getElementById("message"); if (d.value) secureroom.sendMessage(d.value); d.value = "" });
-
+    document.getElementById("serverurl").addEventListener("keydown", function (e) { e.which === 13 && e.preventDefault() });
+    document.getElementById("serverurl").addEventListener("blur", function () { secureroom.config.server = this.textContent });
     document.getElementById("serverurl").textContent = secureroom.config.server + secureroom.config.room;
+
+    document.getElementById("message").addEventListener("keyup", function (e) { e.which === 13 && document.getElementById("send").click() });
+    document.getElementById("send").addEventListener("click", function () { var d = document.getElementById("message"); if (d.value) secureroom.sendMessage(d.value); d.value = "" });
+    
+    document.getElementById("room").addEventListener("click", function () { window.prompt('Copy the URL of this SecureRoom: CTRL-C then Enter', window.location) });
+
+    document.getElementById("generate").addEventListener("click", function () { if (!this.disabled) { secureroom.generateUser(document.getElementById("nickname").value); UI.addWelcome("progress"); UI.disableSettings("asymsize") } });
+    document.getElementById("nickname").addEventListener("keyup", function (e) { var d = document.getElementById("generate"); d.disabled = this.value.length < 3; e.which === 13 && d.click() });
     document.getElementById("nickname").focus();
   },
 

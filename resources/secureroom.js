@@ -253,8 +253,8 @@ User.prototype.addKey = function(callback, material) {
 
 User.prototype.generateKeys = function(size, callback) {
   var cb = this.addKey.bind(this, callback);
-  KeyGen(primitives.crunch, primitives.random)(size, cb);
-  KeyGen(primitives.crunch, primitives.random)(size, cb);
+  primitives.asymmetric.generate(size, cb);
+  primitives.asymmetric.generate(size, cb);
 }
 
 function Key(material, created, name) {

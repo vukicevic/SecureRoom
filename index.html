@@ -40,23 +40,23 @@
       <rect y="13" width="16" height="3"></rect>
     </svg>
     </span>
-    <span id="room" onclick="window.prompt('Copy the URL of this SecureRoom: CTRL-C then Enter', window.location);">Room: -</span>
+    <span id="room">Room: -</span>
   </div>
 
   <ul id="settings">
     <li>
       <h3>RSA Key Size</h3>
-      <div class="controls" id="asymsize">Bits: <span class="selected">1024</span><span>1536</span><span>2048</span><span>4096</span></div>
+      <div class="controls" id="asymsize"><span class="selected">1024</span><span>1536</span><span>2048</span><span>4096</span></div>
     </li>
     <li>
       <h3>WebSocket Server</h3>
-      <div class="controls">URL: <span id="serverurl" contenteditable="true" onkeydown="if (event.keyCode === 13) event.preventDefault()" onkeyup="secureroom.config.server = this.textContent"></span></div>
+      <div class="controls"><span id="serverurl" contenteditable="true"></span></div>
     </li>
   </ul>
 
   <ul id="content">
     <li class="alert" id="welcome">
-      <input type="text" id="nickname" autocomplete="off" placeholder="Enter a name..." onkeyup="this.nextSibling.disabled = (this.value.length<3);" onkeypress="(event.keyCode===13) && this.nextSibling.onclick();"><button id="generate" onclick="if (!this.disabled) { secureroom.generateUser(this.previousSibling.value); UI.addWelcome('progress'); UI.disableSettings('asymsize'); }" disabled>Generate</button>
+      <input type="text" id="nickname" autocomplete="off" placeholder="Enter a name..."><button id="generate" disabled="disabled">Generate</button>
     </li>
   </ul>
 

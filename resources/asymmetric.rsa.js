@@ -66,6 +66,84 @@ function Asymmetric(crunch, hash, random) {
     return ms.concat(md);
   }
 
+  function keyGen(crunch, random) {
+    var w = {}, timer, size, callback;
+
+    function createWorker (worker, callback) {
+      w[worker] = new Worker("resources/external/crunch.js");
+
+      w[worker].onmessage = function (e) {
+        this.data = e.data;
+        callback();
+      };
+
+      w[worker].postMessage({"func": "nextPrime", "args": [random.generate(size/2)]});
+    }
+
+    function process() {
+      if (w.p.data && w.q.data) {
+        timer = null;
+        var mpi = {},
+            exp = [[17], [19], [41], [1,1], [1,0,1]].sort(function(){ return 0.5 - Math.random() });
+
+        if (crunch.compare(w.p.data, w.q.data) <= 0) {
+          mpi.p = w.p.data.slice();
+          mpi.q = w.q.data.slice();
+        } else {
+          mpi.p = w.q.data.slice();
+          mpi.q = w.p.data.slice();
+        }
+
+        mpi.n = crunch.cut(crunch.mul(mpi.p, mpi.q));
+        mpi.f = crunch.mul(crunch.decrement(mpi.p), crunch.decrement(mpi.q));
+
+        do {
+          mpi.e = exp.pop();
+          mpi.d = crunch.inv(mpi.e, mpi.f);
+        } while (mpi.d.length === 0 && exp.length);
+
+        if (mpi.d.length > 0) {
+          mpi.u  = crunch.cut(crunch.inv(mpi.p, mpi.q));
+          mpi.dp = crunch.mod(mpi.d, crunch.decrement(mpi.p));
+          mpi.dq = crunch.mod(mpi.d, crunch.decrement(mpi.q));
+
+          callback(mpi);
+        } else {
+          createWorker('p', process);
+          createWorker('q', process);
+        }
+      }
+    }
+
+    function timeout() {
+      return window.setTimeout(function() {
+        if (!w.p.data) {
+          w.p.terminate();
+          createWorker('p', process);
+        }
+
+        if (!w.q.data) {
+          w.q.terminate();
+          createWorker('q', process);
+        }
+
+        if (!w.q.data || !w.p.data)
+          timer = timeout();
+
+      }, Math.floor((size*size)/100), w);
+    }
+
+    return function(s, c) {
+      size = s;
+      callback = c;
+
+      createWorker('p', process);
+      createWorker('q', process);
+
+      timer = timeout();
+    };
+  }
+
   return {
     encrypt: function(key, data) {
       return crunch.exp(oaepEncode(data, key.size), key.material.e, key.material.n);
@@ -81,85 +159,10 @@ function Asymmetric(crunch, hash, random) {
 
     verify: function(key, data, signature) {
       return (crunch.compare(emsaEncode(key.size, data), crunch.exp(signature, key.material.e, key.material.n)) === 0);
+    },
+
+    generate: function(size, callback) {
+      keyGen(crunch, random)(size, callback);
     }
   }
-}
-
-function KeyGen(crunch, random) {
-  var w = {}, time, timer, size, callback;
-
-  function createWorker (worker, callback) {
-    w[worker] = new Worker("resources/external/crunch.js");
-
-    w[worker].onmessage = function (e) {
-      this.data = e.data;
-      callback();
-    };
-
-    w[worker].postMessage({"func": "nextPrime", "args": [random.generate(size/2)]});
-  }
-
-  function process() {
-    if (w.p.data && w.q.data) {
-      timer = null;
-      var mpi = {},
-          exp = [[17], [19], [41], [1,1], [1,0,1]].sort(function(){ return 0.5 - Math.random() });
-
-      if (crunch.compare(w.p.data, w.q.data) <= 0) {
-        mpi.p = w.p.data.slice();
-        mpi.q = w.q.data.slice();
-      } else {
-        mpi.p = w.q.data.slice();
-        mpi.q = w.p.data.slice();
-      }
-
-      mpi.n = crunch.cut(crunch.mul(mpi.p, mpi.q));
-      mpi.f = crunch.mul(crunch.decrement(mpi.p), crunch.decrement(mpi.q));
-
-      do {
-        mpi.e = exp.pop();
-        mpi.d = crunch.inv(mpi.e, mpi.f);
-      } while (mpi.d.length === 0 && exp.length);
-
-      if (mpi.d.length > 0) {
-        mpi.u  = crunch.cut(crunch.inv(mpi.p, mpi.q));
-        mpi.dp = crunch.mod(mpi.d, crunch.decrement(mpi.p));
-        mpi.dq = crunch.mod(mpi.d, crunch.decrement(mpi.q));
-
-        callback(mpi, Date.now() - time);
-      } else {
-        createWorker('p', process);
-        createWorker('q', process);
-      }
-    }
-  }
-
-  function timeout() {
-    return window.setTimeout(function() {
-      if (!w.p.data) {
-        w.p.terminate();
-        createWorker('p', process);
-      }
-
-      if (!w.q.data) {
-        w.q.terminate();
-        createWorker('q', process);
-      }
-
-      if (!w.q.data || !w.p.data)
-        timer = timeout();
-
-    }, Math.floor((size*size)/100), w);
-  }
-
-  return function(s, c) {
-    size = s;
-    callback = c;
-    time = Date.now();
-
-    createWorker('p', process);
-    createWorker('q', process);
-
-    timer = timeout();
-  };
 }

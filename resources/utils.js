@@ -37,17 +37,17 @@ var PrintUtil = {
   },
 
   id: function(id) {
-    return id.match(/.{2}/g).map(function(v){return v;}).join(":").toUpperCase();
+    return id.match(/.{2}/g).map(function(v) { return v }).join(":").toUpperCase();
   }
 };
 
 var ArrayUtil = {
   toString: function(a) {
-    return decodeURIComponent(a.map(function(v){ return "%"+v.toString(16) }).join(""));
+    return decodeURIComponent(a.map(function(v) { return "%"+v.toString(16) }).join(""));
   },
 
   fromString: function(s) {
-    return encodeURIComponent(s.split("").map(function(v) { return (v.charCodeAt(0) < 128) ? "%" + v.charCodeAt(0).toString(16) : v }).join("")).replace(/%25/g, "%")
+    return encodeURIComponent(s.split("").map(function(v) { return (v.charCodeAt() < 128) ? "%" + v.charCodeAt().toString(16) : v }).join("")).replace(/%25/g, "%")
             .slice(1).split("%").map(function(v) { return parseInt(v, 16) });
   },
 
@@ -84,11 +84,11 @@ var ArrayUtil = {
   },
 
   fromBase64: function(s) {
-    return atob(s).split("").map(function(c) { return c.charCodeAt(0) });
+    return Array.prototype.map.call(atob(s), function(c) { return c.charCodeAt() });
   },
 
   toBase64: function(a) {
-    return btoa(a.map(function(c) { return String.fromCharCode(c) }).join(""));
+    return btoa(String.fromCharCode.apply(null, a));
   }
 };
 
