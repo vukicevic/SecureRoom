@@ -25,8 +25,6 @@ function SecureRoom(onGenerateCallback, onConnectCallback, onDisconnectCallback,
   this.vault  = new Vault();
   this.config = {};
 
-  this.config.key = {"size": 1024, "type": "RSA"};
-
   this.onConnect = onConnectCallback;
   this.onDisconnect = onDisconnectCallback;
   this.onGenerate = onGenerateCallback;
@@ -54,10 +52,10 @@ function SecureRoom(onGenerateCallback, onConnectCallback, onDisconnectCallback,
   };
 }
 
-SecureRoom.prototype.generateUser = function(name) {
+SecureRoom.prototype.generateUser = function(name, size) {
   this.user = new User(name);
   this.user.status = "active";
-  this.user.generateKeys(this.config.key.size, this.onGenerate.bind(this));
+  this.user.generateKeys(size, this.onGenerate.bind(this));
 }
 
 SecureRoom.prototype.connectToServer = function() {

@@ -40,19 +40,14 @@ var UI = {
     UI.toggleRoom();
 
     document.getElementById("keychainToggle").addEventListener("click", UI.toggleKeychain());
-    document.getElementById("settingsToggle").addEventListener("click", UI.toggleSettings());
-
-    document.getElementById("asymsize").addEventListener("click", function (e) { if (e.target.tagName.toLowerCase() === "span") secureroom.config.key.size = UI.toggleSize(e.target) });
-    document.getElementById("serverurl").addEventListener("keydown", function (e) { e.which === 13 && e.preventDefault() });
-    document.getElementById("serverurl").addEventListener("blur", function () { secureroom.config.server = this.textContent });
-    document.getElementById("serverurl").textContent = secureroom.config.server + secureroom.config.room;
+    document.getElementById("sidebarToggle").addEventListener("click", UI.toggleSidebar());
 
     document.getElementById("message").addEventListener("keyup", function (e) { e.which === 13 && document.getElementById("send").click() });
     document.getElementById("send").addEventListener("click", function () { var d = document.getElementById("message"); if (d.value) secureroom.sendMessage(d.value); d.value = "" });
     
     document.getElementById("room").addEventListener("click", function () { window.prompt('Copy the URL of this SecureRoom: CTRL-C then Enter', window.location) });
 
-    document.getElementById("generate").addEventListener("click", function () { if (!this.disabled) { secureroom.generateUser(document.getElementById("nickname").value); UI.addWelcome("progress"); UI.disableSettings("asymsize") } });
+    document.getElementById("generate").addEventListener("click", function () { if (!this.disabled) { secureroom.generateUser(document.getElementById("nickname").value, document.getElementById("keysize").value); UI.addWelcome("progress") } });
     document.getElementById("nickname").addEventListener("keyup", function (e) { var d = document.getElementById("generate"); d.disabled = this.value.length < 3; e.which === 13 && d.click() });
     document.getElementById("nickname").focus();
   },
@@ -76,20 +71,13 @@ var UI = {
     };
   },
 
-  toggleSettings: function() {
-    var ctrl = document.getElementById("settingsToggle"),
-        elem = document.getElementById("settings");
+  toggleSidebar: function() {
+    var ctrl = document.getElementById("sidebarToggle"),
+        elem = document.getElementById("sidebar");
 
-    return function (close) {
-      if (ctrl.classList.contains("open") || close === "close") {
-        ctrl.classList.remove("open");
-        elem.style.marginTop = "-" + (elem.clientHeight - ctrl.clientHeight) + "px";
-        window.scrollTo(0, document.body.offsetHeight);
-      } else {
-        ctrl.classList.add("open");
-        elem.style.marginTop = ctrl.clientHeight + "px";
-        window.scrollTo(0, 0);
-      }
+    return function () {
+      ctrl.classList.toggle("open");
+      elem.classList.toggle("open");
     };
   },
 
@@ -122,12 +110,6 @@ var UI = {
     };
   },
 
-  toggleSize: function (elem) {
-    elem.parentNode.querySelector(".selected").classList.remove("selected");
-    elem.classList.add("selected");
-    return parseInt(elem.textContent);
-  },
-
   toggleInput: function (close) {
     document.getElementById("input").style.bottom = (close) ? "-2.3125em" : "0em";
   },
@@ -157,20 +139,6 @@ var UI = {
     return function () {
       elem.style.height = "0px";
       while (elem.firstChild) elem.removeChild(elem.firstChild);
-    }
-  },
-
-  disableSettings: function (setting) {
-    var parent = document.getElementById(setting), node;
-
-    switch (setting) {
-      case "asymsize":
-        while ((node = parent.querySelector("span:not(.selected)"))) parent.removeChild(node);
-        break;
-      case "serverurl":
-        parent.classList.add("selected");
-        parent.contentEditable = false;
-        break;
     }
   },
 
@@ -308,7 +276,6 @@ var UI = {
         container.querySelector("button").addEventListener("click", function () {
           secureroom.connectToServer();
           UI.addWelcome("progress");
-          UI.disableSettings("serverurl")
         });
         UI.addMyUser();
         break;

@@ -33,30 +33,27 @@
 </head>
 <body>
   <div id="menu">
-    <span class="closed open" id="settingsToggle">
-    <svg height="19" width="16" xmlns="http://www.w3.org/2000/svg" version="1.1">
-      <rect y="3" width="16" height="3"></rect>
-      <rect y="8" width="16" height="3"></rect>
-      <rect y="13" width="16" height="3"></rect>
-    </svg>
+    <span class="closed" id="sidebarToggle">
+      <svg height="19" width="16" xmlns="http://www.w3.org/2000/svg" version="1.1">
+        <rect y="3" width="16" height="3"></rect>
+        <rect y="8" width="16" height="3"></rect>
+        <rect y="13" width="16" height="3"></rect>
+      </svg>
     </span>
     <span id="room">Room: -</span>
   </div>
 
-  <ul id="settings">
-    <li>
-      <h3>RSA Key Size</h3>
-      <div class="controls" id="asymsize"><span class="selected">1024</span><span>1536</span><span>2048</span><span>4096</span></div>
-    </li>
-    <li>
-      <h3>WebSocket Server</h3>
-      <div class="controls"><span id="serverurl" contenteditable="true"></span></div>
-    </li>
-  </ul>
+  <aside id="sidebar">
+    <ul>
+      <li class="section">Settings</li>
+      <li>Change Server URL</li>
+      <li class="section">Keychain</li>
+    </ul>
+  </aside>
 
   <ul id="content">
     <li class="alert" id="welcome">
-      <input type="text" id="nickname" autocomplete="off" placeholder="Enter a name..."><button id="generate" disabled="disabled">Generate</button>
+      <input type="text" id="nickname" placeholder="Choose a name and key size" autocomplete="off"><select id="keysize" autocomplete="off" class="border-left"><option>1024</option><option>2048</option><option>4096</option></select><button id="generate" class="border-left">Generate</button>
     </li>
   </ul>
 
@@ -68,7 +65,7 @@
         <rect y="15" width="4" height="3"></rect>
       </svg>
     </div>
-    <button id="send">Send</button>
+    <button id="send" class="border-left">Send</button>
     <span><input type="text" id="message" autocomplete="off"></span>
   </div>
 
@@ -89,7 +86,7 @@
     window.addEventListener("load", function() {
       primitives = new Primitives(),
       secureroom = new SecureRoom(
-        function() { UI.createRoom(); UI.addWelcome("distribute"); UI.toggleSettings()("close"); UI.toggleKeychain()("close"); UI.toggleRoom() },
+        function() { UI.createRoom(); UI.addWelcome("distribute"); UI.toggleKeychain()("close"); UI.toggleRoom() },
         function() { UI.addWelcome("connect"); UI.toggleInput(false) },
         function() { UI.addWelcome("disconnect"); UI.toggleInput(true) },
         UI.addMessage,
@@ -101,7 +98,6 @@
 
     window.addEventListener("resize", function() {
       UI.toggleKeychain()("close");
-      UI.toggleSettings()("close");
     });
   } else {
     alert("Your browser does not have the necessary features to run this application. Please try using the latest version of Firefox, Chrome or Internet Explorer.");
