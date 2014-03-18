@@ -28,7 +28,7 @@
     <p><b>{{sid}}</b><br><small>{{ssize}} BITS | {{sdate}}</small></p>
   </script>
   <script type="text/html" id="template-key-chain">
-    <li id="key-{{id}}"><div class="export hidden"><textarea wrap="off">{{data}}</textarea></div><h3>{{name}}</h3><div class="controls"><span>ACTIVE</span><span>PUBLIC KEY</span></div><div class="info">{{info}}</div></li>
+    <li id="key-{{id}}"><div class="export hidden"><textarea wrap="off">{{data}}</textarea></div><div class="controls"><span>ACTIVE</span><span>PUBLIC KEY</span></div><div class="info"><h3>{{name}}</h3>{{info}}</div></li>
   </script>
 </head>
 <body>
@@ -51,9 +51,8 @@
       <dd id="mykey">
         <div class="export hidden"><textarea wrap="off"></textarea></div>
         <div class="export hidden"><textarea wrap="off"></textarea></div>
-        <h3 id="myname"></h3>
         <div id="mycontrols" class="controls"><span>PRIVATE KEY</span><span>PUBLIC KEY</span></div>
-        <div id="myinfo" class="info"></div>
+        <div id="myinfo" class="info"><h3 id="myname"></h3></div>
       </dd>
       <dt class="section">Keychain</li>
       <dd>
