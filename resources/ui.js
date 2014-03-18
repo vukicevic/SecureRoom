@@ -39,7 +39,6 @@ var UI = {
 
     UI.toggleRoom();
 
-    document.getElementById("keychainToggle").addEventListener("click", UI.toggleKeychain());
     document.getElementById("sidebarToggle").addEventListener("click", UI.toggleSidebar());
 
     document.getElementById("message").addEventListener("keyup", function (e) { e.which === 13 && document.getElementById("send").click() });
@@ -50,25 +49,6 @@ var UI = {
     document.getElementById("generate").addEventListener("click", function () { if (!this.disabled) { secureroom.generateUser(document.getElementById("nickname").value, document.getElementById("keysize").value); UI.addWelcome("progress") } });
     document.getElementById("nickname").addEventListener("keyup", function (e) { var d = document.getElementById("generate"); d.disabled = this.value.length < 3; e.which === 13 && d.click() });
     document.getElementById("nickname").focus();
-  },
-
-  toggleKeychain: function() {
-    var ctrl = document.getElementById("keychainToggle"),
-        elem = document.getElementById("keychain");
-
-    return function (close) {
-      if (ctrl.classList.contains("open") || close === "close") {
-        ctrl.classList.remove("open");
-        elem.style.bottom = "-" + (elem.clientHeight + 5) + "px";
-
-        var node;
-        while ((node = elem.querySelector(".export:not(.hidden)"))) node.classList.add("hidden");
-        while ((node = elem.querySelector(".selected"))) node.classList.remove("selected");
-      } else {
-        ctrl.classList.add("open");
-        elem.style.bottom = (ctrl.clientHeight - 5) + "px";
-      }
-    };
   },
 
   toggleSidebar: function() {
@@ -252,8 +232,6 @@ var UI = {
 
     container.insertAdjacentHTML("beforeend", build(content));
     UI.addKeychainListeners(container.lastChild, user);
-
-    UI.toggleKeychain()("close");
   },
 
   addKeychainListeners: function (elem, user) {

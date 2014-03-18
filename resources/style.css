@@ -4,7 +4,7 @@
 }
 
 body {
-  font-family: Lucida Sans Unicode, Lucida Grande, sans-serif;
+  font-family: Arial, sans-serif;
   font-size: 16px;
   line-height: 1.1875em;
   width: 100%;
@@ -47,12 +47,12 @@ body {
   left: 0;
 }
 
-#sidebar>ul>li {
+#sidebar dt, dd {
   margin-top: 0.25em;
   padding: 0.5em;
 }
 
-#sidebar>ul>li.section {
+#sidebar dt {
   font-weight: bold;
   text-transform: uppercase;
   border-bottom: 1px solid black;
@@ -118,7 +118,7 @@ body {
 #content .alert {
   background-color: black;
   color: white;
-  margin: 0.5em 0;
+  margin: 0.3125em 0;
   overflow: hidden;
 }
 
@@ -192,7 +192,7 @@ input, select, button {
   -moz-box-sizing: inherit;
   border: none;
   background-color: white;
-  font-size: 1.125em;
+  font-size: 1.12em;
 }
 
 button:active {
@@ -203,35 +203,20 @@ button:active {
   position: fixed;
   bottom: -2.3125em;
   width: 100%;
-  padding: 0 0.3125em;
+  padding: 0.3125em;
   background-color: black;
   color: white;
-  list-style-type: none;
-  z-index: 1000;
+  z-index: 100;
   transition: bottom 400ms ease;
 }
 
-#input span {
-  display: block;
-  overflow: hidden;
-}
-
 #send {
-  float: right;
   transition: all 50ms ease;
-  margin-top: 0.25em;
+  width: 10%;
 }
 
 #message {
-  width: 100%;
-  margin-top: 0.25em;
-}
-
-#keychainToggle {
-  float: right;
-  margin-left: 0.3125em;
-  padding: 0.6125em 1em;
-  cursor: pointer;
+  width: 80%;
 }
 
 .closed {
@@ -242,63 +227,6 @@ button:active {
 .open {
   background-color: white;
   fill: black;
-}
-
-#keychain {
-  position: fixed;
-  background-color: white;
-  bottom: -7em;
-  border-top: 1px solid #000;
-  list-style-type: none;
-  width: 100%;
-  z-index: 500;
-  transition: bottom 400ms ease;
-}
-
-#keychain li {
-  display: block;
-  float: left;
-  width: 15em;
-  padding: 0.5em 1em;
-  border-right: 1px dotted #222;
-  border-bottom: 1px dotted #222;
-}
-
-#keychain .export {
-  background-color: white;
-  border: 0.0625em dotted black;
-  border-bottom: none;
-  position: absolute;
-  width: 15em;
-  height: 17em;
-  padding: 1em;
-  padding-bottom: 0.6875em;
-}
-
-#keychain .export>textarea {
-  font-size: 0.6875em;
-  margin: 0;
-  width: 100%;
-  height: 100%;
-  resize: none;
-  white-space: nowrap;
-  overflow: auto;
-}
-
-@media (max-width: 600px) {
-  #keychain li {
-    width: 100%;
-    border-right: none;
-    -moz-box-sizing: border-box;
-    box-sizing: border-box;
-  }
-  #keychain .export {
-    width: 100%;
-    border-right: none;
-    border-left: none;
-    -moz-box-sizing: border-box;
-    box-sizing: border-box;
-  }
 }
 
 #keychain p {
