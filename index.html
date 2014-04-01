@@ -78,7 +78,7 @@
   }
   dt {
     float: left;
-    width: 120px;
+    width: 180px;
     overflow: hidden;
     clear: left;
     text-overflow: ellipsis;
@@ -87,7 +87,7 @@
   }
 
   dd {
-    margin-left: 140px;
+    margin-left: 200px;
   }
   </style>
   <script src="resources/random.default.js"></script>
@@ -107,17 +107,27 @@
 
 <section>
   <h2>Primitives</h2>
-  <p>SecureRoom is built from the following components:</p>
+  <p>SecureRoom is built using these cryptographic primitives:</p>
   <dl>
-    <dt>RNG</dt>
+    <dt><abbr title="Random Number Generator">RNG</abbr></dt>
     <dd>window.crypto API</dd>
-    <dt>Hash</dt>
-    <dd>SHA-1</dd>
-    <dt>Symmetric</dt>
-    <dd>AES [CFB]</dd>
-    <dt>Asymmetric</dt>
-    <dd>RSA [OAEP]</dd>
+    <dt>Hash Function</dt>
+    <dd><abbr title="Secure Hash Algorithm">SHA</abbr>-1</dd>
+    <dt>Symmetric Algo</dt>
+    <dd><abbr title="Advanced Encryption Standard">AES</abbr> [<abbr title="Cipher Feedback Mode">CFB</abbr>]</dd>
+    <dt>Asymmetric Algo</dt>
+    <dd>RSA [<abbr title="Optimal Asymmetric Encryption Padding">OAEP</abbr>]</abbr></dd>
   </dl>
+</section>
+
+<section>
+  <h2>How it Works</h2>
+  <p><strong>Key Exchange Workflows</strong></p>
+  <p style="margin: 0"><small>Generate Key-pair &rarr; Join a Room &rarr; Send Public-Key</small></p>
+  <p style="text-align: right; margin: 0"><small>Send Public-Key &larr; Add to Keychain &larr; Accept &larr; Receive Public-Key</small></p>
+  <p><strong>Messaging Workflows</strong></p>
+  <p style="margin: 0"><small>Write &rarr; Sign &rarr; Symmetric Encrypt &rarr; Asymmetric Encrypt &rarr; Send</small></p>
+  <p style="text-align: right; margin: 0"><small>Verify &larr; Symmetric Decrypt &larr; Asymmetric Decrypt &larr; Receive</small></p>
 </section>
 
 <section>
