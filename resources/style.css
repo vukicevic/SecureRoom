@@ -9,42 +9,28 @@ body {
   line-height: 1.1875em;
   width: 100%;
   height: 100%;
-  margin-top: 3em;
-}
-
-#menu {
-  width: 100%;
-  background-color: black;
-  color: white;
-  position: fixed;
-  top: 0;
-  list-style-type: none;
-  text-transform: uppercase;
-}
-
-#menu span {
-  float: left;
-  display: block;
-  padding: 0.625em 1em;
-  margin: 0;
-  cursor: pointer;
+  background-color: #222;
+  transition: background-color 0.5s;
 }
 
 #sidebar {
-  position: fixed;
-  left: -80%;
-  top: 2.7em;
+  position: absolute;
+  bottom: 3em;
+  left: -20em;
   height: 100%;
-  width: 80%;
-  max-width: 20em;
-  border-right: 1px solid black;
+  width: 20em;
+  border-right: 1px solid #222;
   background-color: white;
-  z-index: 2000;
-  transition: left 300ms ease;
+  z-index: 99;
+  transition: all 500ms ease;
 }
 
 #sidebar.open {
   left: 0;
+}
+
+#sidebar dl {
+  margin-top: 3em;
 }
 
 #sidebar dd {
@@ -54,21 +40,9 @@ body {
 #sidebar dt {
   font-weight: normal;
   text-transform: uppercase;
-  border-bottom: 1px dotted black;
+  border-bottom: 1px dotted #222;
   padding: 0.3125em 0.5em;
   margin: 1em 0;
-}
-
-#sidebar div.param {
-  width: 90%;
-}
-
-#sidebar div.param:after {
-  content: "\270E";
-}
-
-#room {
-  float: right !important;
 }
 
 #content {
@@ -84,16 +58,16 @@ body {
   margin-right: 6em;
 }
 
-#content .cln:after {
+#content.cln:after {
   content: ": ";
 }
 
-#content .message {
+#content.message {
   padding: 0.375em 1em 0;
   margin-bottom: 0.0625em;
 }
 
-#content .time {
+#content.time {
   float: right;
   font-size: 0.5em;
   line-height: 1em;
@@ -122,8 +96,8 @@ body {
   margin: 0.3125em 0;
 }
 
-#content .alert {
-  background-color: black;
+#content.alert {
+  background-color: #222;
   color: white;
   margin: 0.3125em 0;
   overflow: hidden;
@@ -142,7 +116,20 @@ body {
 }
 
 #welcome {
-  transition: height 300ms ease;
+  overflow: hidden; 
+  padding-left: 2em;
+  padding-top: 4em;
+  color: white;
+  font-size: 1.5em;
+}
+
+#welcome>h3 {
+  margin: 1.5em 0 1em;
+  font-weight: normal;
+}
+
+#welcome p {
+  margin-bottom: 1em;
 }
 
 .warning {
@@ -153,8 +140,7 @@ body {
   position: relative;
   background-color: white;
   width: 100%;
-  height: 1em;
-  margin: 0.3125em 0;
+  height: 2em;
   -webkit-animation: load 1s linear infinite;
   animation: load 1s linear infinite;
 }
@@ -188,7 +174,7 @@ body {
 }
 
 .border-left {
-  border-left: 1px dotted black;
+  border-left: 1px dotted #222;
 }
 
 input, select, button {
@@ -208,38 +194,47 @@ button:active {
 
 #input {
   position: fixed;
-  bottom: -2.3125em;
+  bottom: 0;
   width: 100%;
-  padding: 0.3125em;
-  background-color: black;
+  background-color: #222;
   color: white;
   z-index: 100;
   transition: bottom 400ms ease;
+  display: flex;
+  flex-direction: row;
 }
 
-#send {
-  transition: all 50ms ease;
-  width: 10%;
+#sidebarToggle {
+  padding: 0.75em;
 }
 
 #message {
-  width: 80%;
+  flex: auto;
+  margin-top: 0.5em;
+  margin-left: 0.5em;
+}
+
+#send {
+  width: 5em;
+  margin-top: 0.5em;
+  margin-right: 0.5em;
+  transition: all 50ms;
 }
 
 .closed {
-  background-color: black;
+  background-color: #222;
   fill: white;
 }
 
 .open {
   background-color: white;
-  fill: black;
+  fill: #222;
 }
 
 div.controls>span {
   background-color: white;
-  color: black;
-  border: 1px solid black;
+  color: #222;
+  border: 1px solid #222;
   border-left: none;
   padding: 0.125em 0.5em;
   margin: 0;
@@ -247,15 +242,15 @@ div.controls>span {
   user-select: none;
 }
 div.controls>span:first-child {
-  border-left: 1px solid black;
+  border-left: 1px solid #222;
 }
 div.controls>span.selected {
-  background-color: black;
+  background-color: #222;
   color: white;
 }
 div.controls>span.inactive {
   color: gray;
-  border-color: black;
+  border-color: #222;
 }
 div.controls>span.disabled {
   background-color: lightgray;

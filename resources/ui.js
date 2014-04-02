@@ -46,7 +46,7 @@ var UI = {
     
     document.getElementById("room").addEventListener("click", function () { window.prompt('Copy the URL of this SecureRoom: CTRL-C then Enter', window.location) });
 
-    document.getElementById("generate").addEventListener("click", function () { if (!this.disabled) { secureroom.generateUser(document.getElementById("nickname").value, document.getElementById("keysize").value); UI.addWelcome("progress") } });
+    document.getElementById("generate").addEventListener("click", function () { if (!this.disabled) { secureroom.generateUser(document.getElementById("nickname").value, document.getElementById("keysize").value); UI.addWelcome("progress")() } });
     document.getElementById("nickname").addEventListener("keyup", function (e) { var d = document.getElementById("generate"); d.disabled = this.value.length < 3; e.which === 13 && d.click() });
     document.getElementById("nickname").focus();
   },
@@ -88,10 +88,6 @@ var UI = {
       elem.style.left = (elem.parentNode.getBoundingClientRect().left - 1) + "px";
       elem.style.top  = "-" + (elem.offsetHeight - (elem.parentNode.getBoundingClientRect().top - elem.parentNode.parentNode.getBoundingClientRect().top)) + "px";
     };
-  },
-
-  toggleInput: function (close) {
-    document.getElementById("input").style.bottom = (close) ? "-2.3125em" : "0em";
   },
 
   toggleRoom: function () {
@@ -245,26 +241,31 @@ var UI = {
   addWelcome: function (type) {
     var container = document.getElementById("welcome");
 
-    while (container.firstChild)
-      container.removeChild(container.firstChild);
+    return function() {
+      while (container.firstChild)
+        container.removeChild(container.firstChild);
 
-    switch (type) {
-      case "distribute":
-        container.insertAdjacentHTML("beforeend", "<p>Your keys have been generated.</p><div class='info'>" + UI.buildKeyInfo(secureroom.user) + "</div><button>Connect &amp; Distribute</button>");
-        container.querySelector("button").addEventListener("click", function () {
-          secureroom.connectToServer();
-          UI.addWelcome("progress");
-        });
-        UI.addMyUser();
-        break;
-      case "progress":
-        container.insertAdjacentHTML("beforeend", "<div class='loading'></div>");
-        break;
-      case "connect":
-        secureroom.channel.sendUser(secureroom.user);
-      case "disconnect":
-        container.insertAdjacentHTML("beforeend", "<div class='time'>" + PrintUtil.time(Math.round(Date.now()/1000)) + "</div><p>" + type.charAt(0).toUpperCase() + type.slice(1) + "ed.</p>");
-        break;
+      switch (type) {
+        case "distribute":
+          UI.createRoom();
+          container.insertAdjacentHTML("beforeend", "<h1>Success!</h1><h3><em>Keys generated.</em></h3><div class='info'>" + UI.buildKeyInfo(secureroom.user) + "</div><button>Connect &amp; Distribute</button>");
+          container.querySelector("button").addEventListener("click", function () {
+            secureroom.connectToServer();
+            UI.addWelcome("progress")();
+          });
+          UI.addMyUser();
+          UI.toggleRoom();
+          break;
+        case "progress":
+          container.insertAdjacentHTML("beforeend", "<div class='loading'></div>");
+          break;
+        case "connect":
+          container.parentNode.style.backgroundColor = "white";
+          secureroom.channel.sendUser(secureroom.user);
+        case "disconnect":
+          container.insertAdjacentHTML("beforeend", "<div class='time'>" + PrintUtil.time(Math.round(Date.now()/1000)) + "</div><p>" + type.charAt(0).toUpperCase() + type.slice(1) + "ed.</p>");
+          break;
+      }
     }
   },
 

@@ -32,48 +32,58 @@
   </script>
 </head>
 <body>
-  <div id="menu">
-    <span class="closed" id="sidebarToggle">
-      <svg height="19" width="16" xmlns="http://www.w3.org/2000/svg" version="1.1">
-        <rect y="3" width="16" height="3"></rect>
-        <rect y="8" width="16" height="3"></rect>
-        <rect y="13" width="16" height="3"></rect>
-      </svg>
-    </span>
-    <span id="room">Room: -</span>
-  </div>
 
   <aside id="sidebar">
     <dl>
       <dt>Settings</dt>
       <dd>
-        <div class="param">
-          <p>Server</p>
-          <p><small>wss://princip.secureroom.net</small></p>
-        </div>
+        <p>Server<br><small>wss://princip.secureroom.net</small></p>
       </dd>
-      <dt>User</dd>
+      <dd>
+        <p id="room">Room: -</p>
+      </dd>
+      <dt>User</dt>
       <dd id="mykey">
         <div class="export hidden"><textarea wrap="off"></textarea></div>
         <div class="export hidden"><textarea wrap="off"></textarea></div>
         <div id="mycontrols" class="controls"><span>PRIVATE KEY</span><span>PUBLIC KEY</span></div>
         <div id="myinfo" class="info"><h3 id="myname"></h3></div>
       </dd>
-      <dt>Keychain</li>
+      <dt>Keychain</dt>
       <dd>
         <ul id="keychain"></ul>
       </dd>
     </dl>
   </aside>
 
+  <div id="welcome">
+    <h1>Welcome,</h1>
+    <h3><em>Generate keys to get started</em></h3>
+    
+    <input type="text" id="nickname" placeholder="Choose a name" autocomplete="off">
+    <br>
+    <select id="keysize" autocomplete="off">
+      <option>1024</option>
+      <option>2048</option>
+      <option>4096</option>
+    </select>
+    <label for="keysize">&larr; <small>Choose a keysize</small></label>
+    <br>
+    <button id="generate">Generate</button>
+  </div>
+
   <ul id="content">
-    <li class="alert" id="welcome">
-      <input type="text" id="nickname" placeholder="Choose a name and key size" autocomplete="off"><select id="keysize" autocomplete="off" class="border-left"><option>1024</option><option>2048</option><option>4096</option></select><button id="generate" class="border-left">Generate</button>
-    </li>
   </ul>
 
   <div id="input">
-    <input type="text" id="message" autocomplete="off"><button id="send" class="border-left">Send</button>
+    <div class="closed" id="sidebarToggle">
+      <svg height="20" width="16" xmlns="http://www.w3.org/2000/svg" version="1.1">
+        <rect y="5" width="16" height="3"></rect>
+        <rect y="10" width="16" height="3"></rect>
+        <rect y="15" width="16" height="3"></rect>
+      </svg>
+    </div>
+    <input type="text" id="message" autocomplete="off" disabled><button id="send" class="border-left" disabled>Send</button>
   </div>
 
   <script>
@@ -83,9 +93,9 @@
     window.addEventListener("load", function() {
       primitives = new Primitives(),
       secureroom = new SecureRoom(
-        function() { UI.createRoom(); UI.addWelcome("distribute"); UI.toggleRoom() },
-        function() { UI.addWelcome("connect"); UI.toggleInput(false) },
-        function() { UI.addWelcome("disconnect"); UI.toggleInput(true) },
+        UI.addWelcome("distribute"),
+        UI.addWelcome("connect"),
+        UI.addWelcome("disconnect"),
         UI.addMessage,
         UI.addUser
       );
