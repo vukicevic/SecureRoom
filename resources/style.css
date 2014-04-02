@@ -22,7 +22,7 @@ body {
   border-right: 1px solid #222;
   background-color: white;
   z-index: 99;
-  transition: all 500ms ease;
+  transition: left 500ms ease;
 }
 
 #sidebar.open {
@@ -55,19 +55,19 @@ body {
 }
 
 #content>li>p {
-  margin-right: 6em;
+  margin-right: 2em;
 }
 
-#content.cln:after {
+#content .cln:after {
   content: ": ";
 }
 
-#content.message {
+#content .message {
   padding: 0.375em 1em 0;
   margin-bottom: 0.0625em;
 }
 
-#content.time {
+#content .time {
   float: right;
   font-size: 0.5em;
   line-height: 1em;
@@ -96,11 +96,16 @@ body {
   margin: 0.3125em 0;
 }
 
-#content.alert {
+#content .alert {
   background-color: #222;
   color: white;
   margin: 0.3125em 0;
   overflow: hidden;
+}
+
+#content .event>p {
+  text-align: right;
+  font-style: italic;
 }
 
 #content p.join:after {

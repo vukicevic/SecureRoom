@@ -260,10 +260,11 @@ var UI = {
           container.insertAdjacentHTML("beforeend", "<div class='loading'></div>");
           break;
         case "connect":
+          container.style.display = "none";
           container.parentNode.style.backgroundColor = "white";
           secureroom.channel.sendUser(secureroom.user);
         case "disconnect":
-          container.insertAdjacentHTML("beforeend", "<div class='time'>" + PrintUtil.time(Math.round(Date.now()/1000)) + "</div><p>" + type.charAt(0).toUpperCase() + type.slice(1) + "ed.</p>");
+          document.getElementById("content").insertAdjacentHTML("beforeend", "<li class='event'><div class='time'>" + PrintUtil.time(Math.round(Date.now()/1000)) + "</div><p>" + type.charAt(0).toUpperCase() + type.slice(1) + "ed.</p></li>");
           break;
       }
     }
