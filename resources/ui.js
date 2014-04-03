@@ -40,9 +40,6 @@ var UI = {
     UI.toggleRoom();
 
     document.getElementById("sidebarToggle").addEventListener("click", UI.toggleSidebar());
-
-    document.getElementById("message").addEventListener("keyup", function (e) { e.which === 13 && document.getElementById("send").click() });
-    document.getElementById("send").addEventListener("click", function () { var d = document.getElementById("message"); if (d.value) secureroom.sendMessage(d.value); d.value = "" });
     
     document.getElementById("room").addEventListener("click", function () { window.prompt('Copy the URL of this SecureRoom: CTRL-C then Enter', window.location) });
 
@@ -141,7 +138,7 @@ var UI = {
       content.id   = PrintUtil.text(user.id);
       content.time = PrintUtil.time(Math.round(Date.now() / 1000));
       content.name = PrintUtil.text(user.name);
-      content.info = UI.buildKeyInfo(user);
+      content.info = UI.buildKeyInfo(user.master);
 
       container.insertAdjacentHTML("beforeend", build(content));
 
@@ -197,37 +194,39 @@ var UI = {
     return build(content);
   },
 
-  buildKeyInfo: function (user) {
+  buildKeyInfo: function (key) {
     var build = TemplateEngine("template-key-info"),
         content = {};
 
-    content.sid   = PrintUtil.id(user.id);
-    content.ssize = PrintUtil.number(user.master.size);
-    content.sdate = PrintUtil.date(user.master.created);
+    content.type = key.isMaster() ? "Master Signing Key" : "Ephemeral Encryption Key";
+    content.id   = PrintUtil.id(key.id);
+    content.size = PrintUtil.number(key.size);
+    content.date = PrintUtil.date(key.created);
 
     return build(content);
   },
 
   addToChain: function (user) {
-    var container = document.getElementById("keychain"),
-        build = TemplateEngine("template-key-chain"),
-        content = {};
+    var chain    = document.getElementById("keychain"),
+        build    = TemplateEngine("template-key-chain"),
+        content  = {};
 
-    content.id     = PrintUtil.text(user.id);
-    content.name   = PrintUtil.text(user.name);
-    content.info   = UI.buildKeyInfo(user);
-    content.data   = ExportUtil().publicGpg(user);
+    content.id   = PrintUtil.text(user.id);
+    content.name = PrintUtil.text(user.name);
+    content.info = UI.buildKeyInfo(user.master) + UI.buildKeyInfo(user.ephemeral);
+    content.data = ExportUtil().publicGpg(user);
 
-    container.insertAdjacentHTML("beforeend", build(content));
-    UI.addKeychainListeners(container.lastChild, user);
+    chain.insertAdjacentHTML("beforeend", build(content));
+    UI.addKeychainListeners(chain.lastChild, user);
   },
 
   addKeychainListeners: function (elem, user) {
-    var b1 = elem.getElementsByTagName("span").item(0),
-        b2 = elem.getElementsByTagName("span").item(1);
+    var bn = elem.getElementsByTagName("span"),
+        da = elem.querySelectorAll("div.info");
 
-    b1.addEventListener("click", UI.toggleUser(user, b1));
-    b2.addEventListener("click", UI.toggleExport(elem.querySelector(".export"), b2));
+    bn.item(0).addEventListener("click", UI.toggleExport(da.item(0), bn.item(0)));
+    bn.item(1).addEventListener("click", UI.toggleExport(da.item(1), bn.item(1)));
+    bn.item(2).addEventListener("click", UI.toggleUser(user, bn.item(2)));
   },
 
   addWelcome: function (type) {
@@ -240,7 +239,7 @@ var UI = {
       switch (type) {
         case "distribute":
           UI.createRoom();
-          container.insertAdjacentHTML("beforeend", "<h1>Success!</h1><h3><em>Keys generated.</em></h3><div class='info'>" + UI.buildKeyInfo(secureroom.user) + "</div><button>Connect &amp; Distribute</button>");
+          container.insertAdjacentHTML("beforeend", "<h1>Success!</h1><h3><em>Keys generated.</em></h3><div class='info'>" + UI.buildKeyInfo(secureroom.user.master) + "</div><button>Connect &amp; Distribute</button>");
           container.querySelector("button").addEventListener("click", function () {
             secureroom.connectToServer();
             UI.addWelcome("progress")();
@@ -252,11 +251,13 @@ var UI = {
           container.insertAdjacentHTML("beforeend", "<div class='loading'></div>");
           break;
         case "connect":
-          container.style.display = "none";
-          container.parentNode.style.backgroundColor = "white";
           secureroom.channel.sendUser(secureroom.user);
+          document.getElementById("message").addEventListener("keyup", function (e) { e.which === 13 && document.getElementById("send").click() });
+          document.getElementById("send").addEventListener("click", function () { var d = document.getElementById("message"); if (d.value) secureroom.sendMessage(d.value); d.value = "" });
         case "disconnect":
           document.getElementById("content").insertAdjacentHTML("beforeend", "<li class='event'><div class='time'>" + PrintUtil.time(Math.round(Date.now()/1000)) + "</div><p>" + type.charAt(0).toUpperCase() + type.slice(1) + "ed.</p></li>");
+          container.style.display = "none";
+          container.parentNode.style.backgroundColor = "white";
           break;
       }
     }
@@ -275,7 +276,7 @@ var UI = {
 
     e1.textContent = kh.privateGpg(secureroom.user);
     e2.textContent = kh.publicGpg(secureroom.user);
-    e3.insertAdjacentHTML("beforeend", UI.buildKeyInfo(secureroom.user));
+    e3.insertAdjacentHTML("beforeend", UI.buildKeyInfo(secureroom.user.master) + UI.buildKeyInfo(secureroom.user.ephemeral));
 
     b1.addEventListener("click", UI.toggleExport(e1.parentNode, b1));
     b2.addEventListener("click", UI.toggleExport(e2.parentNode, b2));

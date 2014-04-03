@@ -14,7 +14,7 @@ body {
 }
 
 #sidebar {
-  position: absolute;
+  position: fixed;
   bottom: 3em;
   left: -21em;
   height: 100%;
@@ -117,7 +117,7 @@ body {
   padding-left: 2em;
   padding-top: 4em;
   color: white;
-  font-size: 1.5em;
+  font-size: 1.25em;
 }
 
 #welcome>h3 {
@@ -245,8 +245,6 @@ button:active {
 #keychain {
 
 }
-
-
 
 .controls {
   font-size: 0.75em;
