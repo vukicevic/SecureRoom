@@ -28,7 +28,7 @@
     <p><b>{{sid}}</b><br><small>{{ssize}} BITS | {{sdate}}</small></p>
   </script>
   <script type="text/html" id="template-key-chain">
-    <li id="key-{{id}}"><div class="export hidden"><textarea wrap="off">{{data}}</textarea></div><div class="controls"><span>ACTIVE</span><span>PUBLIC KEY</span></div><div class="info"><h3>{{name}}</h3>{{info}}</div></li>
+    <li id="key-{{id}}"><div class="export hidden"><textarea wrap="off">{{data}}</textarea></div><div class="controls"><span>ACTIVE</span><span>PUBLIC KEY</span></div><div class="info"><p>{{name}}</p>{{info}}</div></li>
   </script>
 </head>
 <body>
@@ -40,14 +40,21 @@
         <p>Server<br><small>wss://princip.secureroom.net</small></p>
       </dd>
       <dd>
-        <p id="room">Room: -</p>
+        <p>Room<br><small id="room">-</small></p>
       </dd>
       <dt>User</dt>
-      <dd id="mykey">
-        <div class="export hidden"><textarea wrap="off"></textarea></div>
-        <div class="export hidden"><textarea wrap="off"></textarea></div>
-        <div id="mycontrols" class="controls"><span>PRIVATE KEY</span><span>PUBLIC KEY</span></div>
-        <div id="myinfo" class="info"><h3 id="myname"></h3></div>
+      <dd>
+        <p id="my-name"></p>
+        <div class="controls" id="my-controls">
+          <span id="my-key-info-toggle">KEY INFO</span> | <span id="my-private-key-toggle">PRIVATE KEY</span> | <span id="my-public-key-toggle">PUBLIC KEY</span>
+        </div>
+        <div class="info" id="my-key-info" style="height: 0"></div>
+        <div class="info" style="height: 0">
+          <textarea wrap="off" id="my-private-key"></textarea>
+        </div>
+        <div class="info" style="height: 0">
+          <textarea wrap="off" id="my-public-key"></textarea>
+        </div>
       </dd>
       <dt>Keychain</dt>
       <dd>

@@ -77,21 +77,12 @@ var UI = {
 
   toggleExport: function (elem, ctrl) {
     return function () {
-      if (elem.classList.contains("hidden")) {
-        elem.classList.remove("hidden");
-        ctrl.classList.add("selected");
-      } else {
-        elem.classList.add("hidden");
-        ctrl.classList.remove("selected");
-      }
-
-      elem.style.left = (elem.parentNode.getBoundingClientRect().left - 1) + "px";
-      elem.style.top  = "-" + (elem.offsetHeight - (elem.parentNode.getBoundingClientRect().top - elem.parentNode.parentNode.getBoundingClientRect().top)) + "px";
+      elem.style.height = (ctrl.classList.toggle("selected")) ? elem.scrollHeight + "px" : 0;
     };
   },
 
   toggleRoom: function () {
-    document.getElementById("room").textContent = "Room: " + secureroom.config.room;
+    document.getElementById("room").textContent = secureroom.config.room;
   },
 
   toggleHeight: function (elem) {
@@ -166,6 +157,7 @@ var UI = {
         d = UI.removeContent(a.parentNode);
 
     a.addEventListener("click", function () {
+      elem.classList.add("event");
       p.classList.add("accept");
 
       user.status = "active";
@@ -271,21 +263,23 @@ var UI = {
   },
 
   addMyUser: function () {
-    document.getElementById("myname").textContent = PrintUtil.text(secureroom.user.name);
-    document.getElementById("myinfo").insertAdjacentHTML("beforeend", UI.buildKeyInfo(secureroom.user));
+    document.getElementById("my-name").textContent = PrintUtil.text(secureroom.user.name);
 
-    var my = document.getElementById("mykey"),
-        e1 = my.getElementsByTagName("textarea").item(0),
-        e2 = my.getElementsByTagName("textarea").item(1),
-        b1 = my.getElementsByTagName("span").item(0),
-        b2 = my.getElementsByTagName("span").item(1),
+    var e1 = document.getElementById("my-private-key"),
+        e2 = document.getElementById("my-public-key"),
+        e3 = document.getElementById("my-key-info"),
+        b1 = document.getElementById("my-private-key-toggle"),
+        b2 = document.getElementById("my-public-key-toggle"),
+        b3 = document.getElementById("my-key-info-toggle"),
         kh = ExportUtil();
 
     e1.textContent = kh.privateGpg(secureroom.user);
     e2.textContent = kh.publicGpg(secureroom.user);
+    e3.insertAdjacentHTML("beforeend", UI.buildKeyInfo(secureroom.user));
 
     b1.addEventListener("click", UI.toggleExport(e1.parentNode, b1));
     b2.addEventListener("click", UI.toggleExport(e2.parentNode, b2));
+    b3.addEventListener("click", UI.toggleExport(e3, b3));
   },
 
   createRoom: function () {
