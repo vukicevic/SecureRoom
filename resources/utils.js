@@ -37,7 +37,7 @@ var PrintUtil = {
   },
 
   id: function(id) {
-    return id.match(/.{2}/g).map(function(v) { return v }).join(":").toUpperCase();
+    return id.match(/.{2}/g).join(":").toUpperCase();
   }
 };
 
