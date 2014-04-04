@@ -308,5 +308,6 @@ var UI = {
     UI.toggleExport(e3, document.getElementById("my-key-info-toggle"));
 
     document.getElementById("my-name").textContent = PrintUtil.text(secureroom.user.name);
+    document.getElementById("my-controls").classList.remove("hidden");
   }
 }

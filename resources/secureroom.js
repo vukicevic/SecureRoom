@@ -31,9 +31,12 @@ function SecureRoom(onGenerateCallback, onConnectChangeCallback, onMessageCallba
   this.onMessage = function(message) {
     if (typeof message.data !== "undefined") {
       message = new Message(message);
-
       message.decrypt(this.user);
-      message.verify(this.vault.findUser(message.sender));
+
+      var sender = this.vault.findUser(message.sender);
+      if (sender && sender.accepted) {
+        message.verify(sender);
+      }
     }
 
     if (message.verified) {
@@ -229,6 +232,10 @@ User.prototype = {
 
   get verified () {
     return this.master.verify(this.master) && this.ephemeral.verify(this.master);
+  },
+
+  get accepted () {
+    return this.status === "active" || this.status === "disabled";
   }
 }
 
