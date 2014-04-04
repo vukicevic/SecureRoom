@@ -19,13 +19,13 @@
     <li class="message{{class}}"><div class="time">{{time}}</div><p><b class="cln">{{sender}}</b>{{message}}</p>{{info}}</li>
   </script>
   <script type="text/html" id="template-message-info">
-    <ul class="info hidden-height">{{#info}}<li><b class="cln">{{term}}</b>{{data}}</li>{{/info}}</ul>
+    <ul class="info" style="height:0">{{#info}}<li><b class="cln">{{term}}</b>{{data}}</li>{{/info}}</ul>
   </script>
   <script type="text/html" id="template-key-alert">
     <li id="alert-{{id}}" class="alert"><div class="time">{{time}}</div><p class="join">{{name}}</p><div class="info">{{info}}<button>Accept</button>&nbsp;<button>Reject</button></div></li>
   </script>
   <script type="text/html" id="template-key-info">
-    <p>{{type}}</p><dl><dt>Id</dt><dd>{{id}}</dd><dt>Size</dt><dd>{{size}} BITS</dd><dt>Created</dt><dd>{{date}}</dd></dl>
+    <p>{{type}}</p><dl class="info"><dt>Id</dt><dd>{{id}}</dd><dt>Size</dt><dd>{{size}} BITS</dd><dt>Date</dt><dd>{{date}}</dd></dl>
   </script>
   <script type="text/html" id="template-key-chain">
     <li id="key-{{id}}"><p>{{name}}</p><div class="controls"><span>KEY INFO</span> | <span>PUBLIC KEY</span> | <span>ACTIVE</span></div><div class="info" style="height:0">{{info}}</div><div class="info" style="height:0"><textarea wrap="off">{{data}}</textarea></div></li>
@@ -34,10 +34,10 @@
 <body>
 
   <aside id="sidebar">
-    <dl>
+    <dl class="side">
       <dt>Settings</dt>
       <dd>
-        <p>Server<br><small>wss://princip.secureroom.net</small></p>
+        <p>Server<br><small id="server">-</small></p>
       </dd>
       <dd>
         <p>Room<br><small id="room">-</small></p>
@@ -100,18 +100,13 @@
     window.addEventListener("load", function() {
       primitives = new Primitives(),
       secureroom = new SecureRoom(
-        UI.addWelcome("distribute"),
-        UI.addWelcome("connect"),
-        UI.addWelcome("disconnect"),
+        UI.addDistribute,
+        UI.addConnect,
         UI.addMessage,
         UI.addUser
       );
 
       UI.init();
-    });
-
-    window.addEventListener("resize", function() {
-      UI.toggleKeychain()("close");
     });
   } else {
     alert("Your browser does not have the necessary features to run this application. Please try using the latest version of Firefox, Chrome or Internet Explorer.");

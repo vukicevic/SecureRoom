@@ -21,12 +21,11 @@ function Primitives() {
   this.asymmetric = Asymmetric(this.crunch, this.hash, this.random);
 } 
 
-function SecureRoom(onGenerateCallback, onConnectCallback, onDisconnectCallback, onMessageCallback, onUserCallback) {
+function SecureRoom(onGenerateCallback, onConnectChangeCallback, onMessageCallback, onUserCallback) {
   this.vault  = new Vault();
   this.config = {};
 
-  this.onConnect = onConnectCallback;
-  this.onDisconnect = onDisconnectCallback;
+  this.onConnect  = onConnectChangeCallback;
   this.onGenerate = onGenerateCallback;
 
   this.onMessage = function(message) {
@@ -59,7 +58,7 @@ SecureRoom.prototype.generateUser = function(name, size) {
 }
 
 SecureRoom.prototype.connectToServer = function() {
-  this.channel = new CommChannel(this.config.server + this.config.room, this.onConnect.bind(this), this.onDisconnect.bind(this), this.onMessage.bind(this), this.onUser.bind(this));
+  this.channel = new CommChannel(this.config.server + this.config.room, this.onConnect.bind(this), this.onMessage.bind(this), this.onUser.bind(this));
 }
 
 SecureRoom.prototype.sendMessage = function(text) {
@@ -92,12 +91,12 @@ Vault.prototype.hasUser = function(id) {
   return this.users.some(function(user) { return user.master.id === id || user.ephemeral.id === id });
 }
 
-function CommChannel(server, onConnectCallback, onDisconnectCallback, onMessageCallback, onUserCallback) {
+function CommChannel(server, onConnectChangeCallback, onMessageCallback, onUserCallback) {
   try {
     this.socket = new WebSocket(server);
 
-    this.socket.addEventListener("open", onConnectCallback);
-    this.socket.addEventListener("close", onDisconnectCallback);
+    this.socket.addEventListener("open", onConnectChangeCallback);
+    this.socket.addEventListener("close", onConnectChangeCallback);
     this.socket.addEventListener("message", function (event) {
       var receivedJSON = JSON.parse(event.data);
 

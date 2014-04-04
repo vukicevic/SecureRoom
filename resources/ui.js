@@ -30,36 +30,80 @@ var UI = {
       return (match) ? decodeURIComponent(match[1].replace(/\+/g, " ")) : "";
     }
 
-    secureroom.config.room = window.location.pathname.substr(window.location.pathname.lastIndexOf("/")+1);
-    if (secureroom.config.room === "index.html") {
-      secureroom.config.room = getUrlParam("room");
-    }
+    secureroom.config.room   = getUrlParam("room");
+    secureroom.config.server = "wss://" + getUrlParam("server") + "/ws";
 
-    secureroom.config.server = getUrlParam("server") ? "wss://"+getUrlParam("server")+":443/ws/" : "wss://"+document.location.host+":443/ws/";
-
-    UI.toggleRoom();
-
-    document.getElementById("sidebarToggle").addEventListener("click", UI.toggleSidebar());
-    
-    document.getElementById("room").addEventListener("click", function () { window.prompt('Copy the URL of this SecureRoom: CTRL-C then Enter', window.location) });
-
-    document.getElementById("generate").addEventListener("click", function () { if (!this.disabled) { secureroom.generateUser(document.getElementById("nickname").value, document.getElementById("keysize").value); UI.addWelcome("progress")() } });
-    document.getElementById("nickname").addEventListener("keyup", function (e) { var d = document.getElementById("generate"); d.disabled = this.value.length < 3; e.which === 13 && d.click() });
-    document.getElementById("nickname").focus();
+    UI.initVars();
+    UI.initForm();
+    UI.initSidebar();
   },
 
-  toggleSidebar: function() {
+  initSidebar: function() {
     var ctrl = document.getElementById("sidebarToggle"),
         elem = document.getElementById("sidebar");
 
-    return function () {
+    ctrl.addEventListener("click", function () {
       ctrl.classList.toggle("open");
       elem.classList.toggle("open");
-    };
+    });
+  },
+
+  initVars: function () {
+    document.getElementById("server").textContent = secureroom.config.server;
+    document.getElementById("room").textContent   = secureroom.config.room;
+  },
+
+  initForm: function () {   
+    var b = document.getElementById("generate"),
+        i = document.getElementById("nickname");
+
+    b.addEventListener("click", function () { 
+      if (!this.disabled) { 
+        secureroom.generateUser(i.value, document.getElementById("keysize").value); 
+        UI.addProgress();
+      }
+    });
+    
+    i.addEventListener("keyup", function (e) { 
+      b.disabled = this.value.length < 3; 
+      if (e.which === 13) b.click();
+    });
+
+    i.focus();
+  },
+
+  initRoom: function () {
+    if (secureroom.config.room === "") {
+      var opts, path;
+
+      secureroom.config.room = secureroom.user.id.substr(-5);
+      
+      opts = window.location.search ? window.location.search + "&room=" : "?room=";
+      path = window.location.pathname + opts + secureroom.config.room;
+      
+      window.history.replaceState({}, "SecureRoom", path);
+    }
+  },
+
+  initInput: function() {
+    var m = document.getElementById("message"),
+        s = document.getElementById("send");
+
+    m.addEventListener("keyup", function (e) { 
+      if (e.which === 13)
+        s.click();
+    });
+    
+    s.addEventListener("click", function () { 
+      if (m.value !== "") {
+        secureroom.sendMessage(m.value);
+        m.value = "";
+      }
+    });
   },
 
   toggleUser: function (user, ctrl) {
-    return function () {
+    ctrl.addEventListener("click", function () {
       if (user.status === "active") {
         ctrl.classList.add("inactive");
         ctrl.textContent = "DISABLED";
@@ -69,41 +113,21 @@ var UI = {
         ctrl.textContent = "ACTIVE";
         user.status = "active";
       }
-    };
+    });
   },
 
   toggleExport: function (elem, ctrl) {
-    return function () {
+    ctrl.addEventListener("click", function () {
       elem.style.height = (ctrl.classList.toggle("selected")) ? elem.scrollHeight + "px" : 0;
-    };
+    });
   },
 
-  toggleRoom: function () {
-    document.getElementById("room").textContent = secureroom.config.room;
-  },
-
-  toggleHeight: function (elem) {
-    var height = elem.offsetHeight;
-
-    if (elem.classList.contains("hidden-height")) {
+  removeContent: function (elem, ctrl) {
+    elem.style.height = elem.scrollHeight + "px";
+    ctrl.addEventListener("click", function() {
       elem.style.height = "0px";
-      elem.classList.remove("hidden-height");
-    } else {
-      elem.style.height = height + "px";
-    }
-
-    return function () {
-      elem.style.height = (elem.style.height == "0px") ? height + "px" : "0px";
-    }
-  },
-
-  removeContent: function (elem) {
-    elem.style.height = elem.offsetHeight + "px";
-
-    return function () {
-      elem.style.height = "0px";
-      while (elem.firstChild) elem.removeChild(elem.firstChild);
-    }
+      while (elem.firstChild) elem.removeChild(elem.firstChild);  
+    });
   },
 
   addMessage: function (message) {
@@ -120,13 +144,10 @@ var UI = {
 
       container.insertAdjacentHTML("beforeend", build(content));
 
-      UI.addMessageListeners(container.lastChild);
+      UI.toggleExport(container.lastChild.querySelector(".info"), container.lastChild.querySelector(".time"));
+
       window.scrollTo(0, document.body.offsetHeight);
     }
-  },
-
-  addMessageListeners: function (elem) {
-    elem.addEventListener("click", UI.toggleHeight(elem.querySelector(".info")));
   },
 
   addUser: function (user) {
@@ -138,20 +159,20 @@ var UI = {
       content.id   = PrintUtil.text(user.id);
       content.time = PrintUtil.time(Math.round(Date.now() / 1000));
       content.name = PrintUtil.text(user.name);
-      content.info = UI.buildKeyInfo(user.master);
+      content.info = UI.buildKeyInfo(user.master) + UI.buildKeyInfo(user.ephemeral);
 
       container.insertAdjacentHTML("beforeend", build(content));
 
-      UI.addUserListeners(document.getElementById("alert-" + user.id), user);
       window.scrollTo(0, document.body.offsetHeight);
+
+      UI.addUserListeners(container.lastChild, user);
     }
   },
 
   addUserListeners: function (elem, user) {
     var a = elem.getElementsByTagName("button").item(0),
         r = elem.getElementsByTagName("button").item(1),
-        p = elem.querySelector(".join"),
-        d = UI.removeContent(a.parentNode);
+        p = elem.querySelector(".join");
 
     a.addEventListener("click", function () {
       elem.classList.add("event");
@@ -163,8 +184,6 @@ var UI = {
       secureroom.channel.sendUser(secureroom.user);
     });
 
-    a.addEventListener("click", d);
-
     r.addEventListener("click", function () {
       elem.classList.add("warning");
       p.classList.add("reject");
@@ -172,7 +191,8 @@ var UI = {
       user.status = "rejected";
     });
 
-    r.addEventListener("click", d);
+    UI.removeContent(a.parentNode, a);
+    UI.removeContent(r.parentNode, r);
   },
 
   buildRecipientList: function(message) {
@@ -209,7 +229,8 @@ var UI = {
   addToChain: function (user) {
     var chain    = document.getElementById("keychain"),
         build    = TemplateEngine("template-key-chain"),
-        content  = {};
+        content  = {},
+        bn, da;
 
     content.id   = PrintUtil.text(user.id);
     content.name = PrintUtil.text(user.name);
@@ -217,82 +238,75 @@ var UI = {
     content.data = ExportUtil().publicGpg(user);
 
     chain.insertAdjacentHTML("beforeend", build(content));
-    UI.addKeychainListeners(chain.lastChild, user);
+    
+    bn = chain.lastChild.getElementsByTagName("span"),
+    da = chain.lastChild.querySelectorAll("div.info");
+
+    UI.toggleExport(da.item(0), bn.item(0));
+    UI.toggleExport(da.item(1), bn.item(1));
+    UI.toggleUser(user, bn.item(2));
   },
 
-  addKeychainListeners: function (elem, user) {
-    var bn = elem.getElementsByTagName("span"),
-        da = elem.querySelectorAll("div.info");
-
-    bn.item(0).addEventListener("click", UI.toggleExport(da.item(0), bn.item(0)));
-    bn.item(1).addEventListener("click", UI.toggleExport(da.item(1), bn.item(1)));
-    bn.item(2).addEventListener("click", UI.toggleUser(user, bn.item(2)));
-  },
-
-  addWelcome: function (type) {
+  addDistribute: function () {
     var container = document.getElementById("welcome");
+    
+    while (container.firstChild) 
+        container.removeChild(container.firstChild);
+    
+    container.insertAdjacentHTML("beforeend", "<h1>Success!</h1><h3><em>Key <b>" + PrintUtil.id(secureroom.user.id) + "</b> generated.</em></h3><button>Connect &amp; Distribute</button>");
+    
+    container.querySelector("button").addEventListener("click", function () {
+      secureroom.connectToServer();
+      UI.addProgress();
+    });
 
-    return function() {
-      while (container.firstChild)
+    UI.initRoom();
+    UI.initVars();
+    UI.addMyUser();
+  },
+
+  addProgress: function() {
+    var container = document.getElementById("welcome");
+    
+    while (container.firstChild) 
         container.removeChild(container.firstChild);
 
-      switch (type) {
-        case "distribute":
-          UI.createRoom();
-          container.insertAdjacentHTML("beforeend", "<h1>Success!</h1><h3><em>Keys generated.</em></h3><div class='info'>" + UI.buildKeyInfo(secureroom.user.master) + "</div><button>Connect &amp; Distribute</button>");
-          container.querySelector("button").addEventListener("click", function () {
-            secureroom.connectToServer();
-            UI.addWelcome("progress")();
-          });
-          UI.addMyUser();
-          UI.toggleRoom();
-          break;
-        case "progress":
-          container.insertAdjacentHTML("beforeend", "<div class='loading'></div>");
-          break;
-        case "connect":
-          secureroom.channel.sendUser(secureroom.user);
-          document.getElementById("message").addEventListener("keyup", function (e) { e.which === 13 && document.getElementById("send").click() });
-          document.getElementById("send").addEventListener("click", function () { var d = document.getElementById("message"); if (d.value) secureroom.sendMessage(d.value); d.value = "" });
-        case "disconnect":
-          document.getElementById("content").insertAdjacentHTML("beforeend", "<li class='event'><div class='time'>" + PrintUtil.time(Math.round(Date.now()/1000)) + "</div><p>" + type.charAt(0).toUpperCase() + type.slice(1) + "ed.</p></li>");
-          container.style.display = "none";
-          container.parentNode.style.backgroundColor = "white";
-          break;
-      }
+    container.insertAdjacentHTML("beforeend", "<div class='loading'></div>");
+  },
+
+  addConnect: function() {
+    var action    = "Disconnected",
+        container = document.getElementById("welcome");
+    
+    while (container.firstChild) 
+      container.removeChild(container.firstChild);
+    
+    if (secureroom.channel.isConnected()) {
+      action = "Connected";
+      secureroom.channel.sendUser(secureroom.user);
+      UI.initInput();
     }
+
+    container.parentNode.style.backgroundColor = "white";
+    container.style.display = "none";
+
+    document.getElementById("content").insertAdjacentHTML("beforeend", "<li class='event'><div class='time'>" + PrintUtil.time(Math.round(Date.now()/1000)) + "</div><p>" + action + ".</p></li>");
   },
 
   addMyUser: function () {
-    document.getElementById("my-name").textContent = PrintUtil.text(secureroom.user.name);
-
     var e1 = document.getElementById("my-private-key"),
         e2 = document.getElementById("my-public-key"),
         e3 = document.getElementById("my-key-info"),
-        b1 = document.getElementById("my-private-key-toggle"),
-        b2 = document.getElementById("my-public-key-toggle"),
-        b3 = document.getElementById("my-key-info-toggle"),
         kh = ExportUtil();
 
     e1.textContent = kh.privateGpg(secureroom.user);
     e2.textContent = kh.publicGpg(secureroom.user);
     e3.insertAdjacentHTML("beforeend", UI.buildKeyInfo(secureroom.user.master) + UI.buildKeyInfo(secureroom.user.ephemeral));
 
-    b1.addEventListener("click", UI.toggleExport(e1.parentNode, b1));
-    b2.addEventListener("click", UI.toggleExport(e2.parentNode, b2));
-    b3.addEventListener("click", UI.toggleExport(e3, b3));
-  },
+    UI.toggleExport(e1.parentNode, document.getElementById("my-private-key-toggle"));
+    UI.toggleExport(e2.parentNode, document.getElementById("my-public-key-toggle"));
+    UI.toggleExport(e3, document.getElementById("my-key-info-toggle"));
 
-  createRoom: function () {
-    if (secureroom.config.room === "") {
-      var opts, path;
-
-      secureroom.config.room = secureroom.user.id.substr(-5);
-      
-      opts = window.location.search ? window.location.search + "&room=" : "?room=";
-      path = (window.location.pathname.indexOf("index.html") < 0) ? window.location.pathname + secureroom.config.room : window.location.pathname + opts + secureroom.config.room;
-      
-      window.history.replaceState({}, "SecureRoom", path);
-    }
+    document.getElementById("my-name").textContent = PrintUtil.text(secureroom.user.name);
   }
 }

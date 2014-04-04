@@ -42,22 +42,6 @@ body {
   background-color: #222;
 }
 
-#sidebar dl {
-  margin-top: 3em;
-}
-
-#sidebar dd {
-  margin: 0.25em 0.5em;
-}
-
-#sidebar dt {
-  font-weight: normal;
-  text-transform: uppercase;
-  border-bottom: 1px dotted #222;
-  padding: 0.3125em 0.5em;
-  margin: 1em 0;
-}
-
 #content {
   margin: 0.6875em 0 3.6875em;
   list-style-type: none;
@@ -242,10 +226,6 @@ button:active {
   fill: #222;
 }
 
-#keychain {
-
-}
-
 .controls {
   font-size: 0.75em;
 }
@@ -268,4 +248,43 @@ div.info>textarea {
   width: 99%;
   height: 10em;
   margin-top: 0.5em;
+}
+
+div.info>p {
+  font-size: 0.75em;
+  margin: 0.5em 0;
+  text-transform: uppercase;
+}
+
+dl.info {
+  font-size: 0.75em;
+  margin-left: 0.5em;
+  margin-bottom: 0.5em;
+}
+
+dl.info>dt {
+  font-weight: bold;
+  float: left;
+  clear: left;
+  width: 4em;
+}
+
+dl.info>dd {
+  margin-left: 4em;
+}
+
+dl.side {
+  margin-top: 3em;
+}
+
+dl.side>dd {
+  margin: 0.25em 0.5em;
+}
+
+dl.side>dt {
+  font-weight: normal;
+  text-transform: uppercase;
+  border-bottom: 1px dotted #222;
+  padding: 0.3125em 0.5em;
+  margin: 1em 0;
 }
