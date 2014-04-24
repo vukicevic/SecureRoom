@@ -85,7 +85,7 @@ body {
 }
 
 #content p.join:after {
-  content: " wishes to join.";
+  content: " has sent a key.";
 }
 
 #content p.reject:after {
@@ -123,7 +123,7 @@ body {
   color: #222;
   text-align: right;
   font-style: italic;
-  background-color: #fff !important;
+  background-color: white !important;
   padding-top: 0.5em !important;
 }
 
@@ -184,6 +184,10 @@ input, select, button {
   border: none;
   background-color: white;
   font-size: 1.12em;
+}
+
+input:focus, button:focus, select:focus { 
+  outline:none;
 }
 
 button:active {
@@ -252,26 +256,31 @@ div.info>textarea {
   margin-top: 0.5em;
 }
 
-div.info>p {
+div.key-info {
+  display: inline-block;
+  padding: 0.25em 0.75em 0.5em;
+}
+
+div.key-info>p {
   font-size: 0.75em;
   margin: 0.5em 0;
   text-transform: uppercase;
 }
 
-dl.info {
+div.key-info>dl {
   font-size: 0.75em;
   margin-left: 0.5em;
   margin-bottom: 0.5em;
 }
 
-dl.info>dt {
+div.key-info>dl>dt {
   font-weight: bold;
   float: left;
   clear: left;
   width: 4em;
 }
 
-dl.info>dd {
+div.key-info>dl>dd {
   margin-left: 4em;
 }
 
@@ -293,4 +302,8 @@ dl.side>dt {
 
 #keychain>li {
   margin: 0.75em 0;
+}
+
+#keychain .inactive {
+  color: #999;
 }

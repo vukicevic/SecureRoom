@@ -19,7 +19,7 @@ function Primitives() {
   this.hash       = Hash();
   this.crunch     = Crunch();
   this.asymmetric = Asymmetric(this.crunch, this.hash, this.random);
-} 
+}
 
 function SecureRoom(onGenerateCallback, onConnectChangeCallback, onMessageCallback, onUserCallback) {
   this.vault  = new Vault();
@@ -105,12 +105,14 @@ function CommChannel(server, onConnectChangeCallback, onMessageCallback, onUserC
 
       switch (receivedJSON.type) {
         case 'user':
-          onUserCallback(receivedJSON.data); break;
+          onUserCallback(receivedJSON.data);
+          break;
         case 'message':
-          onMessageCallback(receivedJSON.data); break;
+          onMessageCallback(receivedJSON.data);
+          break;
       }
 
-      console.log(receivedJSON);
+      //console.log(receivedJSON);
     });
   } catch (e) {
     console.log(e);

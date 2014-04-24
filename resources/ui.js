@@ -31,7 +31,7 @@ var UI = {
     }
 
     secureroom.config.room   = getUrlParam("room");
-    secureroom.config.server = "wss://" + getUrlParam("server") + "/ws";
+    secureroom.config.server = getUrlParam("server") || "wss://princip.secureroom.net/ws";
 
     UI.initVars();
     UI.initForm();
@@ -200,7 +200,7 @@ var UI = {
   buildRecipientList: function(message) {
     return message.recipients.map(function(id) {
       var recipient = (secureroom.user.ephemeral.id === id) ? secureroom.user : secureroom.vault.findUser(id);
-      return (typeof recipient !== "undefined") ? (recipient.status !== "rejected") ? PrintUtil.text(recipient.name) : "Rejected" : "Unknown";
+      return (typeof recipient !== "undefined") ? (recipient.status !== "rejected") ? PrintUtil.text(recipient.name) : "REJECTED" : "UNKNOWN";
     }).join(", ");
   },
 

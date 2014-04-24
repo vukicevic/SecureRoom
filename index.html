@@ -22,10 +22,10 @@
     <ul class="info" style="height:0">{{#info}}<li><b class="cln">{{term}}</b>{{data}}</li>{{/info}}</ul>
   </script>
   <script type="text/html" id="template-key-alert">
-    <li id="alert-{{id}}" class="alert"><div class="time">{{time}}</div><p class="join">{{name}}</p><div class="info">{{info}}<button>Accept</button>&nbsp;<button>Reject</button></div></li>
+    <li id="alert-{{id}}" class="alert"><div class="time">{{time}}</div><p class="join">{{name}}</p><div class="info"><div class="extra-pad">{{info}}</div><button>Accept</button>&nbsp;<button>Reject</button></div></li>
   </script>
   <script type="text/html" id="template-key-info">
-    <p>{{type}}</p><dl class="info"><dt>Id</dt><dd>{{id}}</dd><dt>Size</dt><dd>{{size}} BITS</dd><dt>Date</dt><dd>{{date}}</dd></dl>
+    <div class="key-info"><p>{{type}}</p><dl class="info"><dt>Id</dt><dd>{{id}}</dd><dt>Size</dt><dd>{{size}} BITS</dd><dt>Date</dt><dd>{{date}}</dd></dl></div>
   </script>
   <script type="text/html" id="template-key-chain">
     <li id="key-{{id}}"><p><b>{{name}}</b></p><div class="controls"><span>KEY INFO</span> | <span>PUBLIC KEY</span> | <span>ACTIVE</span></div><div class="info" style="height:0">{{info}}</div><div class="info" style="height:0"><textarea wrap="off">{{data}}</textarea></div></li>

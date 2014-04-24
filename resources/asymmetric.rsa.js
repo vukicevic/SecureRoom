@@ -100,10 +100,10 @@ function Asymmetric(crunch, hash, random) {
         do {
           mpi.e = exp.pop();
           mpi.d = crunch.inv(mpi.e, mpi.f);
-        } while (mpi.d.length === 0 && exp.length);
+        } while (typeof mpi.d === "undefined" && exp.length);
 
-        if (mpi.d.length > 0) {
-          mpi.u  = crunch.cut(crunch.inv(mpi.p, mpi.q));
+        if (typeof mpi.d !== "undefined") {
+          mpi.u  = crunch.cut(crunch.inv(mpi.p, mpi.q)); //arguments wrong way round?
           mpi.dp = crunch.mod(mpi.d, crunch.decrement(mpi.p));
           mpi.dq = crunch.mod(mpi.d, crunch.decrement(mpi.q));
 
