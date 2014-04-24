@@ -175,6 +175,7 @@ var UI = {
         p = elem.querySelector(".join");
 
     a.addEventListener("click", function () {
+      elem.classList.remove("alert");
       elem.classList.add("event");
       p.classList.add("accept");
 
@@ -185,6 +186,7 @@ var UI = {
     });
 
     r.addEventListener("click", function () {
+      elem.classList.remove("alert");
       elem.classList.add("warning");
       p.classList.add("reject");
 

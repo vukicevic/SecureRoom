@@ -28,7 +28,7 @@
     <p>{{type}}</p><dl class="info"><dt>Id</dt><dd>{{id}}</dd><dt>Size</dt><dd>{{size}} BITS</dd><dt>Date</dt><dd>{{date}}</dd></dl>
   </script>
   <script type="text/html" id="template-key-chain">
-    <li id="key-{{id}}"><p>{{name}}</p><div class="controls"><span>KEY INFO</span> | <span>PUBLIC KEY</span> | <span>ACTIVE</span></div><div class="info" style="height:0">{{info}}</div><div class="info" style="height:0"><textarea wrap="off">{{data}}</textarea></div></li>
+    <li id="key-{{id}}"><p><b>{{name}}</b></p><div class="controls"><span>KEY INFO</span> | <span>PUBLIC KEY</span> | <span>ACTIVE</span></div><div class="info" style="height:0">{{info}}</div><div class="info" style="height:0"><textarea wrap="off">{{data}}</textarea></div></li>
   </script>
 </head>
 <body>
@@ -44,8 +44,8 @@
       </dd>
       <dt>User</dt>
       <dd>
-        <p id="my-name"></p>
-        <div class="controls hidden" id="my-controls">
+        <p><b id="my-name"></b></p>
+        <div class="controls" id="my-controls">
           <span id="my-key-info-toggle">KEY INFO</span> | <span id="my-public-key-toggle">PUBLIC KEY</span> | <span id="my-private-key-toggle">PRIVATE KEY</span>
         </div>
         <div class="info" id="my-key-info" style="height:0"></div>

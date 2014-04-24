@@ -116,20 +116,22 @@ body {
 .alert {
   background-color: #222;
   color: white;
-  overflow: hidden;
+  padding: 1em !important;
 }
 
 .event {
-  background-color: #fff !important;
   color: #222;
   text-align: right;
   font-style: italic;
+  background-color: #fff !important;
+  padding-top: 0.5em !important;
 }
 
 .warning {
   text-align: right;
   font-style: italic;
   background-color: #E87600 !important;
+  padding-top: 0.5em !important;
 }
 
 .loading {
@@ -287,4 +289,8 @@ dl.side>dt {
   border-bottom: 1px dotted #222;
   padding: 0.3125em 0.5em;
   margin: 1em 0;
+}
+
+#keychain>li {
+  margin: 0.75em 0;
 }
