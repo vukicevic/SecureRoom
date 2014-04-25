@@ -1,6 +1,6 @@
 /**
  * SecureRoom - Encrypted web browser based text communication software
- * Copyright (C) 2013 Nenad Vukicevic
+ * Copyright (C) 2014 Nenad Vukicevic
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -103,7 +103,7 @@ function Asymmetric(crunch, hash, random) {
         } while (typeof mpi.d === "undefined" && exp.length);
 
         if (typeof mpi.d !== "undefined") {
-          mpi.u  = crunch.cut(crunch.inv(mpi.p, mpi.q)); //arguments wrong way round?
+          mpi.u  = crunch.cut(crunch.inv(mpi.p, mpi.q));
           mpi.dp = crunch.mod(mpi.d, crunch.decrement(mpi.p));
           mpi.dq = crunch.mod(mpi.d, crunch.decrement(mpi.q));
 

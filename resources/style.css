@@ -254,6 +254,9 @@ div.info>textarea {
   width: 99%;
   height: 10em;
   margin-top: 0.5em;
+  margin-bottom: 1em;
+  font-size: 0.75em;
+  resize: none;
 }
 
 div.key-info {
