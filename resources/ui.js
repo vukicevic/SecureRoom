@@ -9,7 +9,7 @@ function TemplateEngine(templ) {
       template = templ;
 
     while (match = /\{\{#([a-zA-Z]+)\}\}(.+)\{\{\/\1\}\}/g.exec(template)) {
-      for (tpart = '', i = 0; i < data[match[1]].length; i++)
+      for (tpart = "", i = 0; i < data[match[1]].length; i++)
         tpart += compile(data[match[1]][i], match[2]);
 
       template = template.split(match[0]).join(tpart);
@@ -17,303 +17,308 @@ function TemplateEngine(templ) {
     }
 
     for (match in data)
-      template = template.split('{{' + match + '}}').join(data[match]);
+      template = template.split("{{" + match + "}}").join(data[match]);
 
     return template;
   }
 }
 
 var UI = {
-  toggleKeychain: function() {
-    var ctrl = document.getElementById('keychainToggle'),
-        elem = document.getElementById('keychain');
+  init: function() {
+    var getUrlParam = function(name) {
+      var match = new RegExp("[?&]" + name + "=([^&]*)").exec(window.location.search);
+      return (match) ? decodeURIComponent(match[1].replace(/\+/g, " ")) : "";
+    }
 
-    return function (close) {
-      if (ctrl.classList.contains('open') || close === 'close') {
-        ctrl.classList.remove('open');
-        elem.style.bottom = '-' + (elem.clientHeight + 5) + 'px';
+    secureroom.config.room   = getUrlParam("room");
+    secureroom.config.server = getUrlParam("server") || "wss://princip.secureroom.net/ws";
 
-        var node;
-        while ((node = elem.querySelector('.export:not(.hidden)'))) node.classList.add('hidden');
-        while ((node = elem.querySelector('.selected'))) node.classList.remove('selected');
-      } else {
-        ctrl.classList.add('open');
-        elem.style.bottom = (ctrl.clientHeight - 5) + 'px';
-      }
-    };
+    UI.initVars();
+    UI.initForm();
+    UI.initSidebar();
   },
 
-  toggleSettings: function() {
-    var ctrl = document.getElementById('settingsToggle'),
-        elem = document.getElementById('settings');
+  initSidebar: function() {
+    var ctrl = document.getElementById("sidebarToggle"),
+        elem = document.getElementById("sidebar");
 
-    return function (close) {
-      if (ctrl.classList.contains('open') || close === 'close') {
-        ctrl.classList.remove('open');
-        elem.style.marginTop = '-' + (elem.clientHeight - ctrl.clientHeight) + 'px';
-        window.scrollTo(0, document.body.offsetHeight);
-      } else {
-        ctrl.classList.add('open');
-        elem.style.marginTop = ctrl.clientHeight + 'px';
-        window.scrollTo(0, 0);
-      }
-    };
+    ctrl.addEventListener("click", function () {
+      ctrl.classList.toggle("open");
+      elem.classList.toggle("open");
+    });
   },
 
-  toggleKey: function (id, ctrl) {
-    return function () {
-      if (app.isEnabled(id)) {
-        ctrl.classList.add('inactive');
-        ctrl.textContent = 'DISABLED';
-        app.toggleKey(id, C.STATUS_DISABLED);
-      } else {
-        ctrl.classList.remove('inactive');
-        ctrl.textContent = 'ACTIVE';
-        app.toggleKey(id, C.STATUS_ENABLED);
+  initVars: function () {
+    document.getElementById("server").textContent = secureroom.config.server;
+    document.getElementById("room").textContent   = secureroom.config.room;
+  },
+
+  initForm: function () {   
+    var b = document.getElementById("generate"),
+        i = document.getElementById("nickname");
+
+    b.addEventListener("click", function () { 
+      if (!this.disabled) { 
+        secureroom.generateUser(i.value, document.getElementById("keysize").value); 
+        UI.addProgress();
       }
-    };
+    });
+    
+    i.addEventListener("keyup", function (e) { 
+      b.disabled = this.value.length < 3; 
+      if (e.which === 13) b.click();
+    });
+
+    i.focus();
+  },
+
+  initRoom: function () {
+    var opts, path, url = document.getElementById("room-url");
+
+    if (secureroom.config.room === "") {
+
+      secureroom.config.room = secureroom.user.id.substr(-5);
+      
+      opts = window.location.search ? window.location.search + "&room=" : "?room=";
+      path = window.location.pathname + opts + secureroom.config.room;
+      
+      window.history.replaceState({}, "SecureRoom", path);
+    }
+
+    url.value = window.location.href;
+    url.classList.remove("hidden");
+    url.addEventListener("click", function() { this.select() });
+  },
+
+  initInput: function() {
+    var m = document.getElementById("message"),
+        s = document.getElementById("send");
+
+    m.addEventListener("keyup", function (e) { 
+      if (e.which === 13)
+        s.click();
+    });
+    
+    s.addEventListener("click", function () { 
+      if (m.value !== "") {
+        secureroom.sendMessage(m.value);
+        m.value = "";
+      }
+    });
+  },
+
+  toggleUser: function (user, ctrl) {
+    ctrl.addEventListener("click", function () {
+      if (user.status === "active") {
+        ctrl.classList.add("inactive");
+        ctrl.textContent = "DISABLED";
+        user.status = "disabled";
+      } else {
+        ctrl.classList.remove("inactive");
+        ctrl.textContent = "ACTIVE";
+        user.status = "active";
+      }
+    });
   },
 
   toggleExport: function (elem, ctrl) {
-    return function () {
-      if (elem.classList.contains('hidden')) {
-        elem.classList.remove('hidden');
-        ctrl.classList.add('selected');
-      } else {
-        elem.classList.add('hidden');
-        ctrl.classList.remove('selected');
-      }
-
-      elem.style.left = (elem.parentNode.getBoundingClientRect().left - 1) + 'px';
-      elem.style.top  = '-' + (elem.offsetHeight - (elem.parentNode.getBoundingClientRect().top - elem.parentNode.parentNode.getBoundingClientRect().top)) + 'px';
-    };
+    ctrl.addEventListener("click", function () {
+      elem.style.height = (ctrl.classList.toggle("selected")) ? elem.scrollHeight + "px" : 0;
+    });
   },
 
-  toggleSize: function (elem) {
-    elem.parentNode.querySelector('.selected').classList.remove('selected');
-    elem.classList.add('selected');
-    return parseInt(elem.textContent);
-  },
-
-  toggleInput: function (close) {
-    document.getElementById('input').style.bottom = (close) ? '-2.3125em' : '0em';
-  },
-
-  toggleRoom: function () {
-    document.getElementById('room').textContent = 'Room: ' + app.getRoom();
-  },
-
-  toggleHeight: function (elem) {
-    var height = elem.offsetHeight;
-
-    if (elem.classList.contains('hidden-height')) {
-      elem.style.height = '0px';
-      elem.classList.remove('hidden-height');
-    } else {
-      elem.style.height = height + 'px';
-    }
-
-    return function () {
-      elem.style.height = (elem.style.height == '0px') ? height + 'px' : '0px';
-    }
-  },
-
-  removeContent: function (elem) {
-    elem.style.height = elem.offsetHeight + 'px';
-
-    return function () {
-      elem.style.height = '0px';
-      while (elem.firstChild) elem.removeChild(elem.firstChild);
-    }
-  },
-
-  disableSettings: function (setting) {
-    var parent = document.getElementById(setting), node;
-
-    switch (setting) {
-      case 'asymsize':
-        while ((node = parent.querySelector('span:not(.selected)'))) parent.removeChild(node);
-        break;
-      case 'serverurl':
-        parent.classList.add('selected');
-        parent.contentEditable = false;
-        break;
-    }
+  removeContent: function (elem, ctrl) {
+    elem.style.height = elem.scrollHeight + "px";
+    ctrl.addEventListener("click", function() {
+      elem.style.height = "0px";
+      while (elem.firstChild) elem.removeChild(elem.firstChild);  
+    });
   },
 
   addMessage: function (message) {
-    if (message.isVerified()) {
+    if (message.verified) {
       var container = document.getElementById("content"),
           build = TemplateEngine("template-message"),
           content = {};
 
-      content.time    = PrintUtil.time(message.getTime());
-      content.sender  = PrintUtil.text(app.getKey(message.getSender()).name);
-      content.message = PrintUtil.text(message.getText());
+      content.time    = PrintUtil.time(message.sendtime+message.timediff);
+      content.sender  = PrintUtil.text((message.sender !== secureroom.user.id) ? secureroom.vault.findUser(message.sender).name : secureroom.user.name);
+      content.message = PrintUtil.text(message.plaintext);
       content.info    = UI.buildMsgInfo(message);
-      content.class   = (message.isVerified()) ? "" : " warning";
+      content.class   = (message.verified) ? "" : " warning";
 
       container.insertAdjacentHTML("beforeend", build(content));
 
-      UI.addMessageListeners(container.lastChild);
+      UI.toggleExport(container.lastChild.querySelector(".info"), container.lastChild.querySelector(".time"));
+
       window.scrollTo(0, document.body.offsetHeight);
     }
   },
 
-  addMessageListeners: function (elem) {
-    elem.addEventListener('click', UI.toggleHeight(elem.querySelector('.info')));
-  },
-
-  addKey: function (id) {
-    if (!document.getElementById('alert-' + id)) {
-      var container = document.getElementById('content'),
-          build     = TemplateEngine('template-key-alert'),
+  addUser: function (user) {
+    if (!document.getElementById("alert-" + user.id)) {
+      var container = document.getElementById("content"),
+          build     = TemplateEngine("template-key-alert"),
           content   = {};
 
-      content.id   = PrintUtil.text(id);
+      content.id   = PrintUtil.text(user.id);
       content.time = PrintUtil.time(Math.round(Date.now() / 1000));
-      content.name = PrintUtil.text(app.getKey(id).name);
-      content.info = UI.buildKeyInfo(id);
+      content.name = PrintUtil.text(user.name);
+      content.info = UI.buildKeyInfo(user.master) + UI.buildKeyInfo(user.ephemeral);
 
-      container.insertAdjacentHTML('beforeend', build(content));
+      container.insertAdjacentHTML("beforeend", build(content));
 
-      UI.addKeyListeners(document.getElementById('alert-' + id), id);
       window.scrollTo(0, document.body.offsetHeight);
+
+      UI.addUserListeners(container.lastChild, user);
     }
   },
 
-  addKeyListeners: function (elem, id) {
-    var a = elem.getElementsByTagName('button').item(0),
-        r = elem.getElementsByTagName('button').item(1),
-        p = elem.querySelector('.join'),
-        d = UI.removeContent(a.parentNode);
+  addUserListeners: function (elem, user) {
+    var a = elem.getElementsByTagName("button").item(0),
+        r = elem.getElementsByTagName("button").item(1),
+        p = elem.querySelector(".join");
 
-    a.addEventListener('click', function () {
-      app.toggleKey(id, C.STATUS_ENABLED);
-      com.sendKey();
+    a.addEventListener("click", function () {
+      elem.classList.remove("alert");
+      elem.classList.add("event");
+      p.classList.add("accept");
+
+      user.status = "active";
+
+      UI.addToChain(user);
+      secureroom.channel.sendUser(secureroom.user);
     });
 
-    a.addEventListener('click', function () {
-      p.classList.add('accept');
-      UI.buildKeychain();
+    r.addEventListener("click", function () {
+      elem.classList.remove("alert");
+      elem.classList.add("warning");
+      p.classList.add("reject");
+
+      user.status = "rejected";
     });
 
-    a.addEventListener('click', d);
-
-    r.addEventListener('click', function () {
-      app.toggleKey(id, C.STATUS_REJECTED);
-    });
-
-    r.addEventListener('click', function () {
-      elem.classList.add('warning');
-      p.classList.add('reject');
-    });
-
-    r.addEventListener('click', d);
+    UI.removeContent(a.parentNode, a);
+    UI.removeContent(r.parentNode, r);
   },
 
   buildRecipientList: function(message) {
-    return message.getRecipients().map(function(id) {
-      return (app.hasKey(id)) ? (!app.isRejected(id)) ? PrintUtil.text(app.getKey(id).name) : 'Rejected' : 'Unknown';
-    }).join(', ');
+    return message.recipients.map(function(id) {
+      var recipient = (secureroom.user.ephemeral.id === id) ? secureroom.user : secureroom.vault.findUser(id);
+      return (typeof recipient !== "undefined") ? (recipient.status !== "rejected") ? PrintUtil.text(recipient.name) : "REJECTED" : "UNKNOWN";
+    }).join(", ");
   },
 
   buildMsgInfo: function (message) {
-    var build = TemplateEngine('template-message-info'),
+    var build = TemplateEngine("template-message-info"),
         content = {info: []};
 
-    content.info.push({term: 'Author', data: PrintUtil.id(message.getSender())});
-    //content.info.push({term: 'Cipher', data: Symmetric.name+'-'+(message.sessionkey.length*8)+' ['+Symmetric.mode+']'});
-    content.info.push({term: 'Delay', data: message.getTimeDiff() + ' sec'});
-    content.info.push({term: 'Recipients', data: this.buildRecipientList(message)});
+    content.info.push({term: "Author", data: PrintUtil.id(message.sender)});
+    content.info.push({term: "Cipher", data: "AES-CFB 128-bit"});
+    content.info.push({term: "Delay", data: message.timediff + " sec"});
+    content.info.push({term: "Recipients", data: this.buildRecipientList(message)});
 
     return build(content);
   },
 
-  buildKeyInfo: function (id) {
-    var build = TemplateEngine('template-key-info'),
+  buildKeyInfo: function (key) {
+    var build = TemplateEngine("template-key-info"),
         content = {};
 
-    content.sid   = PrintUtil.id(id);
-    content.ssize = PrintUtil.number(app.getKey(id).size);
-    content.sdate = PrintUtil.date(app.getKey(id).time);
+    content.type = key.isMaster() ? "Master Signing Key" : "Ephemeral Encryption Key";
+    content.id   = PrintUtil.id(key.id);
+    content.size = PrintUtil.number(key.size);
+    content.date = PrintUtil.date(key.created);
 
     return build(content);
   },
 
-  buildKeychain: function () {
-    var container = document.getElementById('keychain'),
-        build = TemplateEngine('template-key-chain'),
-        content = {};
+  addToChain: function (user) {
+    var chain    = document.getElementById("keychain"),
+        build    = TemplateEngine("template-key-chain"),
+        content  = {},
+        bn, da;
 
-    while (container.lastChild != container.firstChild)
-      container.removeChild(container.lastChild);
+    content.id   = PrintUtil.text(user.id);
+    content.name = PrintUtil.text(user.name);
+    content.info = UI.buildKeyInfo(user.master) + UI.buildKeyInfo(user.ephemeral);
+    content.data = ExportUtil().publicGpg(user);
 
-    app.getKeys(C.TYPE_MASTER, C.STATUS_ENABLED | C.STATUS_DISABLED).forEach(function(v) {
-      content.id     = PrintUtil.text(v);
-      content.name   = PrintUtil.text(app.getKey(v).name);
-      content.status = (app.isEnabled(v)) ? '' : 'inactive';
-      content.state  = (app.isEnabled(v)) ? 'ACTIVE' : 'DISABLED';
-      content.info   = UI.buildKeyInfo(v);
-      content.data   = KeyHelper(app.getKey(v), app.getKey(app.getKey(v).peer)).getPublicGpgKey();
+    chain.insertAdjacentHTML("beforeend", build(content));
+    
+    bn = chain.lastChild.getElementsByTagName("span"),
+    da = chain.lastChild.querySelectorAll("div.info");
 
-      container.insertAdjacentHTML('beforeend', build(content));
-      UI.addKeychainListeners(container.lastChild, v);
+    UI.toggleExport(da.item(0), bn.item(0));
+    UI.toggleExport(da.item(1), bn.item(1));
+    UI.toggleUser(user, bn.item(2));
+  },
+
+  addDistribute: function () {
+    var container = document.getElementById("welcome"), button;
+    
+    while (container.firstChild) 
+        container.removeChild(container.firstChild);
+    
+    container.insertAdjacentHTML("beforeend", "<h1>Success!</h1><h3><em>Key <b>" + PrintUtil.id(secureroom.user.id) + "</b> generated.</em></h3><button>Connect &amp; Distribute</button>");
+    button = container.querySelector("button");
+
+    button.addEventListener("click", function () {
+      secureroom.connectToServer();
+      UI.addProgress();
     });
 
-    UI.toggleKeychain()('close');
+    UI.initRoom();
+    UI.initVars();
+    UI.addMyUser();
+
+    button.focus();
   },
 
-  addKeychainListeners: function (elem, id) {
-    var b1 = elem.getElementsByTagName('span').item(0),
-        b2 = elem.getElementsByTagName('span').item(1),
-        ex = elem.querySelector('.export');
+  addProgress: function() {
+    var container = document.getElementById("welcome");
+    
+    while (container.firstChild) 
+        container.removeChild(container.firstChild);
 
-    b1.addEventListener('click', UI.toggleKey(id, b1));
-    b2.addEventListener('click', UI.toggleExport(ex, b2));
+    container.insertAdjacentHTML("beforeend", "<div class='loading'></div>");
   },
 
-  addWelcome: function (type) {
-    var container = document.getElementById('welcome');
-
-    while (container.firstChild)
+  addConnect: function() {
+    var action    = "Disconnected",
+        container = document.getElementById("welcome");
+    
+    while (container.firstChild) 
       container.removeChild(container.firstChild);
-
-    switch (type) {
-      case 'distribute':
-        container.insertAdjacentHTML('beforeend', '<p>Your keys have been generated.</p><div class="info">' + UI.buildKeyInfo(app.myId(C.TYPE_MASTER)) + '</div><button>Connect &amp; Distribute</button>');
-        container.querySelector('button').addEventListener('click', function () {
-          com.connect();
-          UI.addWelcome('progress');
-          UI.disableSettings('serverurl')
-        });
-        UI.addMyKey();
-        break;
-      case 'progress':
-        container.insertAdjacentHTML('beforeend', '<div class="loading"></div>');
-        break;
-      case 'connect':
-      case 'disconnect':
-        container.insertAdjacentHTML('beforeend', '<div class="time">' + PrintUtil.time(Math.round(Date.now()/1000)) + '</div><p>' + type.charAt(0).toUpperCase() + type.slice(1) + 'ed.</p>');
-        break;
+    
+    if (secureroom.channel.isConnected()) {
+      action = "Connected";
+      secureroom.channel.sendUser(secureroom.user);
+      UI.initInput();
     }
+
+    container.parentNode.style.backgroundColor = "white";
+    container.style.display = "none";
+
+    document.getElementById("content").insertAdjacentHTML("beforeend", "<li class='event'><div class='time'>" + PrintUtil.time(Math.round(Date.now()/1000)) + "</div><p>" + action + ".</p></li>");
+    document.getElementById("message").focus();
   },
 
-  addMyKey: function () {
-    document.getElementById('myname').textContent = PrintUtil.text(app.myName());
-    document.getElementById('myinfo').insertAdjacentHTML('beforeend', UI.buildKeyInfo(app.myId(C.TYPE_MASTER)));
+  addMyUser: function () {
+    var e1 = document.getElementById("my-private-key"),
+        e2 = document.getElementById("my-public-key"),
+        e3 = document.getElementById("my-key-info"),
+        kh = ExportUtil();
 
-    var my = document.getElementById('mykey'),
-        e1 = my.getElementsByTagName('textarea').item(0),
-        e2 = my.getElementsByTagName('textarea').item(1),
-        b1 = my.getElementsByTagName('span').item(0),
-        b2 = my.getElementsByTagName('span').item(1),
-        kh = KeyHelper(app.getKey(app.myId(C.TYPE_MASTER)), app.getKey(app.myId(C.TYPE_EPHEMERAL)));
+    e1.textContent = kh.privateGpg(secureroom.user);
+    e2.textContent = kh.publicGpg(secureroom.user);
+    e3.insertAdjacentHTML("beforeend", UI.buildKeyInfo(secureroom.user.master) + UI.buildKeyInfo(secureroom.user.ephemeral));
 
-    e1.textContent = kh.getSecretGpgKey();
-    e2.textContent = kh.getPublicGpgKey();
+    UI.toggleExport(e1.parentNode, document.getElementById("my-private-key-toggle"));
+    UI.toggleExport(e2.parentNode, document.getElementById("my-public-key-toggle"));
+    UI.toggleExport(e3, document.getElementById("my-key-info-toggle"));
 
-    b1.addEventListener('click', UI.toggleExport(e1.parentNode, b1));
-    b2.addEventListener('click', UI.toggleExport(e2.parentNode, b2));
+    document.getElementById("my-name").textContent = PrintUtil.text(secureroom.user.name);
+    document.getElementById("my-controls").parentNode.classList.remove("hidden");
   }
 }

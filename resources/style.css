@@ -4,74 +4,69 @@
 }
 
 body {
-  font-family: Lucida Sans Unicode, Lucida Grande, sans-serif;
+  font-family: Arial, sans-serif;
   font-size: 16px;
   line-height: 1.1875em;
   width: 100%;
+  height: 100%;
+  background-color: #222;
+  transition: background-color 0.5s;
 }
 
-/* MENU STYLES */
-#menu {
-  width: 100%;
-  background-color: black;
-  color: white;
+#sidebar {
   position: fixed;
-  top: 0;
-  list-style-type: none;
-  text-transform: uppercase;
+  bottom: 3em;
+  left: -21em;
+  height: 100%;
+  width: 20em;
+  border-right: 1px solid #222;
+  background-color: white;
+  z-index: 99;
+  overflow-y: auto;
+  transition: left 500ms;
 }
 
-#menu span {
-  float: left;
-  display: block;
-  padding: 0.625em 1em;
-  margin: 0;
-  cursor: pointer;
+#sidebar.open {
+  left: 0;
 }
 
-#settings {
-  list-style-type: none;
-  border-bottom: 1px solid black;
-  margin: 3em 0 0;
-  padding: 1em 0;
-  overflow: hidden;
-  transition: margin-top 300ms ease;
+#sidebar::-webkit-scrollbar {
+  width: 0.2em;
 }
 
-#settings li {
-  display: block;
-  float: left;
-  padding: 0.5em 1em;
+#sidebar::-webkit-scrollbar-track {
+  background-color: #999;
 }
 
-#settings h3 {
-  margin-bottom: 1em;
+#sidebar::-webkit-scrollbar-thumb {
+  background-color: #222;
 }
 
-#settings p {
-  line-height: 1.5em;
-}
-
-#room {
-  float: right !important;
-}
-
-/* CONTENT STYLES */
 #content {
   margin: 0.6875em 0 3.6875em;
   list-style-type: none;
 }
 
 #content>li {
-  padding: 0.8125em 1em 0.625em;
+  padding: 0.3125em 1em;
+  transition: background-color 0.5s;
 }
 
 #content>li>p {
-  margin-right: 6em;
+  margin-right: 2em;
 }
 
 #content .cln:after {
   content: ": ";
+}
+
+#content ul.info {
+  font-size: 0.8125em;
+  text-align: right;
+  overflow: hidden;
+  margin: 0.308em 0;
+  list-style-type: none;
+  transition: height 0.5s;
 }
 
 #content .message {
@@ -83,40 +78,14 @@ body {
   float: right;
   font-size: 0.5em;
   line-height: 1em;
-  margin-top: -0.5em;
+  margin-top: -0.25em;
   width: 1em;
   cursor: pointer;
-}
-
-#content ul.info {
-  font-size: 0.8125em;
-  text-align: right;
-  overflow: hidden;
-  margin: 0.308em 0;
-  list-style-type: none;
-  transition: height 300ms ease;
-}
-
-#content div.info {
-  font-size: 0.8125em;
-  line-height: 1.154em;
-  overflow: hidden;
-  transition: height 300ms ease;
-}
-
-#content div.info>p {
-  margin: 0.3125em 0;
-}
-
-#content .alert {
-  background-color: black;
-  color: white;
-  margin: 0.5em 0;
-  overflow: hidden;
+  font-style: normal;
 }
 
 #content p.join:after {
-  content: " wishes to join.";
+  content: " has sent a key.";
 }
 
 #content p.reject:after {
@@ -128,19 +97,48 @@ body {
 }
 
 #welcome {
-  transition: height 300ms ease;
+  overflow: hidden; 
+  padding-left: 2em;
+  padding-top: 4em;
+  color: white;
+  font-size: 1.25em;
+}
+
+#welcome>h3 {
+  margin: 1.5em 0 1em;
+  font-weight: normal;
+}
+
+#welcome p {
+  margin-bottom: 1em;
+}
+
+.alert {
+  background-color: #222;
+  color: white;
+  padding: 1em !important;
+}
+
+.event {
+  color: #222;
+  text-align: right;
+  font-style: italic;
+  background-color: white !important;
+  padding-top: 0.5em !important;
 }
 
 .warning {
+  text-align: right;
+  font-style: italic;
   background-color: #E87600 !important;
+  padding-top: 0.5em !important;
 }
 
 .loading {
   position: relative;
   background-color: white;
   width: 100%;
-  height: 1em;
-  margin-bottom: 0.3125em;
+  height: 1.5em;
   -webkit-animation: load 1s linear infinite;
   animation: load 1s linear infinite;
 }
@@ -173,205 +171,148 @@ body {
   display: none;
 }
 
-button {
-  font-size: 1.25em;
-  font-weight: bold;
-  padding: 0.25em 0.5em 0.15em;
-  margin: 0.25em 0.3em 0 0;
-  border-radius: 0.25em;
-  background-color: white;
+.border-left {
+  border-left: 1px dotted #222;
+}
+
+input, select, button {
+  margin: 0;
+  height: 1.25em;
+  padding: 0.3em;
+  box-sizing: inherit;
+  -moz-box-sizing: inherit;
   border: none;
-  outline: none;
-  cursor: pointer;
+  background-color: white;
+  font-size: 1.12em;
+}
+
+input:focus, button:focus, select:focus { 
+  outline:none;
 }
 
 button:active {
   background-color: red;
-  color: white;
-}
-
-button::-moz-focus-inner {
-  border:0;
-  padding:0;
-}
-
-input {
-  font-size: 1.25em;
-  padding: 0.25em 0.5em 0.15em;
-  margin: 0.25em 0.25em 0.25em 0;
-  border-radius: 0.25em;
-  border: none;
-  outline: none;
-}
-
-#nickname {
-  border-top-right-radius: 0;
-  border-bottom-right-radius: 0;
-  margin-right: 0;
-  width: 7em;
-}
-
-#generate {
-  border-top-left-radius: 0;
-  border-bottom-left-radius: 0;
-  border-left: 1px dotted black;
-  margin-left: 0;
 }
 
 #input {
   position: fixed;
-  bottom: -2.3125em;
+  bottom: 0;
   width: 100%;
-  padding: 0 0.3125em;
-  background-color: black;
+  background-color: #222;
   color: white;
-  list-style-type: none;
-  z-index: 1000;
-  transition: bottom 400ms ease;
+  z-index: 100;
+  display: flex;
+  flex-direction: row;
 }
 
-#input input, button {
-  margin: 0.3125em 0;
-}
-
-#input span {
-  display: block;
-  overflow: hidden;
-}
-
-#send {
-  float: right;
-  border-bottom-left-radius: 0;
-  border-top-left-radius: 0;
-  border-left: 1px dotted black;
-  transition: all 50ms ease;
+#sidebarToggle {
+  padding: 0.75em;
 }
 
 #message {
-  width: 100%;
-  border-bottom-right-radius: 0;
-  border-top-right-radius: 0;
+  flex: auto;
+  margin-top: 0.5em;
+  margin-left: 0.5em;
 }
 
-#keychainToggle {
-  float: right;
-  margin-left: 0.3125em;
-  padding: 0.6125em 1em;
-  cursor: pointer;
+#send {
+  width: 5em;
+  margin-top: 0.5em;
+  margin-right: 0.5em;
+  transition: all 50ms;
 }
 
 .closed {
-  background-color: black;
+  background-color: #222;
   fill: white;
 }
 
 .open {
   background-color: white;
-  fill: black;
+  fill: #222;
 }
 
-#keychain {
-  position: fixed;
-  background-color: white;
-  bottom: -7em;
-  border-top: 1px solid #000;
-  list-style-type: none;
-  width: 100%;
-  z-index: 500;
-  transition: bottom 400ms ease;
+.controls {
+  font-size: 0.75em;
 }
 
-#keychain li {
-  display: block;
-  float: left;
-  width: 15em;
-  padding: 0.5em 1em;
-  border-right: 1px dotted #222;
-  border-bottom: 1px dotted #222;
-}
-
-#keychain .export {
-  background-color: white;
-  border: 0.0625em dotted black;
-  border-bottom: none;
-  position: absolute;
-  width: 15em;
-  height: 17em;
-  padding: 1em;
-  padding-bottom: 0.6875em;
-}
-
-#keychain .export>textarea {
-  font-size: 0.6875em;
-  margin: 0;
-  width: 100%;
-  height: 100%;
-  resize: none;
-  white-space: nowrap;
-  overflow: auto;
-}
-
-@media (max-width: 600px) {
-  #keychain li {
-    width: 100%;
-    border-right: none;
-    -moz-box-sizing: border-box;
-    box-sizing: border-box;
-  }
-  #keychain .export {
-    width: 100%;
-    border-right: none;
-    border-left: none;
-    -moz-box-sizing: border-box;
-    box-sizing: border-box;
-  }
-}
-
-#keychain p {
-  font-size: 0.8125em;
-  line-height: 1.125em;
-  margin-top: 0.5em;
-}
-
-#keychain h3 {
-  font-size: 1em;
-}
-
-#keychain .controls {
-  float: right;
-  font-size: 0.6875em;
-  margin-top: -1.8em;
-  margin-right: -0.8em;
-}
-
-div.controls>span {
-  background-color: white;
-  color: black;
-  border: 1px solid black;
-  border-left: none;
-  padding: 0.125em 0.5em;
-  margin: 0;
+.controls>span {
   cursor: pointer;
-  user-select: none;
 }
-div.controls>span:first-child {
-  border-top-left-radius: 0.25em;
-  border-bottom-left-radius: 0.25em;
-  border-left: 1px solid black;
+
+.selected {
+  font-weight: bold;
 }
-div.controls>span:last-child {
-  border-top-right-radius: 0.25em;
-  border-bottom-right-radius: 0.25em;
+
+div.info {
+  overflow: hidden;
+  width: 100%;
+  transition: height 0.5s;
 }
-div.controls>span.selected {
-  background-color: black;
-  color: white;
+
+div.info>textarea {
+  width: 99%;
+  height: 10em;
+  margin-top: 0.5em;
+  margin-bottom: 1em;
+  font-size: 0.75em;
+  resize: none;
 }
-div.controls>span.inactive {
-  color: gray;
-  border-color: black;
+
+div.key-info {
+  display: inline-block;
+  padding: 0.25em 0.75em 0.5em;
 }
-div.controls>span.disabled {
-  background-color: lightgray;
-  color: white;
+
+div.key-info>p {
+  font-size: 0.75em;
+  margin: 0.5em 0;
+  text-transform: uppercase;
+}
+
+div.key-info>dl {
+  font-size: 0.75em;
+  margin-left: 0.5em;
+  margin-bottom: 0.5em;
+}
+
+div.key-info>dl>dt {
+  font-weight: bold;
+  float: left;
+  clear: left;
+  width: 4em;
+}
+
+div.key-info>dl>dd {
+  margin-left: 4em;
+}
+
+dl.side {
+  margin-top: 3em;
+}
+
+dl.side>dd {
+  margin: 0.25em 0.5em;
+}
+
+dl.side>dt {
+  font-weight: normal;
+  text-transform: uppercase;
+  border-bottom: 1px dotted #222;
+  padding: 0.3125em 0.5em;
+  margin: 1em 0;
+}
+
+#keychain>li {
+  margin: 0.75em 0;
+}
+
+#keychain .inactive {
+  color: #999;
+}
+
+#room-url {
+  width: 100%;
+  font-size: 0.75em;
+  text-overflow: ellipsis;
 }

@@ -1,6 +1,6 @@
 /**
  * SecureRoom - Encrypted web browser based text communication software
- * Copyright (C) 2013 Nenad Vukicevic
+ * Copyright (C) 2014 Nenad Vukicevic
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -13,17 +13,20 @@
  * GNU General Public License for more details.
  **/
 
-var Random = {
-  /*
-  Generates an octet array with random values, with specified total size in bits
-  s - Size to generate, in bits
-  */
-  generate: function(size) {
-    var c = window.crypto || window.msCrypto,
-        t = new Uint8Array(Math.ceil(size/8));
+function Random() {
+  var crypto = window.crypto || window.msCrypto;
 
-    c.getRandomValues(t);
+  return {
+    /*
+    Generates an octet array with random values, with specified total size in bits
+    s - Size to generate, in bits
+    */
+    generate: function(size) {
+      var t = new Uint8Array(Math.ceil(size/8));
 
-    return Array.prototype.slice.call(t);
+      crypto.getRandomValues(t);
+
+      return Array.prototype.slice.call(t);
+    }
   }
 };

@@ -19,106 +19,101 @@
     <li class="message{{class}}"><div class="time">{{time}}</div><p><b class="cln">{{sender}}</b>{{message}}</p>{{info}}</li>
   </script>
   <script type="text/html" id="template-message-info">
-    <ul class="info hidden-height">{{#info}}<li><b class="cln">{{term}}</b>{{data}}</li>{{/info}}</ul>
+    <ul class="info" style="height:0">{{#info}}<li><b class="cln">{{term}}</b>{{data}}</li>{{/info}}</ul>
   </script>
   <script type="text/html" id="template-key-alert">
-    <li id="alert-{{id}}" class="alert"><div class="time">{{time}}</div><p class="join">{{name}}</p><div class="info">{{info}}<button>Accept</button>&nbsp;<button>Reject</button></div></li>
+    <li id="alert-{{id}}" class="alert"><div class="time">{{time}}</div><p class="join">{{name}}</p><div class="info"><div class="extra-pad">{{info}}</div><button>Accept</button>&nbsp;<button>Reject</button></div></li>
   </script>
   <script type="text/html" id="template-key-info">
-    <p><b>{{sid}}</b><br><small>{{ssize}} BITS | {{sdate}}</small></p>
+    <div class="key-info"><p>{{type}}</p><dl class="info"><dt>Id</dt><dd>{{id}}</dd><dt>Size</dt><dd>{{size}} BITS</dd><dt>Date</dt><dd>{{date}}</dd></dl></div>
   </script>
   <script type="text/html" id="template-key-chain">
-    <li id="key-{{id}}"><div class="export hidden"><textarea wrap="off">{{data}}</textarea></div><h3>{{name}}</h3><div class="controls"><span class="{{status}}">{{state}}</span><span>PUBLIC KEY</span></div><div class="info">{{info}}</div></li>
+    <li id="key-{{id}}"><p><b>{{name}}</b></p><div class="controls"><span>KEY INFO</span> | <span>PUBLIC KEY</span> | <span>ACTIVE</span></div><div class="info" style="height:0">{{info}}</div><div class="info" style="height:0"><textarea wrap="off">{{data}}</textarea></div></li>
   </script>
 </head>
 <body>
-  <div id="menu">
-    <span class="closed open" id="settingsToggle">
-    <svg height="19" width="16" xmlns="http://www.w3.org/2000/svg" version="1.1">
-      <rect y="3" width="16" height="3"></rect>
-      <rect y="8" width="16" height="3"></rect>
-      <rect y="13" width="16" height="3"></rect>
-    </svg>
-    </span>
-    <span id="room" onclick="window.prompt('Copy the URL of this SecureRoom: CTRL-C then Enter', window.location);">Room: -</span>
+
+  <aside id="sidebar">
+    <dl class="side">
+      <dt>Settings</dt>
+      <dd>
+        <p>Server<br><small id="server">-</small></p>
+      </dd>
+      <dd>
+        <p>Room<br><small id="room">-</small></p>
+      </dd>
+      <dt>Share URL</dt>
+      <dd>
+        <input type="text" id="room-url" class="hidden">
+      </dd>
+      <dt>My Identity</dt>
+      <dd class="hidden">
+        <p><b id="my-name"></b></p>
+        <div class="controls" id="my-controls">
+          <span id="my-key-info-toggle">KEY INFO</span> | <span id="my-public-key-toggle">PUBLIC KEY</span> | <span id="my-private-key-toggle">PRIVATE KEY</span>
+        </div>
+        <div class="info" id="my-key-info" style="height:0"></div>
+        <div class="info" style="height:0">
+          <textarea wrap="off" id="my-private-key"></textarea>
+        </div>
+        <div class="info" style="height:0">
+          <textarea wrap="off" id="my-public-key"></textarea>
+        </div>
+      </dd>
+      <dt>Keychain</dt>
+      <dd>
+        <ul id="keychain"></ul>
+      </dd>
+    </dl>
+  </aside>
+
+  <div id="welcome">
+    <h1>Welcome,</h1>
+    <h3><em>Generate keys to get started</em></h3>
+    
+    <input type="text" id="nickname" placeholder="Choose a name" autocomplete="off">
+    <br>
+    <select id="keysize" autocomplete="off">
+      <option>1024</option>
+      <option>2048</option>
+      <option>4096</option>
+    </select>
+    <label for="keysize">&larr; <small>Choose a keysize</small></label>
+    <br>
+    <button id="generate">Generate</button>
   </div>
 
-  <ul id="settings">
-    <li>
-      <h3>Symmetric Cipher (AES)</h3>
-      <div class="controls" id="symcsize">Size (bits): <span class="selected">128</span><span>192</span><span>256</span></div>
-    </li>
-    <li>
-      <h3>Asymmetric Key (RSA)</h3>
-      <div class="controls" id="asymsize">Size (bits): <span class="selected">1024</span><span>1536</span><span>2048</span><span>4096</span></div>
-    </li>
-    <li>
-      <h3>WebSocket Connection</h3>
-      <div class="controls">URL: <span id="serverurl" contenteditable="true" onkeydown="if(event.keyCode === 13)event.preventDefault();" onkeyup="app.setServer(this.textContent);"></span></div>
-    </li>
-  </ul>
-
   <ul id="content">
-    <li class="alert" id="welcome">
-      <input type="text" id="nickname" autocomplete="off" placeholder="Enter a name..." onkeyup="this.nextSibling.disabled = (this.value.length<3);" onkeypress="(event.keyCode===13) && this.nextSibling.onclick();"><button id="generate" onclick="if (!this.disabled) { app.generateKeys(this.previousSibling.value); UI.addWelcome('progress'); UI.disableSettings('asymsize'); }" disabled>Generate</button>
-    </li>
   </ul>
 
   <div id="input">
-    <div class="closed" id="keychainToggle">
-      <svg height="19" width="12" xmlns="http://www.w3.org/2000/svg" version="1.1">
-        <rect y="5" width="4" height="3"></rect>
-        <rect y="10" width="4" height="3"></rect>
-        <rect y="15" width="4" height="3"></rect>
+    <div class="closed" id="sidebarToggle">
+      <svg height="20" width="16" xmlns="http://www.w3.org/2000/svg" version="1.1">
+        <rect y="5" width="16" height="3"></rect>
+        <rect y="10" width="16" height="3"></rect>
+        <rect y="15" width="16" height="3"></rect>
       </svg>
     </div>
-    <button id="send" onclick="var e = document.getElementById('message'); if (e.value) com.sendMessage(e.value); e.value = '';">Send</button>
-    <span><input type="text" id="message" autocomplete="off" onkeyup="(event.keyCode === 13) && document.getElementById('send').click()"></span>
+    <input type="text" id="message" autocomplete="off"><button id="send" class="border-left">Send</button>
   </div>
 
-  <ul id="keychain"><li id="mykey">
-      <div class="export hidden"><textarea wrap="off"></textarea></div>
-      <div class="export hidden"><textarea wrap="off"></textarea></div>
-      <h3 id="myname"></h3>
-      <div id="mycontrols" class="controls"><span>PRIVATE KEY</span><span>PUBLIC KEY</span></div>
-      <div id="myinfo" class="info"></div>
-  </li></ul>
-
   <script>
-  if (typeof window.WebSocket === 'function' && typeof window.Worker === 'function') {
-    var app, com;
+  if (typeof window.WebSocket === "function" && typeof window.Worker === "function") {
+    var primitives, secureroom;
 
-    window.onload = function() {
-      app = SecureRoom(
-              function() { UI.addWelcome('distribute'); UI.toggleSettings()('close'); UI.toggleKeychain()('close'); UI.toggleRoom() }
-            );
+    window.addEventListener("load", function() {
+      primitives = new Primitives(),
+      secureroom = new SecureRoom(
+        UI.addDistribute,
+        UI.addConnect,
+        UI.addMessage,
+        UI.addUser
+      );
 
-      com = SecureComm(
-              app,
-              function() { UI.addWelcome('connect'); UI.toggleInput(false) },
-              function() { UI.addWelcome('disconnect'); UI.toggleInput(true) },
-              UI.addMessage,
-              UI.addKey
-            );
-
-      UI.toggleRoom();
-
-      document.getElementById("keychainToggle").addEventListener('click', UI.toggleKeychain());
-      document.getElementById("settingsToggle").addEventListener('click', UI.toggleSettings());
-
-      document.getElementById("symcsize").addEventListener('click', function (e) { if (e.target.tagName.toLowerCase() === "span") app.setSize('cipher', UI.toggleSize(e.target)) });
-      document.getElementById("asymsize").addEventListener('click', function (e) { if (e.target.tagName.toLowerCase() === "span") app.setSize('key', UI.toggleSize(e.target)) });
-
-      document.getElementById("serverurl").textContent = app.getServer();
-      document.getElementById("nickname").focus();
-    };
-
-    window.onresize = function() {
-      UI.toggleKeychain()('close');
-      UI.toggleSettings()('close');
-    }
+      UI.init();
+    });
   } else {
-    alert('Your browser does not have the necessary features to run this application. Please try the latest Firefox, Chrome or Internet Explorer.');
+    alert("Your browser does not have the necessary features to run this application. Please try using the latest version of Firefox, Chrome or Internet Explorer.");
   }
   </script>
 </body>
