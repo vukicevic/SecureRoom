@@ -310,3 +310,9 @@ dl.side>dt {
 #keychain .inactive {
   color: #999;
 }
+
+#room-url {
+  width: 100%;
+  font-size: 0.75em;
+  text-overflow: ellipsis;
+}

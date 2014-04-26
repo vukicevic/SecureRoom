@@ -73,8 +73,9 @@ var UI = {
   },
 
   initRoom: function () {
+    var opts, path, url = document.getElementById("room-url");
+
     if (secureroom.config.room === "") {
-      var opts, path;
 
       secureroom.config.room = secureroom.user.id.substr(-5);
       
@@ -83,6 +84,10 @@ var UI = {
       
       window.history.replaceState({}, "SecureRoom", path);
     }
+
+    url.value = window.location.href;
+    url.classList.remove("hidden");
+    url.addEventListener("click", function() { this.select() });
   },
 
   initInput: function() {
@@ -250,14 +255,15 @@ var UI = {
   },
 
   addDistribute: function () {
-    var container = document.getElementById("welcome");
+    var container = document.getElementById("welcome"), button;
     
     while (container.firstChild) 
         container.removeChild(container.firstChild);
     
     container.insertAdjacentHTML("beforeend", "<h1>Success!</h1><h3><em>Key <b>" + PrintUtil.id(secureroom.user.id) + "</b> generated.</em></h3><button>Connect &amp; Distribute</button>");
-    
-    container.querySelector("button").addEventListener("click", function () {
+    button = container.querySelector("button");
+
+    button.addEventListener("click", function () {
       secureroom.connectToServer();
       UI.addProgress();
     });
@@ -265,6 +271,8 @@ var UI = {
     UI.initRoom();
     UI.initVars();
     UI.addMyUser();
+
+    button.focus();
   },
 
   addProgress: function() {
@@ -293,6 +301,7 @@ var UI = {
     container.style.display = "none";
 
     document.getElementById("content").insertAdjacentHTML("beforeend", "<li class='event'><div class='time'>" + PrintUtil.time(Math.round(Date.now()/1000)) + "</div><p>" + action + ".</p></li>");
+    document.getElementById("message").focus();
   },
 
   addMyUser: function () {
@@ -310,6 +319,6 @@ var UI = {
     UI.toggleExport(e3, document.getElementById("my-key-info-toggle"));
 
     document.getElementById("my-name").textContent = PrintUtil.text(secureroom.user.name);
-    document.getElementById("my-controls").classList.remove("hidden");
+    document.getElementById("my-controls").parentNode.classList.remove("hidden");
   }
 }
