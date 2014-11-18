@@ -70,7 +70,7 @@ function Asymmetric(crunch, hash, random) {
     var w = {}, timer, size, callback;
 
     function createWorker (worker, callback) {
-      w[worker] = new Worker("resources/external/crunch.js");
+      w[worker] = new Worker("resources/crunch/crunch.js");
 
       w[worker].onmessage = function (e) {
         this.data = e.data;

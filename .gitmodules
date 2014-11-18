@@ -1,0 +1,3 @@
+[submodule "resources/crunch"]
+	path = resources/crunch
+	url = https://github.com/vukicevic/crunch
