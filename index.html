@@ -67,7 +67,7 @@
     </dl>
   </aside>
 
-  <div id="welcome">
+  <div id="welcome" class="hidden">
     <h1>Welcome,</h1>
     <h3><em>Generate keys to get started</em></h3>
     
@@ -99,18 +99,11 @@
 
   <script>
   if (typeof window.WebSocket === "function" && typeof window.Worker === "function") {
-    var primitives, secureroom;
 
     window.addEventListener("load", function() {
-      primitives = new Primitives(),
-      secureroom = new SecureRoom(
-        UI.addDistribute,
-        UI.addConnect,
-        UI.addMessage,
-        UI.addUser
-      );
+      var secureroom = new SecureRoom( UI.addDistribute, UI.addConnect, UI.addMessage, UI.addUser );
 
-      UI.init();
+      UI.init(secureroom);
     });
   } else {
     alert("Your browser does not have the necessary features to run this application. Please try using the latest version of Firefox, Chrome or Internet Explorer.");

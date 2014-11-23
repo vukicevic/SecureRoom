@@ -13,22 +13,14 @@
  * GNU General Public License for more details.
  **/
 
-function Primitives() {
-  this.symmetric  = Symmetric();
-  this.random     = Random();
-  this.hash       = Hash();
-  this.crunch     = Crunch();
-  this.asymmetric = Asymmetric(this.crunch, this.hash, this.random);
-}
-
-function SecureRoom(onGenerateCallback, onConnectChangeCallback, onMessageCallback, onUserCallback) {
-  this.vault  = new Vault();
+function SecureRoom (onGenerateCallback, onConnectChangeCallback, onMessageCallback, onUserCallback) {
+  this.vault  = new Vault;
   this.config = {};
 
   this.onConnect  = onConnectChangeCallback;
   this.onGenerate = onGenerateCallback;
 
-  this.onMessage = function(message) {
+  this.onMessage = function (message) {
     if (typeof message.data !== "undefined") {
       message = new Message(message);
       message.decrypt(this.user);
@@ -44,7 +36,7 @@ function SecureRoom(onGenerateCallback, onConnectChangeCallback, onMessageCallba
     }
   };
 
-  this.onUser = function(data) {
+  this.onUser = function (data) {
     var user = new User(data);
 
     if (!this.vault.hasUser(user.id) && user.verified) {
@@ -54,20 +46,20 @@ function SecureRoom(onGenerateCallback, onConnectChangeCallback, onMessageCallba
   };
 }
 
-SecureRoom.prototype.generateUser = function(name, size) {
+SecureRoom.prototype.generateUser = function (name, size) {
   this.user = new User(name);
   this.user.status = "active";
   this.user.generateKeys(size, this.onGenerate.bind(this));
 }
 
-SecureRoom.prototype.connectToServer = function() {
+SecureRoom.prototype.connectToServer = function () {
   this.channel = new CommChannel(this.config.server + this.config.room, this.onConnect.bind(this), this.onMessage.bind(this), this.onUser.bind(this));
 }
 
-SecureRoom.prototype.sendMessage = function(text) {
+SecureRoom.prototype.sendMessage = function (text) {
   var message = new Message(text);
   message.sign(this.user);
-  message.encrypt(this.vault.findUsers("active"), primitives.random.generate(128));
+  message.encrypt(this.vault.findUsers("active"));
 
   this.channel.sendMessage(message);
   this.onMessage(message);
@@ -77,21 +69,21 @@ function Vault() {
   this.users = [];
 }
 
-Vault.prototype.addUser = function(user) {
+Vault.prototype.addUser = function (user) {
   this.users.push(user);
 }
 
-Vault.prototype.findUser = function(id) {
-  return this.users.filter(function(user) { return user.master.id === id || user.ephemeral.id === id }).pop();
+Vault.prototype.findUser = function (id) {
+  return this.users.filter(function (user) { return user.master.id === id || user.ephemeral.id === id }).pop();
 }
 
-Vault.prototype.findUsers = function(/* Call with desired user status - multiple accepted */) {
+Vault.prototype.findUsers = function (/* Call with desired user status - multiple accepted */) {
   var args = Array.prototype.slice.call(arguments);
-  return this.users.filter(function(user) { return args.indexOf(user.status) >= 0 });
+  return this.users.filter(function (user) { return args.indexOf(user.status) >= 0 });
 }
 
-Vault.prototype.hasUser = function(id) {
-  return this.users.some(function(user) { return user.master.id === id || user.ephemeral.id === id });
+Vault.prototype.hasUser = function (id) {
+  return this.users.some(function (user) { return user.master.id === id || user.ephemeral.id === id });
 }
 
 function CommChannel(server, onConnectChangeCallback, onMessageCallback, onUserCallback) {
@@ -101,18 +93,18 @@ function CommChannel(server, onConnectChangeCallback, onMessageCallback, onUserC
     this.socket.addEventListener("open", onConnectChangeCallback);
     this.socket.addEventListener("close", onConnectChangeCallback);
     this.socket.addEventListener("message", function (event) {
+
       var receivedJSON = JSON.parse(event.data);
 
       switch (receivedJSON.type) {
-        case 'user':
+        case "user":
           onUserCallback(receivedJSON.data);
           break;
-        case 'message':
+        case "message":
           onMessageCallback(receivedJSON.data);
           break;
       }
 
-      //console.log(receivedJSON);
     });
   } catch (e) {
     console.log(e);
@@ -126,18 +118,18 @@ CommChannel.prototype.send = function (type, data) {
 }
 
 CommChannel.prototype.sendMessage = function (message) {
-  this.send("message", message.toJson());
+  this.send("message", message.toJSON());
 }
 
 CommChannel.prototype.sendUser = function (user) {
-  this.send("user", user.toJson());
+  this.send("user", user.toJSON());
 }
 
 CommChannel.prototype.isConnected = function () {
   return (typeof this.socket !== "undefined" && this.socket.readyState < 2);
 }
 
-function Message(data) {
+function Message (data) {
   if (typeof data === "string") {
     this.plaintext = data;
     this.encrypted = {"keys": {}, "data": null};
@@ -152,21 +144,28 @@ function Message(data) {
   this.verified = false;
 }
 
+Message.primitives = {
+  random: Random(),
+  hash: Hash(),
+  symmetric: Symmetric(),
+  asymmetric: Asymmetric(Crunch(), Hash(), Random())
+}  
+
 Message.prototype = {
   get recipients () {
     return Object.keys(this.encrypted.keys);
   }
 }
 
-Message.prototype.toJson = function() {
+Message.prototype.toJSON = function () {
   return this.encrypted;
 }
 
-Message.prototype.pack = function() {
+Message.prototype.pack = function () {
   return ArrayUtil.fromString(this.plaintext).concat(0).concat(ArrayUtil.fromWord(this.sendtime)).concat(ArrayUtil.fromHex(this.sender));
 }
 
-Message.prototype.unpack = function(data) {
+Message.prototype.unpack = function (data) {
   var i = data.indexOf(0);
 
   this.plaintext = ArrayUtil.toString(data.slice(0, i));
@@ -177,25 +176,27 @@ Message.prototype.unpack = function(data) {
   this.timediff = Math.round(Date.now()/1000) - this.sendtime;
 }
 
-Message.prototype.verify = function(user) {
+Message.prototype.verify = function (user) {
   if (typeof user !== "undefined") {
-    this.verified = primitives.asymmetric.verify(user.master, primitives.hash.digest(this.pack()), this.signature);
+    this.verified = Message.primitives.asymmetric.verify(user.master, Message.primitives.hash.digest(this.pack()), this.signature);
   }
 }
 
-Message.prototype.sign = function(user) {
+Message.prototype.sign = function (user) {
   this.sender    = user.id;
-  this.signature = primitives.asymmetric.sign(user.master, primitives.hash.digest(this.pack()));
+  this.signature = Message.primitives.asymmetric.sign(user.master, Message.primitives.hash.digest(this.pack()));
   this.verified  = true;
 }
 
-Message.prototype.encrypt = function (recipients, sessionkey) {
+Message.prototype.encrypt = function (recipients) {
   if (recipients.length) {
-    recipients.forEach(function(user) {
-      this.encrypted.keys[user.ephemeral.id] = primitives.asymmetric.encrypt(user.ephemeral, sessionkey);
+    var sessionkey = Message.primitives.random.generate(128);
+
+    recipients.forEach(function (user) {
+      this.encrypted.keys[user.ephemeral.id] = Message.primitives.asymmetric.encrypt(user.ephemeral, sessionkey);
     }, this);
 
-    this.encrypted.data = primitives.symmetric.encrypt(sessionkey, primitives.random.generate(128).concat(this.pack()).concat(this.signature));
+    this.encrypted.data = Message.primitives.symmetric.encrypt(sessionkey, Message.primitives.random.generate(128).concat(this.pack()).concat(this.signature));
   }
 }
 
@@ -203,8 +204,8 @@ Message.prototype.decrypt = function (receiver) {
   var sessionkey, decrypted;
 
   if (this.recipients.indexOf(receiver.ephemeral.id) >= 0 && receiver.ephemeral.isPrivate()) {
-    sessionkey = primitives.asymmetric.decrypt(receiver.ephemeral, this.encrypted.keys[receiver.ephemeral.id]);
-    decrypted  = primitives.symmetric.decrypt(sessionkey, this.encrypted.data).slice(16);
+    sessionkey = Message.primitives.asymmetric.decrypt(receiver.ephemeral, this.encrypted.keys[receiver.ephemeral.id]);
+    decrypted  = Message.primitives.symmetric.decrypt(sessionkey, this.encrypted.data).slice(16);
   }
 
   if (typeof decrypted !== "undefined") {
@@ -212,7 +213,7 @@ Message.prototype.decrypt = function (receiver) {
   }
 }
 
-function User(data) {
+function User (data) {
   this.status = "pending";
 
   if (typeof data === "string") {
@@ -225,6 +226,10 @@ function User(data) {
     this.master.signatures = data.master.signatures;
     this.ephemeral.signatures = data.ephemeral.signatures;
   }
+}
+
+User.primitives = {
+  asymmetric: Asymmetric(Crunch(), Hash(), Random())
 }
 
 User.prototype = {
@@ -241,11 +246,11 @@ User.prototype = {
   }
 }
 
-User.prototype.toJson = function() {
-  return {"master": this.master.json, "ephemeral": this.ephemeral.json};
+User.prototype.toJSON = function () {
+  return {"master": this.master.toJSON(), "ephemeral": this.ephemeral.toJSON()};
 }
 
-User.prototype.addKey = function(callback, material) {
+User.prototype.addKey = function (callback, material) {
   if (typeof this.master === "undefined") {
     this.master = new Key(material, Math.round(Date.now()/1000), this.name);
     this.master.sign(this.master);
@@ -257,10 +262,10 @@ User.prototype.addKey = function(callback, material) {
   }
 }
 
-User.prototype.generateKeys = function(size, callback) {
+User.prototype.generateKeys = function (size, callback) {
   var cb = this.addKey.bind(this, callback);
-  primitives.asymmetric.generate(size, cb);
-  primitives.asymmetric.generate(size, cb);
+  User.primitives.asymmetric.generate(size, cb);
+  User.primitives.asymmetric.generate(size, cb);
 }
 
 function Key(material, created, name) {
@@ -271,6 +276,11 @@ function Key(material, created, name) {
 
   this.type        = (typeof name !== "undefined") ? 3 : 2;
   this.fingerprint = this.generateFingerprint();
+}
+
+Key.primitives = {
+  hash: Hash(),
+  asymmetric: Asymmetric(Crunch(), Hash(), Random())
 }
 
 Key.prototype = {
@@ -288,8 +298,7 @@ Key.prototype = {
     json.material.e = this.material.e;
     json.material.n = this.material.n;
 
-    if (typeof name !== "undefined")
-      json.name = this.name;
+    json.name = this.name;
 
     return json;
   },
@@ -299,22 +308,37 @@ Key.prototype = {
   }
 }
 
-Key.prototype.makeBase = function() {
+Key.prototype.toJSON = function () {
+  var json = {};
+    
+  json.created    = this.created;
+  json.signatures = this.signatures;
+    
+  json.material   = {};
+  json.material.e = this.material.e;
+  json.material.n = this.material.n;
+
+  json.name = this.name;
+
+  return json;
+}
+
+Key.prototype.makeBase = function () {
   return [4].concat(ArrayUtil.fromWord(this.created)).concat(this.type).concat(ArrayUtil.toMpi(this.material.n)).concat(ArrayUtil.toMpi(this.material.e));
 }
 
-Key.prototype.makeSignatureBase = function() {
+Key.prototype.makeSignatureBase = function () {
   return (this.type === 3)
     ? [4,19,3,2,0,26,5,2].concat(ArrayUtil.fromWord(this.created)).concat(2,27,3,5,9).concat(ArrayUtil.fromWord(86400)).concat(4,11,7,8,9,2,21,2,2,22,0)
     : [4,24,2,2,0,15,5,2].concat(ArrayUtil.fromWord(this.created)).concat(2,27,4,5,9).concat(ArrayUtil.fromWord(86400));
 }
 
-Key.prototype.generateFingerprint = function() {
+Key.prototype.generateFingerprint = function () {
   var base = this.makeBase();
-  return ArrayUtil.toHex(primitives.hash.digest([153].concat(ArrayUtil.fromHalf(base.length)).concat(base)));
+  return ArrayUtil.toHex(Key.primitives.hash.digest([153].concat(ArrayUtil.fromHalf(base.length)).concat(base)));
 }
 
-Key.prototype.generateSignatureHash = function(signer) {
+Key.prototype.generateSignatureHash = function (signer) {
   var keyHead, sigHead, suffix, 
       base = signer.makeBase();
 
@@ -328,32 +352,32 @@ Key.prototype.generateSignatureHash = function(signer) {
   sigHead = this.makeSignatureBase();
   suffix  = [4,255].concat(ArrayUtil.fromWord(sigHead.length));
 
-  return primitives.hash.digest(
+  return Key.primitives.hash.digest(
     [153].concat(ArrayUtil.fromHalf(base.length)).concat(base).concat(keyHead).concat(sigHead).concat(suffix)
   );
 }
 
-Key.prototype.sign = function(signer) {
+Key.prototype.sign = function (signer) {
   if (signer.isPrivate() && signer.isMaster()) {
       var signatureHash = this.generateSignatureHash(signer),
           sigdata = {};
 
-       sigdata.signature = primitives.asymmetric.sign(signer, signatureHash);
+       sigdata.signature = Key.primitives.asymmetric.sign(signer, signatureHash);
        sigdata.hashcheck = signatureHash.slice(0, 2);
       this.signatures[signer.id] = sigdata;
   }
 }
 
-Key.prototype.verify = function(signer) {
-  if (typeof this.signatures[signer.id] !== "undefined") {
-     return primitives.asymmetric.verify(signer, this.generateSignatureHash(signer), this.signatures[signer.id].signature);
+Key.prototype.verify = function (signer) {
+  if (signer.id in this.signatures) {
+     return Key.primitives.asymmetric.verify(signer, this.generateSignatureHash(signer), this.signatures[signer.id].signature);
   }
 }
 
-Key.prototype.isMaster = function() {
+Key.prototype.isMaster = function () {
   return this.type === 3;
 }
 
-Key.prototype.isPrivate = function() {
+Key.prototype.isPrivate = function () {
   return typeof this.material.d !== "undefined";
 }

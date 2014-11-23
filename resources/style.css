@@ -316,3 +316,7 @@ dl.side>dt {
   font-size: 0.75em;
   text-overflow: ellipsis;
 }
+
+.hidden {
+  display: none;
+}
